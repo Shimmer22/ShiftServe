@@ -41,3 +41,5 @@ conda run --no-capture-output -n visiontrim-qwen25vl python scripts/validate_asy
 ## 尚未实现
 
 按 H/Tool/G 决定是否启动、实际 P/D 的成本选路、真实 Tool/图像流水线、生产式跨轮取消回收、增量 KV 导入、独立 tiling、压缩与性能评估均未实现。当前只验证 readiness binding，不是完整两阶段调度器。共享 llama.cpp/Hexagon 后端没有修改。
+
+下一步优先级与验收见 [ROADMAP.md](ROADMAP.md)：先做 C0 跨轮非阻塞资源回收，再做 C1 成本 Router，随后接真实 Tool。`bind()` 当前将有效 ready 候选直接选为 HTP，没有真实 P 或代价输入；CPU 新状态提交后的 `join()` 及候选析构仍可能阻塞下一轮。两点均为待开发项，不能用当前四轮通过代替验收。
