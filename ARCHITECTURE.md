@@ -1,6 +1,6 @@
 # 执行路径与状态契约
 
-当前论文主线为 Tool Slack 投机状态准备与返回后延迟绑定，见[ROADMAP.md](ROADMAP.md)。GPU视觉＋CC/HH/HC/CH为手机已有成本校准与正确性组件；`four-path-session.json`显式指定每轮Prefill/Decode后端，snapshot从当轮实际Decode后端导出。异步准备、取消与在线延迟绑定尚未实现。固定CPU Decode为此前基线，见[MULTITURN.md](MULTITURN.md)；远端文本轨迹见[BFCL.md](BFCL.md)。QNN/NPU 视觉已搁置；下文保留既有执行契约。
+当前论文主线为 Tool Slack 投机状态准备与返回后延迟绑定，见[ROADMAP.md](ROADMAP.md)。GPU视觉＋CC/HH/HC/CH为手机已有成本校准与正确性组件；`four-path-session.json`显式指定每轮Prefill/Decode后端，snapshot从当轮实际Decode后端导出。最小异步准备、版本校验、安全点取消与就绪绑定夹具见[ASYNC.md](ASYNC.md)，真实工具和成本选路尚未实现。固定CPU Decode为此前基线，见[MULTITURN.md](MULTITURN.md)；远端文本轨迹见[BFCL.md](BFCL.md)。QNN/NPU 视觉已搁置；下文保留既有执行契约。
 
 ## 单个进程内的回放
 

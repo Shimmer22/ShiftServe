@@ -1,0 +1,21 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "opencl",
+  "vision_flash": "off",
+  "cpu_repack": false,
+  "batch_size": 128,
+  "context_size": 2048,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "a2o_ms": 0,
+  "compare_prefill": false,
+  "prefill_routes": ["cpu", "cpu", "cpu", "cpu"],
+  "decode_routes": ["cpu", "cpu", "cpu", "cpu"],
+  "async_smoke": true,
+  "preparation_cases": ["none", "ready", "early", "cancel"],
+  "timeout_s": 180,
+  "timing_valid_for_performance": false
+}

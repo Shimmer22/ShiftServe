@@ -4,7 +4,7 @@
 |---|---|---|---|
 | A 多轮基线 | CPU/HTP 双 Context，真实历史状态复用 | 连续多轮正确，不重复 prefill 旧截图 | 首帧截图＋历史追问的HH/HC/CH/CC及全CPU对照通过；连续新截图仍有FastRPC问题；DeltaNet未覆盖 |
 | B 优势区间 | CPU/HTP prefill、双向交接与布局成本测量 | 得到给定 H/P 下的实际路径查表 | 四路径结构化组96次完成、60次数值通过；尚无合格的四路径全局最优/Gap翻转证据 |
-| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 未实现 |
+| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 已接入最小异步准备/就绪绑定夹具，待基础设备验证；成本策略与真实 Tool 未实现，见 ASYNC.md |
 | D KV-aware 优化 | 压缩、Tile-aware 选择、部分准备 | 相比全量异步准备获得额外收益 | 未实现 |
 
 手机多模态回归固定 GPU ViT；BFCL 文本轨迹不加载视觉编码器。已有成本校准包含 CC（CPU/CPU）、HH（HTP/HTP）、HC（HTP/CPU）、CH（CPU/HTP）。四路径是代价模型的支撑组件，不将四路径迟滞调度本身列为核心创新。此前固定 CPU Decode 的测量保留为历史证据。
@@ -25,7 +25,7 @@ RQ1 测量真实 Tool 窗口能隐藏多少准备开销；RQ2 验证是否改变
 |---|---|---|
 | Inno1 Workload-aware Cost Modeling | 联合 H/P/D、恢复/布局/同步成本、G 与后端性能；计入未隐藏准备与切换 | 四路径组件校准中，独立 Tiling 未测 |
 | Inno2 Speculative Preparation with Late Binding | Tool 开始决定是否准备；返回后按真实 P、预计 D 和准备进度绑定后端 | 未实现 |
-| Inno3 Asynchronous State Preparation Runtime | 异步恢复、表示转换和缓冲准备；版本一致性、取消与 CPU 安全回退 | 未实现 |
+| Inno3 Asynchronous State Preparation Runtime | 异步恢复、表示转换和缓冲准备；版本一致性、取消与 CPU 安全回退 | 最小线程/版本/安全点取消已接入；表示转换、真实工具接入及性能验证未完成 |
 | 可选 Hardware-aware KV Compression | 基础系统成立后联合压缩比例、状态表示和 Slack | 暂缓 |
 
 远端排队与 BFCL 采集见 [BFCL.md](BFCL.md)。该数据用于工作负载与受控工具时间趋势，不替代手机异构准备、真实 API/Browser/GUI 等待和能耗测量。

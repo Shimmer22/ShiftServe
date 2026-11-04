@@ -51,6 +51,50 @@ def validate(config):
         raise ValueError('vision_flash must be auto, off, on')
     if config.get('htp_queue', 16) < 1:
         raise ValueError('htp_queue must be positive')
+    if config.get('async_smoke', False):
+        if (config['mode'] != 'hybrid' or config['kv_policy'] != 'none' or config['pre_move']
+                or config.get('compare_prefill', True)):
+            raise ValueError('async smoke requires hybrid, no compression/premove/paired prefill')
+        cases = config.get('preparation_cases', [])
+        if not cases or cases[0] != 'none' or any(c not in {'none', 'ready', 'early', 'cancel'} for c in cases):
+            raise ValueError('invalid async preparation cases')
+        if (len(config.get('prefill_routes', [])) != len(cases)
+                or config.get('decode_routes') != ['cpu'] * len(cases)
+                or any(r != 'cpu' for r in config['prefill_routes'])):
+            raise ValueError('async smoke uses CPU authority and readiness-selected prefill')
+
+
+def check_async_preparation(result, cases):
+    """只验事件顺序与状态契约，不以耗时阈值判断机制。"""
+    checks = []
+    turns = result.get('turns', [])
+    for i, (turn, case) in enumerate(zip(turns, cases)):
+        meta = turn.get('async_preparation', {})
+        events = [e['event'] for e in meta.get('events', [])]
+        def before(a, b):
+            return a in events and b in events and events.index(a) < events.index(b)
+        ok = (meta.get('case') == case and meta.get('snapshot_version') == i
+              and meta.get('committed_version') == i + 1 and turn.get('decode_backend') == 'cpu')
+        if case == 'none':
+            ok &= meta.get('status') == 'disabled' and turn.get('prefill_backend') == 'cpu'
+        else:
+            reason = {'ready': 'ready', 'early': 'pending', 'cancel': 'cancelled'}[case]
+            ok &= (meta.get('authority_checked') is True and meta.get('reason') == reason
+                   and turn.get('prefill_backend') == ('htp' if case == 'ready' else 'cpu')
+                   and before('observation_arrived', 'bind_' + reason)
+                   and before('action_complete', 'cpu_state_committed')
+                   and before('cpu_state_committed', 'drain_started_after_response'))
+            if case == 'ready':
+                ok &= meta.get('status') == 'ready' and before('prepare_ready', 'bind_ready')
+            elif case == 'early':
+                ok &= (meta.get('status') == 'ready' and meta.get('stale_rejected') is True
+                       and before('bind_pending', 'prepare_started')
+                       and before('cpu_state_committed', 'bind_stale'))
+            else:
+                ok &= meta.get('status') == 'cancelled' and 'prepare_started' not in events
+        checks.append({'turn': i, 'case': case, 'passed': bool(ok)})
+    return {'passed': (len(turns) == len(cases) and all(c['passed'] for c in checks)
+                       and result.get('timing_valid_for_performance') is False), 'turns': checks}
 
 
 def check_response(result, scenario):
@@ -104,6 +148,8 @@ def run(config_path, scenario_path, device, tag):
     config = json.loads(config_path.read_text())
     scenario = json.loads(scenario_path.read_text())
     validate(config)
+    if config.get('async_smoke') and len(scenario.get('turns', [])) != len(config['preparation_cases']):
+        raise ValueError('one preparation case is required for each turn')
     binary = build()
     stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out = ROOT / 'results' / f'{stamp}-{tag}'
@@ -167,6 +213,7 @@ def run(config_path, scenario_path, device, tag):
         args += ['--batch-size', str(config.get('batch_size', 512)),
                  '--cpu-repack', str(int(config.get('cpu_repack', True)))]
         args += ['--ctx-size', str(config.get('context_size', 2048))]
+        args += ['--timing-valid-for-performance', str(int(config.get('timing_valid_for_performance', True)))]
         for key in ['system', 'history', 'previous', 'prompt']:
             path = out / (key + '.txt')
             path.write_text(scenario.get(key, ''))
@@ -188,12 +235,16 @@ def run(config_path, scenario_path, device, tag):
                 rows.append('\t'.join([config['prefill_routes'][i], image_remote,
                                        remote + '/' + prompt_path.name, str(turn.get('max_tokens', 80)),
                                        config.get('decode_routes', ['cpu'] * len(scenario['turns']))[i]]))
+                if config.get('async_smoke'):
+                    rows[-1] += '\t' + config['preparation_cases'][i]
             (out / 'turns.tsv').write_text('\n'.join(rows) + '\n')
             (out / 'manifest.json').write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
             call(['push', str(out / 'turns.tsv'), remote + '/turns.tsv'])
             args += ['--session', remote + '/turns.tsv',
                      '--compare-prefill', str(int(config.get('compare_prefill', True))),
                      '--mmproj', '/data/local/tmp/models/mmproj-model-f16.gguf']
+            if config.get('async_smoke'):
+                args += ['--async-smoke', '1']
         if scenario.get('image'):
             image = ROOT / scenario['image']
             call(['push', str(image), remote + '/image.png'])
@@ -233,6 +284,10 @@ def run(config_path, scenario_path, device, tag):
             if expected not in (out / 'runtime.log').read_text():
                 raise RuntimeError('Vision backend did not match requested backend: ' + expected)
         result['response_check'] = check_response(result, scenario)
+        result['result_directory'] = str(out.relative_to(ROOT))
+        if config.get('async_smoke'):
+            result['mechanism_check'] = check_async_preparation(result, config['preparation_cases'])
+            result['response_check']['passed'] &= result['mechanism_check']['passed']
         result['process_wall_ms'] = wall
         if not result.get('session'):
             result['budget_adjusted_response_ms'] = (

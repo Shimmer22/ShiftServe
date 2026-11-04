@@ -1,10 +1,12 @@
 // 多轮基线：完整 sequence snapshot + 精确的模板前缀；GPU 视觉仅编码新增帧。
 // Prefix/snapshot design reference: dastin359/SplitLM, engine.cpp (see MULTITURN.md).
+#include "async_preparation.h"
 struct SessionSnapshot {
     std::vector<uint8_t> state;
     std::string rendered_prefix;
     llama_pos next_pos=0;
     int evaluated_tokens=0;
+    uint64_t version=0;
 };
 
 struct PreparedChunk {
@@ -59,16 +61,51 @@ static int run_session(const std::map<std::string,std::string> & args) {
         << "\"state_model\":\"Qwen2.5-VL full attention; no DeltaNet\","
         << "\"model_context_init_ms\":" << model_ms << ",\"turns\":[";
     bool compare=get("--compare-prefill","1")=="1";
+    bool async_smoke=get("--async-smoke","0")=="1";
+    require(!async_smoke || !compare,"async mechanism smoke cannot run paired prefill");
     int round=0, total_encodes=0; std::string line;
     while(std::getline(plan,line)) {
         std::vector<std::string> fields; std::istringstream row(line); std::string field;
         while(std::getline(row,field,'\t')) fields.push_back(field);
-        require(fields.size()==4 || fields.size()==5,"invalid session plan row");
-        const auto & route=fields[0]; bool use_htp=route=="htp";
+        require(fields.size()==4 || fields.size()==5 || (async_smoke && fields.size()==6),"invalid session plan row");
+        std::string route=fields[0]; bool use_htp=route=="htp";
         require(use_htp || route=="cpu","session route must be cpu or htp");
-        std::string decode_route=fields.size()==5?fields[4]:"cpu";
+        std::string decode_route=fields.size()>=5?fields[4]:"cpu";
         require(decode_route=="cpu" || decode_route=="htp","invalid decode backend");
         auto decode_ctx=decode_route=="htp"?htp.ctx:cpu.ctx;
+        std::string preparation_case=fields.size()==6?fields[5]:"none";
+        require(preparation_case=="none" || preparation_case=="ready" || preparation_case=="early" || preparation_case=="cancel",
+                "unknown async smoke case");
+        require(!async_smoke || decode_route=="cpu","async smoke retains CPU authority after decode");
+        std::unique_ptr<AsyncPreparation> preparation;
+        AsyncPreparation::Decision binding{"cpu","disabled"};
+        bool authority_checked=false, stale_rejected=false;
+        if(async_smoke && preparation_case!="none") {
+            require(!snapshot.state.empty(),"async preparation requires committed history");
+            auto immutable=std::make_shared<const SessionSnapshot>(snapshot);
+            // Worker never reads/writes CPU context. Snapshot includes prefix and M-RoPE metadata.
+            preparation=std::make_unique<AsyncPreparation>(snapshot.version,
+                [&,immutable](const AsyncPreparation::Checkpoint & valid) {
+                    if(!valid()) return false;
+                    llama_synchronize(htp.ctx);
+                    if(!valid()) return false;
+                    llama_memory_clear(llama_get_memory(htp.ctx),true);
+                    if(!valid()) return false;
+                    require(llama_state_seq_set_data(htp.ctx,immutable->state.data(),immutable->state.size(),0)==immutable->state.size(),
+                            "async HTP import failed");
+                    if(!valid()) return false;
+                    require(export_seq(htp.ctx)==immutable->state,"async HTP state/position verification failed");
+                    return valid();
+                },preparation_case!="ready");
+            // Deterministic fixture barriers, not a model of real Tool latency.
+            if(preparation_case=="ready") preparation->wait();
+            if(preparation_case=="cancel") { preparation->cancel(); preparation->wait(); }
+            preparation->mark("observation_arrived");
+            binding=preparation->bind(snapshot.version);
+            route=binding.backend; use_htp=route=="htp";
+            require(export_seq(cpu.ctx)==snapshot.state,"background preparation mutated CPU authority");
+            authority_checked=true;
+        }
         std::string image_path=fields[1]=="-"?"":fields[1];
         std::string user=read(fields[2]); int max_tokens=std::stoi(fields[3]);
         if(!image_path.empty()) user=std::string(mtmd_default_marker())+"\n"+user;
@@ -120,6 +157,7 @@ static int run_session(const std::map<std::string,std::string> & args) {
             start=now_ms(); mtmd_input_chunks_free(chunks); mtmd_free(mm);
             chunks=nullptr; mm=nullptr; vision_release_ms=now_ms()-start;
         } else { plain=tokens(vocab,suffix,round==0); new_tokens=plain.size(); }
+        if(preparation) preparation->mark("embedding_or_text_ready");
         auto prefill=[&](llama_context * ctx) {
             llama_pos pos=snapshot.next_pos;
             if(prepared.empty()) { evaluate(ctx,plain,pos); return pos; }
@@ -135,6 +173,11 @@ static int run_session(const std::map<std::string,std::string> & args) {
         std::vector<float> cpu_logits, htp_logits;
         if(compare || !use_htp) {
             start=now_ms(); restore_session(cpu.ctx,snapshot); restore_ms+=now_ms()-start;
+            if(preparation) {
+                preparation->mark("cpu_prefill_started");
+                // Early return binds CPU before releasing the worker; no join on response path.
+                if(preparation_case=="early") preparation->release();
+            }
             std::cerr<<"SESSION cpu_prefill_begin turn="<<round<<'\n';
             start=now_ms(); cpu_pos=prefill(cpu.ctx); cpu_ms=now_ms()-start;
             std::cerr<<"SESSION cpu_prefill_done turn="<<round<<'\n';
@@ -142,7 +185,10 @@ static int run_session(const std::map<std::string,std::string> & args) {
             cpu_logits.assign(logits,logits+nv);
         }
         if(compare || use_htp) {
-            start=now_ms(); restore_session(htp.ctx,snapshot); restore_ms+=now_ms()-start;
+            if(preparation) {
+                require(binding.reason=="ready","unready HTP candidate cannot be committed");
+                preparation->join(); preparation->mark("htp_prefill_started");
+            } else { start=now_ms(); restore_session(htp.ctx,snapshot); restore_ms+=now_ms()-start; }
             std::cerr<<"SESSION htp_prefill_begin turn="<<round<<'\n';
             start=now_ms(); htp_pos=prefill(htp.ctx); htp_ms=now_ms()-start;
             std::cerr<<"SESSION htp_prefill_done turn="<<round<<'\n';
@@ -181,6 +227,7 @@ static int run_session(const std::map<std::string,std::string> & args) {
         bool eog=false; start=now_ms();
         for(int i=0;i<max_tokens;++i) {
             auto tok=i==0?first:greedy(decode_ctx,nv);
+            if(preparation && llama_vocab_is_eog(vocab,tok)) preparation->mark("action_complete");
             // Commit the actual generated action and closing token before the next snapshot.
             evaluate(decode_ctx,{tok},pos);
             if(llama_vocab_is_eog(vocab,tok)) { closing=piece(vocab,tok); eog=true; break; }
@@ -193,6 +240,18 @@ static int run_session(const std::map<std::string,std::string> & args) {
         snapshot.evaluated_tokens+=new_tokens+generated.size()+(eog?1:0);
         snapshot.rendered_prefix=full+output+closing;
         start=now_ms(); snapshot.state=export_seq(decode_ctx); double snapshot_ms=now_ms()-start;
+        ++snapshot.version;
+        if(preparation) {
+            preparation->mark("cpu_state_committed");
+            if(preparation_case=="early") {
+                // Even if import finished in the meantime, it belongs to the previous version.
+                stale_rejected=preparation->bind(snapshot.version).reason=="stale";
+                require(stale_rejected,"obsolete HTP preparation was accepted");
+            }
+            preparation->mark("drain_started_after_response");
+            preparation->join(); // Safe reuse at next round, errors remain fatal.
+            preparation->mark("drain_finished");
+        }
         conversation.push_back({"assistant",output});
         std::ofstream(get("--out")+".turn-"+std::to_string(round)+".prefix.txt") << snapshot.rendered_prefix;
         out << (round?",":"") << "{\"turn\":" << round << ",\"prefill_backend\":" << json(route)
@@ -213,9 +272,26 @@ static int run_session(const std::map<std::string,std::string> & args) {
             << ",\"vision_encode_ms\":" << vision_ms << ",\"cpu_prefill_ms\":" << cpu_ms
             << ",\"htp_prefill_ms\":" << htp_ms << ",\"restore_checked_ms\":" << restore_ms
             << ",\"handoff_checked_ms\":" << handoff_ms << ",\"decode_ms\":" << decode_ms
-            << ",\"snapshot_ms\":" << snapshot_ms << "}}"; out.flush();
+            << ",\"snapshot_ms\":" << snapshot_ms << "}";
+        if(async_smoke) {
+            out << ",\"async_preparation\":{\"case\":" << json(preparation_case)
+                << ",\"reason\":" << json(binding.reason) << ",\"snapshot_version\":" << (snapshot.version-1)
+                << ",\"committed_version\":" << snapshot.version
+                << ",\"authority_checked\":" << (authority_checked?"true":"false")
+                << ",\"stale_rejected\":" << (stale_rejected?"true":"false")
+                << ",\"status\":" << json(preparation?preparation->state():"disabled") << ",\"events\":[";
+            if(preparation) {
+                auto events=preparation->events();
+                for(size_t i=0;i<events.size();++i) out << (i?",":"") << "{\"event\":" << json(events[i].first)
+                    << ",\"ms\":" << events[i].second << "}";
+            }
+            out << "]}";
+        }
+        out << "}"; out.flush();
         std::cerr << "SESSION completed turn=" << round << " output=" << output << '\n'; ++round;
     }
-    out << "],\"image_encode_calls\":" << total_encodes << ",\"history_source\":\"previous selected decode backend snapshot\"}\n";
+    out << "],\"image_encode_calls\":" << total_encodes << ",\"history_source\":\"previous selected decode backend snapshot\""
+        << ",\"timing_valid_for_performance\":"
+        << (async_smoke || get("--timing-valid-for-performance","1")=="0"?"false":"true") << "}\n";
     return 0;
 }
