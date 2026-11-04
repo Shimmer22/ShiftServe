@@ -199,3 +199,13 @@ H=8192的12次两路径均立即结束、空输出，生成ID一致；其中仅P
 详见 [ASYNC.md](ASYNC.md) 与 `results/20261104-081812-212379-async-mechanism-validation/summary.json`。全 CPU 对照和异步条件各四轮通过；native 源码与二进制 hash 相同。后台状态准备、就绪选 HTP、未就绪选 CPU、旧版本拒绝及执行前取消通过；两条件输出、生成 ID、提交 prefix、计数和下一位置逐轮一致。CPU 权威快照、HTP 导入字节及 HTP→CPU 交接均检查。
 
 本地17项测试和 Android 构建通过。没有真实 Tool、图像输入或逐步 logits 对照；事件中的动作完成仅为进程内部生成完成，完整结果文件仍在 drain 后写出。手机存在用户并行竞争，全部耗时不用于性能结论，本轮未跑长期实验。
+
+## 2026-11-04：跨轮回收、成本 Router 与实际只读 Tool
+
+新入口为 `scripts/run_tool_session.py`，详见 [TOOL_SESSION.md](TOOL_SESSION.md)。`results/20261104-084947-618120-tool-session-validation/summary.json` 与 `final-checks.json` 均 passed=true：CPU 对照和机制条件各六轮，native 源码/二进制相同，Tool 原文、完整生成 token、响应、prefix、计数和下一位置逐轮相同，最终521个已评估 token。
+
+屏障持有旧任务期间，当前轮及下一轮 CPU 均已实际向消费者发布响应，之后才释放旧任务；单lane拒绝繁忙时的新准备。3个后台任务在关闭时全部回收。ready 但 CPU 成本更低，以及 ready 且 HTP 成本更低的分支均通过；分支成本是明确标记、样本数0的机制夹具，不能当作实测收益。实际 HTP prefill、回传和 CPU decode 正确；旧版本/资源所有权另有确定性 C++ 测试。
+
+普通模式另跑三轮实际 `adb shell wm size`，禁用全部屏障与合成成本，JSON/记忆/step均通过，与 CPU 对照前三轮 token/prefix一致；实际 H/P 不在校准表内，明确记录 coverage_missing 并选 CPU。HTTP GET 适配器通过本地实际HTTP服务测试，未做外网API或Browser/GUI动作。
+
+本地22项测试、Android构建通过。手机存在并行竞争，全部耗时不用于性能结论；未做图像回归、逐步logits阈值验证、能耗或长期压力实验。backend API仍不可抢占，关闭仍可能等待；不能据本次屏障验证声称所有共享后端锁都已排除。

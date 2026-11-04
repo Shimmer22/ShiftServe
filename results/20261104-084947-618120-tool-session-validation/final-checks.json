@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "host_tests": {
+    "passed": true,
+    "count": 22
+  },
+  "android_build_passed": true,
+  "core_validation_commit": "0a59717ef8f6e6d06b8c7f5a977a04ddcf063353",
+  "core_suite": "results/20261104-084947-618120-tool-session-validation/summary.json",
+  "ordinary_auto_run": "results/20261104-085317-179323-tool-session-auto",
+  "ordinary_mode_has_no_fixtures": true,
+  "ordinary_comparisons": [
+    {
+      "turn": 0,
+      "output_equal": true,
+      "generated_ids_equal": true,
+      "prefix_equal": true,
+      "coverage_explicit": true
+    },
+    {
+      "turn": 1,
+      "output_equal": true,
+      "generated_ids_equal": true,
+      "prefix_equal": true,
+      "coverage_explicit": true
+    },
+    {
+      "turn": 2,
+      "output_equal": true,
+      "generated_ids_equal": true,
+      "prefix_equal": true,
+      "coverage_explicit": true
+    }
+  ],
+  "timing_valid_for_performance": false
+}

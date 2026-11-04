@@ -1,6 +1,6 @@
 # 面向端侧 Agent 的工具等待感知异构推理状态准备与动态调度
 
-论文主线：**Slack-Aware Speculative State Preparation for Heterogeneous On-Device Agents**。Tool 开始时根据 H、工具类型和预计 G 决定是否投机准备；结果返回后，根据真实 P、预计 D 和准备进度延迟绑定 Prefill 后端，同时保留 CPU 可执行状态。KV 压缩为可选扩展。已有四路径用于成本校准与正确性验证；最小异步准备夹具见 [ASYNC.md](ASYNC.md)，真实 Tool 成本策略与端到端收益尚未验证。远端 BFCL 轨迹采集见 [BFCL.md](BFCL.md)，手机状态链路见 [MULTITURN.md](MULTITURN.md)。默认仍关闭 KV 整理、预搬移和模拟等待，暂停 QNN/NPU ViT 工作。
+论文主线：**Slack-Aware Speculative State Preparation for Heterogeneous On-Device Agents**。目标是在 Tool 开始时决定是否投机准备，返回后根据真实 P、预计 D 和准备进度延迟绑定后端，并保留 CPU 可执行状态。当前跨轮回收、固定D成本 Router 和实际只读文本 Tool 已通过最小验证，见 [TOOL_SESSION.md](TOOL_SESSION.md)；Tool/Gap策略、真实轨迹代价覆盖和端到端收益尚未验证。四路径用于成本校准与正确性验证，KV 压缩为可选扩展。远端 BFCL 轨迹采集见 [BFCL.md](BFCL.md)，历史状态链路见 [MULTITURN.md](MULTITURN.md)。默认仍关闭 KV 整理与传统预搬移，暂停 QNN/NPU ViT 工作。
 
 当前工程用同一 Android 运行器提供 CPU、HTP、混合三条路径。默认关闭 KV 整理与预搬移，先验证模板、模型响应和状态迁移。观察回放输入支持文本历史和真实截图，输出由 host 校验；不会执行模型给出的设备动作。
 

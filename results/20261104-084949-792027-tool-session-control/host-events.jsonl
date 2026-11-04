@@ -1,0 +1,24 @@
+{"event": "tool_dispatched", "turn": 0, "host_monotonic_ns": 478485739999625, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 0, "host_monotonic_ns": 478485766997250, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 0, "host_monotonic_ns": 478485901557958, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 0, "host_monotonic_ns": 478493036658708}
+{"event": "tool_dispatched", "turn": 1, "host_monotonic_ns": 478493038289666, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 1, "host_monotonic_ns": 478493199882875, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 1, "host_monotonic_ns": 478493281447291, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 1, "host_monotonic_ns": 478496207358291}
+{"event": "tool_dispatched", "turn": 2, "host_monotonic_ns": 478496208454708, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 2, "host_monotonic_ns": 478496326808958, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 2, "host_monotonic_ns": 478496457286541, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 2, "host_monotonic_ns": 478499730155250}
+{"event": "tool_dispatched", "turn": 3, "host_monotonic_ns": 478499731805750, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 3, "host_monotonic_ns": 478500005574333, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 3, "host_monotonic_ns": 478500213333000, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 3, "host_monotonic_ns": 478504345501000}
+{"event": "tool_dispatched", "turn": 4, "host_monotonic_ns": 478504347191125, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 4, "host_monotonic_ns": 478504404095458, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 4, "host_monotonic_ns": 478504549498833, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 4, "host_monotonic_ns": 478507624803250}
+{"event": "tool_dispatched", "turn": 5, "host_monotonic_ns": 478507626471875, "tool": {"type": "device_display"}}
+{"event": "tool_issued", "turn": 5, "host_monotonic_ns": 478507648718666, "tool": {"type": "device_display"}}
+{"event": "tool_result_available", "turn": 5, "host_monotonic_ns": 478507759481791, "bytes": 25, "sha256": "913f5726cae0b20c4711e7d02fde46325d281c01ab9a9e4a81d3b80c383eda33"}
+{"event": "response_received", "turn": 5, "host_monotonic_ns": 478510648000125}

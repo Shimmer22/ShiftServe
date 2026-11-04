@@ -1,0 +1,143 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "cpu_repack": false,
+    "context_size": 5120,
+    "batch_size": 128,
+    "htp_queue": 1,
+    "htp_opbatch": 1,
+    "router_decode_evaluations": 4,
+    "calibration_run": "results/20261103-213658-342299-four-path-structured-grid",
+    "max_tokens": 64,
+    "timeout_s": 180,
+    "timing_valid_for_performance": false
+  },
+  "scenario": {
+    "system": "You are an assistant testing conversation memory. Return only a JSON object with action, memo and step. action is always wait. Remember the session code from the first user message. First step is 1; increment step after your previous response. No markdown.",
+    "turns": [
+      {
+        "tool": {
+          "type": "device_display"
+        },
+        "prompt": "Remember session code PINE-47. This is the FIRST turn, step 1. Return action, memo (session code), step.",
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "equals": {
+            "memo": "PINE-47",
+            "step": 1
+          }
+        }
+      },
+      {
+        "tool": {
+          "type": "device_display"
+        },
+        "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.",
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "equals": {
+            "memo": "PINE-47",
+            "step": 2
+          }
+        }
+      },
+      {
+        "tool": {
+          "type": "device_display"
+        },
+        "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.",
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "equals": {
+            "memo": "PINE-47",
+            "step": 3
+          }
+        }
+      }
+    ]
+  },
+  "device": "10.29.11.213:46533",
+  "control": false,
+  "mechanism_test": false,
+  "binary_sha256": "9abae102e2f7491aa52cfed99f187f5c987344bc933e742e5fa07e14ebb31b78",
+  "source_files_sha256": {
+    "src/a2o/agent_runtime.cpp": "2e5d6521e04bcf8701377f96b3fdd54539f912be7aa02e534b18028121335879",
+    "src/a2o/async_preparation.h": "c5a83c4f0a962367a1049fa8fb0906c900289d084e0dfb3f7073a6cbf5070a62",
+    "src/a2o/path_runtime.h": "c5c6baa0aadf7e40cf0f541a50f9510c419faafd12b31a726275589adfc955f1",
+    "src/a2o/preparation_lane.h": "231a993209be790df3ce3eaabf73489b9fd07acebc544472e510afda758f8d15",
+    "src/a2o/profile_runtime.h": "e13c1bdeb069ff4d29cb4b958cf2c945138d62475b9735dac14ea078d8d23258",
+    "src/a2o/router.h": "308fb89768d00d6d0b98241b150c91daa6a5d234c03bf69c57171d4b4bc8e8e5",
+    "src/a2o/session_runtime.h": "bfbf33b2e8e94210fcdbc3d28a3fb280a373ae05dc6390f2e2f965685fdc1518",
+    "src/a2o/tool_session_runtime.h": "bf493f433d037f46c10c6d9c21661e696504a12df4207712b1aba6bb2692720a"
+  },
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "calibration": {
+    "source_run": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261103-213658-342299-four-path-structured-grid",
+    "source_sha256": "7c565571cc4e8f5131bc9e3e0399e0a5c1ff1394977c9eaaad0a70f8698aa4f0",
+    "rows": 6,
+    "rejected": [
+      {
+        "H": 1024,
+        "P": 16,
+        "path": "HC",
+        "total": 3,
+        "valid": 0
+      },
+      {
+        "H": 1024,
+        "P": 64,
+        "path": "HC",
+        "total": 3,
+        "valid": 0
+      }
+    ],
+    "decode_evaluations": 4,
+    "scope": "exact H/P; CPU authority and CPU decode; fixed D compute horizon, not complete-response prediction; no extrapolation",
+    "config": {
+      "paths": [
+        "CC",
+        "HH",
+        "HC",
+        "CH"
+      ],
+      "homes": [
+        "cpu",
+        "htp"
+      ],
+      "history_tokens": [
+        1024,
+        4096
+      ],
+      "new_tokens": [
+        16,
+        64
+      ],
+      "decode_prefix_tokens": [
+        1,
+        2,
+        4
+      ],
+      "gap_ms": [
+        0,
+        25,
+        100,
+        500
+      ],
+      "repetitions": 3,
+      "context_size": 5120,
+      "batch_size": 128,
+      "htp_queue": 1,
+      "htp_opbatch": 1,
+      "timeout_s_per_history": 1200,
+      "workload": "text short-action calibration; full free-generation JSON validation plus measured decode prefixes; common GPU ViT excluded"
+    },
+    "calibration_binary_sha256": "ac0408c3a7f1e696521c40cab5644ea17034dcf1a1265e611a7a2cf27906f55d"
+  },
+  "agent": "read-only tools; no generated actions executed",
+  "timing_valid_for_performance": false
+}

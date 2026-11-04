@@ -55,5 +55,10 @@ int main(int argc, char ** argv) {
         assert(measured.choose(4096,16,4,"ready").reason=="cpu_lower_cost");
         assert(measured.choose(4096,64,4,"ready").reason=="htp_lower_cost");
         assert(measured.choose(1024,16,4,"ready").reason=="coverage_missing");
+        std::string fixture=std::string(argv[1])+".fixture";
+        { std::ofstream out(fixture); out << "a2o-router-v1\tmechanism-fixture\t5120\t128\t1\t1\n1024\t16\t4\tCC\t100\t0\t0\n"; }
+        bool rejected=false;
+        try {CostRouter::load(fixture);} catch(const std::runtime_error &) {rejected=true;}
+        assert(rejected && CostRouter::load(fixture,true).rows.size()==1);
     }
 }

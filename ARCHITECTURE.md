@@ -1,6 +1,8 @@
 # 执行路径与状态契约
 
-当前论文主线为 Tool Slack 投机状态准备与返回后延迟绑定，见[ROADMAP.md](ROADMAP.md)。GPU视觉＋CC/HH/HC/CH为手机已有成本校准与正确性组件；`four-path-session.json`显式指定每轮Prefill/Decode后端，snapshot从当轮实际Decode后端导出。最小异步准备、版本校验、安全点取消与就绪绑定夹具见[ASYNC.md](ASYNC.md)，真实工具和成本选路尚未实现。固定CPU Decode为此前基线，见[MULTITURN.md](MULTITURN.md)；远端文本轨迹见[BFCL.md](BFCL.md)。QNN/NPU 视觉已搁置；下文保留既有执行契约。
+新的只读文本 Tool 常驻入口见 [TOOL_SESSION.md](TOOL_SESSION.md)：会话级单 HTP lane 支持跨轮退役和非阻塞结果发布，Router 接收实际 P 和候选可用性并比较固定D实测成本。最小设备验证已通过，实测表覆盖有限，后端API仍不可抢占。下文主要保留旧观察回放/四轮夹具的契约，旧 `session_runtime.h` 的轮末等待不代表新入口。
+
+当前论文主线为 Tool Slack 投机状态准备与返回后延迟绑定，见[ROADMAP.md](ROADMAP.md)。GPU视觉＋CC/HH/HC/CH为手机已有成本校准与正确性组件；`four-path-session.json`显式指定每轮Prefill/Decode后端，snapshot从当轮实际Decode后端导出。旧异步准备、版本校验、安全点取消与就绪绑定夹具见[ASYNC.md](ASYNC.md)，新的成本选路与只读Tool入口见[TOOL_SESSION.md](TOOL_SESSION.md)。固定CPU Decode为此前基线，见[MULTITURN.md](MULTITURN.md)；远端文本轨迹见[BFCL.md](BFCL.md)。QNN/NPU 视觉已搁置；下文保留既有执行契约。
 
 ## 单个进程内的回放
 

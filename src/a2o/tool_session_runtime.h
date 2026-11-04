@@ -150,7 +150,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                          +",\"P\":"+std::to_string(input.size())+",\"D\":"+std::to_string(d));
         } else if(fields[0]=="RUN") {
             require(started && observed && (fields.size()==2 || (mechanism && fields.size()==3)),"invalid RUN transition");
-            auto current_router=fields.size()==3?CostRouter::load(fields[2]):router;
+            auto current_router=fields.size()==3?CostRouter::load(fields[2],true):router;
             require(fields.size()!=3 || current_router.source=="mechanism-fixture","fixture costs must be explicitly labelled");
             require(current_router.context==context_size && current_router.batch==batch_size
                     && current_router.queue==router.queue && current_router.opbatch==router.opbatch,"router fixture configuration mismatch");

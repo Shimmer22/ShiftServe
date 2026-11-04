@@ -1,0 +1,41 @@
+<|im_start|>system
+You are an assistant testing conversation memory. Return only a JSON object with action, memo and step. action is always wait. Remember the session code from the first user message. First step is 1; increment step after your previous response. No markdown.<|im_end|>
+<|im_start|>user
+Remember session code PINE-47. This is the FIRST turn, step 1. Return action, memo (session code), step.
+Tool result (device_display):
+Physical size: 1200x2670
+<|im_end|>
+<|im_start|>assistant
+{
+  "action": "wait",
+  "memo": "PINE-47",
+  "step": 1
+}<|im_end|>
+<|im_start|>user
+The tool completed. Recall the session code and increment step. Return action, memo, step.
+Tool result (device_display):
+Physical size: 1200x2670
+<|im_end|>
+<|im_start|>assistant
+{
+  "action": "wait",
+  "memo": "PINE-47",
+  "step": 2
+}<|im_end|>
+<|im_start|>user
+The tool completed. Recall the session code and increment step. Return action, memo, step.
+Tool result (device_display):
+Physical size: 1200x2670
+<|im_end|>
+<|im_start|>assistant
+{
+  "action": "wait",
+  "memo": "PINE-47",
+  "step": 3
+}<|im_end|>
+<|im_start|>user
+The tool completed. Recall the session code and increment step. Return action, memo, step.
+Tool result (device_display):
+Physical size: 1200x2670
+<|im_end|>
+<|im_start|>assistant

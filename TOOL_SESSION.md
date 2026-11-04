@@ -45,3 +45,14 @@ conda run --no-capture-output -n visiontrim-qwen25vl python scripts/validate_too
 两条 ready 分支使用源标记 `mechanism-fixture`、样本数0的合成成本，证明 Router 分支与真实 HTP prefill/CPU 回传可运行，不算性能数据。实测表导入和 H4K/P16 选 CPU、P64 选 HTP 的固定 D 决策另由本地 C++ 测试验证。真实 Tool 的 H/P 不在表内时应记录缺口，不能制造匹配样本。
 
 尚需：扩展真实轨迹代价覆盖、Tool 类型/Gap 决策、真实多模态流水线、前台争用与能耗验证。外部响应虽然能够跨轮非阻塞发布，后端 API 本身仍不可抢占，关闭仍可能等待。
+
+## 2026-11-04 最小验证结果
+
+汇总：`results/20261104-084947-618120-tool-session-validation/summary.json`，`passed=true`。CPU 对照与机制条件各六轮，native 源码及二进制 hash 相同；JSON、PINE-47 记忆、step1–6、EOG 和状态检查通过。逐轮 Tool 原文、生成 ID、输出、提交 prefix、计数和下一位置均相同，最终521个已评估 token。
+
+- 旧任务在真实导入核验后被屏障持有，当前轮与下一轮 CPU 均发布响应后才释放；`cross_round_nonblocking=true`。忙碌时未启动新任务。
+- ready 选 CPU 与 ready 选 HTP 两条合成成本分支通过；后者真实执行 HTP prefill、完整状态回传与 CPU decode。共启动3个任务，关闭时3个均回收，单 lane 上界1。
+- `results/20261104-085317-179323-tool-session-auto/` 另跑三轮普通模式，屏障和合成成本全部禁用；实际 H/P 均无实测表覆盖，明确记录 `coverage_missing`、`cost_covered=false` 并选 CPU。响应、token、prefix 与六轮 CPU 对照的前三轮一致。
+- 本地22项测试、Android 构建通过。`final-checks.json` 保存普通模式对照及最终验收。核心套件使用提交 `0a59717`，随后 `573a541` 增加覆盖缺口的明确标记和分阶段诊断计时，并由普通模式验证；旧原始日志未改写。
+
+全部运行均为机制验证，耗时无效；未做逐步 logits 数值阈值对照，没有得到新的性能、能耗或 Gap 翻转证据。

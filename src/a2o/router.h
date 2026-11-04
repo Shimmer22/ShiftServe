@@ -25,7 +25,7 @@ public:
     std::string source;
     int context=0, batch=0, queue=0, opbatch=0;
     std::vector<RouteCost> rows;
-    static CostRouter load(const std::string & path) {
+    static CostRouter load(const std::string & path, bool allow_fixture=false) {
         std::ifstream input(path);
         if (!input) throw std::runtime_error("router table unavailable");
         CostRouter result; std::string line, magic;
@@ -33,6 +33,8 @@ public:
         std::istringstream header(line);
         if (!(header >> magic >> result.source >> result.context >> result.batch >> result.queue >> result.opbatch)
                 || magic != "a2o-router-v1") throw std::runtime_error("invalid router table header");
+        if(result.source=="mechanism-fixture" && !allow_fixture)
+            throw std::runtime_error("synthetic costs require explicit mechanism-test RUN");
         while (std::getline(input,line)) {
             if (line.empty() || line[0]=='#') continue;
             RouteCost r; std::istringstream in(line);

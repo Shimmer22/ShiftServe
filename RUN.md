@@ -18,7 +18,7 @@ conda run -n visiontrim-qwen25vl python scripts/plot_prefill.py results/NAME-pre
 - 运行时包：`../shared/runtime/llama.cpp-hexagon-pkg`，使用包内头文件与动态库构建，避免本地源码版本与二进制 ABI 不一致。
 - 手机：`/data/local/tmp/llama.cpp/lib`；模型 `/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf`；mmproj 同目录 `mmproj-model-f16.gguf`。
 - `adb devices -l` 查当前设备；所有命令可用 `--device SERIAL` 覆盖默认无线地址。
-- 默认地址读取 `configs/device.json`；`DEVICE` 可覆盖。当前为 `10.29.11.213:35675`。
+- 默认地址读取 `configs/device.json`；`DEVICE` 可覆盖。当前为 `10.29.11.213:46533`。
 
 ## 默认基线
 
