@@ -1,0 +1,94 @@
+{
+  "system": "You are a GUI agent. Keep the session code in memory. Return only one JSON object with keys screen, action, memo, step. The action is always wait. The first step is 1; increment step after each previous assistant response. No markdown.",
+  "turns": [
+    {
+      "prompt": "Remember session code PINE-47. Inspect this screenshot. This is the FIRST turn: set step to 1. Return only one JSON object with screen, action (wait), memo (the session code), and step.",
+      "max_tokens": 80,
+      "check": {
+        "type": "json_action",
+        "action": "wait",
+        "keys": [
+          "screen",
+          "action",
+          "memo",
+          "step"
+        ],
+        "screen_contains": [
+          "developer",
+          "\u5f00\u53d1\u8005"
+        ],
+        "equals": {
+          "memo": "PINE-47",
+          "step": 1
+        }
+      },
+      "image": "inputs/phone_screenshots/shot0.png"
+    },
+    {
+      "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+      "max_tokens": 80,
+      "check": {
+        "type": "json_action",
+        "action": "wait",
+        "keys": [
+          "screen",
+          "action",
+          "memo",
+          "step"
+        ],
+        "screen_contains": [
+          "developer",
+          "\u5f00\u53d1\u8005"
+        ],
+        "equals": {
+          "memo": "PINE-47",
+          "step": 2
+        }
+      }
+    },
+    {
+      "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+      "max_tokens": 80,
+      "check": {
+        "type": "json_action",
+        "action": "wait",
+        "keys": [
+          "screen",
+          "action",
+          "memo",
+          "step"
+        ],
+        "screen_contains": [
+          "developer",
+          "\u5f00\u53d1\u8005"
+        ],
+        "equals": {
+          "memo": "PINE-47",
+          "step": 3
+        }
+      }
+    },
+    {
+      "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+      "max_tokens": 80,
+      "check": {
+        "type": "json_action",
+        "action": "wait",
+        "keys": [
+          "screen",
+          "action",
+          "memo",
+          "step"
+        ],
+        "screen_contains": [
+          "developer",
+          "\u5f00\u53d1\u8005"
+        ],
+        "equals": {
+          "memo": "PINE-47",
+          "step": 4
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+step,rep,kind,image_wh,threads,image_tokens,text_tokens,decode_tokens,vit_ms,image_prefill_ms,perf_prompt_eval_ms,text_prefill_residual_ms,decode_ms,decode_ms_per_tok,load_ms,wall_s,load1_before,load1_after,mem_avail_mb_before,batt_temp_deci_c_after
+aw_home_S,0,mobile(AndroidWorld emulator),336x756,4,324,39,27,10346,19593,33150.24,3211.2,2563.22,94.9,618.1,38.68,14.16,15.40,4741,
+aw_home_S,1,mobile(AndroidWorld emulator),336x756,4,324,39,27,12830,21256,36974.39,2888.4,2780.34,103.0,749.84,43.19,15.40,15.93,5032,
+aw_home_S,2,mobile(AndroidWorld emulator),336x756,4,324,39,27,12030,22818,38110.32,3262.3,2728.69,101.1,774.07,44.12,15.93,16.09,4930,
+aw_home_M,0,mobile(AndroidWorld emulator),448x980,4,560,39,27,22496,36655,62778.54,3627.5,2922.72,108.2,704.53,69.24,16.09,16.12,4876,
+aw_home_M,1,mobile(AndroidWorld emulator),448x980,4,560,39,27,22883,37845,63920.29,3192.3,2661.33,98.6,730.92,70.53,16.12,16.27,4924,
+aw_home_M,2,mobile(AndroidWorld emulator),448x980,4,560,39,27,22891,40033,66005.36,3081.4,2559.79,94.8,684.36,72.07,16.27,16.18,5109,
+aw_home_L,0,mobile(AndroidWorld emulator),560x1232,4,880,39,27,40563,73988,118463.35,3912.4,3287.44,121.8,777.43,125.88,16.18,18.57,5122,
+desk0_M,0,desktop(ScreenSpot-v2),784x476,4,476,39,21,23962,40157,68345.26,4226.3,2574.51,122.6,967.11,75.84,18.57,18.99,4823,
+desk1_M,0,desktop(ScreenSpot-v2),784x476,4,476,39,19,23634,40645,68392.96,4114.0,2198.29,115.7,856.59,75.14,18.99,20.68,5104,

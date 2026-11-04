@@ -1,0 +1,1207 @@
+{
+  "scope": "ideal overlap lookup for measured text suffixes; no real Tool concurrency or GPU contention measured",
+  "expected_cells": 16,
+  "measured_cells": 16,
+  "validated_cells": 12,
+  "cell_status": [
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "valid_trials": 3,
+      "rejected_trials": 0,
+      "status": "validated"
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 64,
+      "valid_trials": 0,
+      "rejected_trials": 3,
+      "status": "validation_failed"
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 256,
+      "valid_trials": 0,
+      "rejected_trials": 3,
+      "status": "validation_failed"
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 560,
+      "valid_trials": 0,
+      "rejected_trials": 3,
+      "status": "validation_failed"
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 1024,
+      "valid_trials": 0,
+      "rejected_trials": 3,
+      "status": "validation_failed"
+    }
+  ],
+  "rejected_trials": [
+    {
+      "history_tokens": 8192,
+      "new_tokens": 64,
+      "repetition": 0,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 256,
+      "repetition": 0,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 560,
+      "repetition": 0,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": true
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 1024,
+      "repetition": 0,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 1024,
+      "repetition": 1,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 560,
+      "repetition": 1,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": true
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 256,
+      "repetition": 1,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 64,
+      "repetition": 1,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 64,
+      "repetition": 2,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 256,
+      "repetition": 2,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 560,
+      "repetition": 2,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": true
+    },
+    {
+      "history_tokens": 8192,
+      "new_tokens": 1024,
+      "repetition": 2,
+      "checks": {
+        "cpu": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        },
+        "htp": {
+          "passed": false,
+          "reason": "Expecting value: line 1 column 1 (char 0)"
+        }
+      },
+      "numerical_passed": false
+    }
+  ],
+  "breakdown": [
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "repetitions": 3,
+      "cpu_prefill_ms": 2012.4,
+      "htp_prefill_ms": 1041.45,
+      "export_ms": 2.45609,
+      "import_ms": 1.86552,
+      "tiling_ms": null,
+      "prefill_batches": 1,
+      "last_batch_tokens": 64,
+      "cpu_decode_ms": 329.789,
+      "after_htp_cpu_decode_ms": 346.479
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "repetitions": 3,
+      "cpu_prefill_ms": 6483.19,
+      "htp_prefill_ms": 3801.84,
+      "export_ms": 2.39391,
+      "import_ms": 1.73438,
+      "tiling_ms": null,
+      "prefill_batches": 2,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 381.295,
+      "after_htp_cpu_decode_ms": 359.152
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "repetitions": 3,
+      "cpu_prefill_ms": 16024.5,
+      "htp_prefill_ms": 8890.92,
+      "export_ms": 2.44156,
+      "import_ms": 1.97906,
+      "tiling_ms": null,
+      "prefill_batches": 5,
+      "last_batch_tokens": 48,
+      "cpu_decode_ms": 416.145,
+      "after_htp_cpu_decode_ms": 370.41
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "repetitions": 3,
+      "cpu_prefill_ms": 25528.9,
+      "htp_prefill_ms": 16373.2,
+      "export_ms": 2.33141,
+      "import_ms": 1.7475,
+      "tiling_ms": null,
+      "prefill_batches": 8,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 349.666,
+      "after_htp_cpu_decode_ms": 359.147
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "repetitions": 3,
+      "cpu_prefill_ms": 2393.69,
+      "htp_prefill_ms": 1090.64,
+      "export_ms": 18.2819,
+      "import_ms": 4.91422,
+      "tiling_ms": null,
+      "prefill_batches": 1,
+      "last_batch_tokens": 64,
+      "cpu_decode_ms": 411.102,
+      "after_htp_cpu_decode_ms": 466.534
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "repetitions": 3,
+      "cpu_prefill_ms": 9387.15,
+      "htp_prefill_ms": 4025.83,
+      "export_ms": 20.5315,
+      "import_ms": 5.81141,
+      "tiling_ms": null,
+      "prefill_batches": 2,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 444.647,
+      "after_htp_cpu_decode_ms": 479.49
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "repetitions": 3,
+      "cpu_prefill_ms": 19678.9,
+      "htp_prefill_ms": 9302.93,
+      "export_ms": 17.6483,
+      "import_ms": 5.04239,
+      "tiling_ms": null,
+      "prefill_batches": 5,
+      "last_batch_tokens": 48,
+      "cpu_decode_ms": 428.826,
+      "after_htp_cpu_decode_ms": 482.561
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "repetitions": 3,
+      "cpu_prefill_ms": 38026.3,
+      "htp_prefill_ms": 18109,
+      "export_ms": 17.801,
+      "import_ms": 5.19339,
+      "tiling_ms": null,
+      "prefill_batches": 8,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 456.883,
+      "after_htp_cpu_decode_ms": 481.379
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "repetitions": 3,
+      "cpu_prefill_ms": 3389.75,
+      "htp_prefill_ms": 1286.01,
+      "export_ms": 75.3575,
+      "import_ms": 14.5953,
+      "tiling_ms": null,
+      "prefill_batches": 1,
+      "last_batch_tokens": 64,
+      "cpu_decode_ms": 579.234,
+      "after_htp_cpu_decode_ms": 683.37
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "repetitions": 3,
+      "cpu_prefill_ms": 13442.5,
+      "htp_prefill_ms": 7871.31,
+      "export_ms": 76.2857,
+      "import_ms": 13.0494,
+      "tiling_ms": null,
+      "prefill_batches": 2,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 878.168,
+      "after_htp_cpu_decode_ms": 661.372
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "repetitions": 3,
+      "cpu_prefill_ms": 30538.1,
+      "htp_prefill_ms": 17253.9,
+      "export_ms": 82.3588,
+      "import_ms": 13.4957,
+      "tiling_ms": null,
+      "prefill_batches": 5,
+      "last_batch_tokens": 48,
+      "cpu_decode_ms": 593.565,
+      "after_htp_cpu_decode_ms": 865.133
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "repetitions": 3,
+      "cpu_prefill_ms": 54920.5,
+      "htp_prefill_ms": 32604.8,
+      "export_ms": 87.7733,
+      "import_ms": 12.9593,
+      "tiling_ms": null,
+      "prefill_batches": 8,
+      "last_batch_tokens": 128,
+      "cpu_decode_ms": 686.791,
+      "after_htp_cpu_decode_ms": 1433.31
+    }
+  ],
+  "router_table": [
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 2012.4,
+      "htp_ms": 1053.8562597,
+      "prepare_ms": 4.5371310000000005,
+      "return_ms": 8.3365139,
+      "cpu_min_ms": 1375.89,
+      "cpu_max_ms": 2021.53,
+      "htp_min_ms": 966.5811308000001,
+      "htp_max_ms": 1076.3356829,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 2012.4,
+      "htp_ms": 1049.7865139,
+      "prepare_ms": 4.5371310000000005,
+      "return_ms": 8.3365139,
+      "cpu_min_ms": 1375.89,
+      "cpu_max_ms": 2021.53,
+      "htp_min_ms": 962.0439998,
+      "htp_max_ms": 1070.7832339,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 2012.4,
+      "htp_ms": 1049.7865139,
+      "prepare_ms": 4.5371310000000005,
+      "return_ms": 8.3365139,
+      "cpu_min_ms": 1375.89,
+      "cpu_max_ms": 2021.53,
+      "htp_min_ms": 962.0439998,
+      "htp_max_ms": 1070.7832339,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 64,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 2012.4,
+      "htp_ms": 1049.7865139,
+      "prepare_ms": 4.5371310000000005,
+      "return_ms": 8.3365139,
+      "cpu_min_ms": 1375.89,
+      "cpu_max_ms": 2021.53,
+      "htp_min_ms": 962.0439998,
+      "htp_max_ms": 1070.7832339,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 6483.19,
+      "htp_ms": 3820.0909056,
+      "prepare_ms": 4.139846,
+      "return_ms": 15.392524,
+      "cpu_min_ms": 5695,
+      "cpu_max_ms": 7161.61,
+      "htp_min_ms": 3447.2624400000004,
+      "htp_max_ms": 3836.673258,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 6483.19,
+      "htp_ms": 3815.8325198000002,
+      "prepare_ms": 4.139846,
+      "return_ms": 15.392524,
+      "cpu_min_ms": 5695,
+      "cpu_max_ms": 7161.61,
+      "htp_min_ms": 3443.1225940000004,
+      "htp_max_ms": 3832.772524,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 6483.19,
+      "htp_ms": 3815.8325198000002,
+      "prepare_ms": 4.139846,
+      "return_ms": 15.392524,
+      "cpu_min_ms": 5695,
+      "cpu_max_ms": 7161.61,
+      "htp_min_ms": 3443.1225940000004,
+      "htp_max_ms": 3832.772524,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 256,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 6483.19,
+      "htp_ms": 3815.8325198000002,
+      "prepare_ms": 4.139846,
+      "return_ms": 15.392524,
+      "cpu_min_ms": 5695,
+      "cpu_max_ms": 7161.61,
+      "htp_min_ms": 3443.1225940000004,
+      "htp_max_ms": 3832.772524,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 16024.5,
+      "htp_ms": 8917.7438904,
+      "prepare_ms": 4.6586929999999995,
+      "return_ms": 22.9515162,
+      "cpu_min_ms": 15287.6,
+      "cpu_max_ms": 19811.3,
+      "htp_min_ms": 7907.787221999999,
+      "htp_max_ms": 9130.5802092,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 16024.5,
+      "htp_ms": 8911.1008764,
+      "prepare_ms": 4.6586929999999995,
+      "return_ms": 22.9515162,
+      "cpu_min_ms": 15287.6,
+      "cpu_max_ms": 19811.3,
+      "htp_min_ms": 7904.359880999999,
+      "htp_max_ms": 9125.9215162,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 16024.5,
+      "htp_ms": 8911.1008764,
+      "prepare_ms": 4.6586929999999995,
+      "return_ms": 22.9515162,
+      "cpu_min_ms": 15287.6,
+      "cpu_max_ms": 19811.3,
+      "htp_min_ms": 7904.359880999999,
+      "htp_max_ms": 9125.9215162,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 560,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 16024.5,
+      "htp_ms": 8911.1008764,
+      "prepare_ms": 4.6586929999999995,
+      "return_ms": 22.9515162,
+      "cpu_min_ms": 15287.6,
+      "cpu_max_ms": 19811.3,
+      "htp_min_ms": 7904.359880999999,
+      "htp_max_ms": 9125.9215162,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 25528.9,
+      "htp_ms": 16404.812581100003,
+      "prepare_ms": 4.224382,
+      "return_ms": 30.8206958,
+      "cpu_min_ms": 25360.4,
+      "cpu_max_ms": 32078.6,
+      "htp_min_ms": 15791.576462199999,
+      "htp_max_ms": 17009.908348800003,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 25528.9,
+      "htp_ms": 16400.588199100002,
+      "prepare_ms": 4.224382,
+      "return_ms": 30.8206958,
+      "cpu_min_ms": 25360.4,
+      "cpu_max_ms": 32078.6,
+      "htp_min_ms": 15788.4620912,
+      "htp_max_ms": 17004.0206958,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 25528.9,
+      "htp_ms": 16400.588199100002,
+      "prepare_ms": 4.224382,
+      "return_ms": 30.8206958,
+      "cpu_min_ms": 25360.4,
+      "cpu_max_ms": 32078.6,
+      "htp_min_ms": 15788.4620912,
+      "htp_max_ms": 17004.0206958,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 141,
+      "new_tokens": 1024,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 25528.9,
+      "htp_ms": 16400.588199100002,
+      "prepare_ms": 4.224382,
+      "return_ms": 30.8206958,
+      "cpu_min_ms": 25360.4,
+      "cpu_max_ms": 32078.6,
+      "htp_min_ms": 15788.4620912,
+      "htp_max_ms": 17004.0206958,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 2393.69,
+      "htp_ms": 1141.2946880000002,
+      "prepare_ms": 23.381479,
+      "return_ms": 27.711638999999998,
+      "cpu_min_ms": 2300.77,
+      "cpu_max_ms": 2498.09,
+      "htp_min_ms": 1117.301501,
+      "htp_max_ms": 1180.9401678000002,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 2393.69,
+      "htp_ms": 1118.286211,
+      "prepare_ms": 23.381479,
+      "return_ms": 27.711638999999998,
+      "cpu_min_ms": 2300.77,
+      "cpu_max_ms": 2498.09,
+      "htp_min_ms": 1093.920022,
+      "htp_max_ms": 1153.3416390000002,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 2393.69,
+      "htp_ms": 1118.286211,
+      "prepare_ms": 23.381479,
+      "return_ms": 27.711638999999998,
+      "cpu_min_ms": 2300.77,
+      "cpu_max_ms": 2498.09,
+      "htp_min_ms": 1093.920022,
+      "htp_max_ms": 1153.3416390000002,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 64,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 2393.69,
+      "htp_ms": 1118.286211,
+      "prepare_ms": 23.381479,
+      "return_ms": 27.711638999999998,
+      "cpu_min_ms": 2300.77,
+      "cpu_max_ms": 2498.09,
+      "htp_min_ms": 1093.920022,
+      "htp_max_ms": 1153.3416390000002,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 9387.15,
+      "htp_ms": 4084.8379680000003,
+      "prepare_ms": 26.598693,
+      "return_ms": 30.624187,
+      "cpu_min_ms": 9349.99,
+      "cpu_max_ms": 9739.31,
+      "htp_min_ms": 4030.736585,
+      "htp_max_ms": 4306.93288,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 9387.15,
+      "htp_ms": 4057.87379,
+      "prepare_ms": 26.598693,
+      "return_ms": 30.624187,
+      "cpu_min_ms": 9349.99,
+      "cpu_max_ms": 9739.31,
+      "htp_min_ms": 4007.911451,
+      "htp_max_ms": 4280.334187,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 9387.15,
+      "htp_ms": 4057.87379,
+      "prepare_ms": 26.598693,
+      "return_ms": 30.624187,
+      "cpu_min_ms": 9349.99,
+      "cpu_max_ms": 9739.31,
+      "htp_min_ms": 4007.911451,
+      "htp_max_ms": 4280.334187,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 256,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 9387.15,
+      "htp_ms": 4057.87379,
+      "prepare_ms": 26.598693,
+      "return_ms": 30.624187,
+      "cpu_min_ms": 9349.99,
+      "cpu_max_ms": 9739.31,
+      "htp_min_ms": 4007.911451,
+      "htp_max_ms": 4280.334187,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 19678.9,
+      "htp_ms": 9368.318548000001,
+      "prepare_ms": 23.602815000000003,
+      "return_ms": 39.969508,
+      "cpu_min_ms": 19603.6,
+      "cpu_max_ms": 20557.4,
+      "htp_min_ms": 9327.849892,
+      "htp_max_ms": 9382.072895000001,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 19678.9,
+      "htp_ms": 9344.715733000001,
+      "prepare_ms": 23.602815000000003,
+      "return_ms": 39.969508,
+      "cpu_min_ms": 19603.6,
+      "cpu_max_ms": 20557.4,
+      "htp_min_ms": 9304.599508,
+      "htp_max_ms": 9356.246546,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 19678.9,
+      "htp_ms": 9344.715733000001,
+      "prepare_ms": 23.602815000000003,
+      "return_ms": 39.969508,
+      "cpu_min_ms": 19603.6,
+      "cpu_max_ms": 20557.4,
+      "htp_min_ms": 9304.599508,
+      "htp_max_ms": 9356.246546,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 560,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 19678.9,
+      "htp_ms": 9344.715733000001,
+      "prepare_ms": 23.602815000000003,
+      "return_ms": 39.969508,
+      "cpu_min_ms": 19603.6,
+      "cpu_max_ms": 20557.4,
+      "htp_min_ms": 9304.599508,
+      "htp_max_ms": 9356.246546,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 38026.3,
+      "htp_ms": 18207.900706,
+      "prepare_ms": 24.06845,
+      "return_ms": 63.503909,
+      "cpu_min_ms": 37953.6,
+      "cpu_max_ms": 38062.6,
+      "htp_min_ms": 18064.950586000003,
+      "htp_max_ms": 18595.054677,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 38026.3,
+      "htp_ms": 18183.832256,
+      "prepare_ms": 24.06845,
+      "return_ms": 63.503909,
+      "cpu_min_ms": 37953.6,
+      "cpu_max_ms": 38062.6,
+      "htp_min_ms": 18047.837114,
+      "htp_max_ms": 18570.803909,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 38026.3,
+      "htp_ms": 18183.832256,
+      "prepare_ms": 24.06845,
+      "return_ms": 63.503909,
+      "cpu_min_ms": 37953.6,
+      "cpu_max_ms": 38062.6,
+      "htp_min_ms": 18047.837114,
+      "htp_max_ms": 18570.803909,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 1024,
+      "new_tokens": 1024,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 38026.3,
+      "htp_ms": 18183.832256,
+      "prepare_ms": 24.06845,
+      "return_ms": 63.503909,
+      "cpu_min_ms": 37953.6,
+      "cpu_max_ms": 38062.6,
+      "htp_min_ms": 18047.837114,
+      "htp_max_ms": 18570.803909,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 3389.75,
+      "htp_ms": 1466.336775,
+      "prepare_ms": 90.826623,
+      "return_ms": 88.21227499999999,
+      "cpu_min_ms": 3317.83,
+      "cpu_max_ms": 3448.65,
+      "htp_min_ms": 1440.7974990000002,
+      "htp_max_ms": 1501.0376419999998,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 3389.75,
+      "htp_ms": 1374.222275,
+      "prepare_ms": 90.826623,
+      "return_ms": 88.21227499999999,
+      "cpu_min_ms": 3317.83,
+      "cpu_max_ms": 3448.65,
+      "htp_min_ms": 1354.2660930000002,
+      "htp_max_ms": 1410.2110189999999,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 3389.75,
+      "htp_ms": 1374.222275,
+      "prepare_ms": 90.826623,
+      "return_ms": 88.21227499999999,
+      "cpu_min_ms": 3317.83,
+      "cpu_max_ms": 3448.65,
+      "htp_min_ms": 1354.2660930000002,
+      "htp_max_ms": 1410.2110189999999,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 64,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 3389.75,
+      "htp_ms": 1374.222275,
+      "prepare_ms": 90.826623,
+      "return_ms": 88.21227499999999,
+      "cpu_min_ms": 3317.83,
+      "cpu_max_ms": 3448.65,
+      "htp_min_ms": 1354.2660930000002,
+      "htp_max_ms": 1410.2110189999999,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 13442.5,
+      "htp_ms": 8062.566927000001,
+      "prepare_ms": 91.633598,
+      "return_ms": 99.623329,
+      "cpu_min_ms": 13378.7,
+      "cpu_max_ms": 13586.1,
+      "htp_min_ms": 7546.48305,
+      "htp_max_ms": 8181.032327999999,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 13442.5,
+      "htp_ms": 7970.933329,
+      "prepare_ms": 91.633598,
+      "return_ms": 99.623329,
+      "cpu_min_ms": 13378.7,
+      "cpu_max_ms": 13586.1,
+      "htp_min_ms": 7461.099525,
+      "htp_max_ms": 8089.1446,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 13442.5,
+      "htp_ms": 7970.933329,
+      "prepare_ms": 91.633598,
+      "return_ms": 99.623329,
+      "cpu_min_ms": 13378.7,
+      "cpu_max_ms": 13586.1,
+      "htp_min_ms": 7461.099525,
+      "htp_max_ms": 8089.1446,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 256,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 13442.5,
+      "htp_ms": 7970.933329,
+      "prepare_ms": 91.633598,
+      "return_ms": 99.623329,
+      "cpu_min_ms": 13378.7,
+      "cpu_max_ms": 13586.1,
+      "htp_min_ms": 7461.099525,
+      "htp_max_ms": 8089.1446,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 30538.1,
+      "htp_ms": 17462.093738000003,
+      "prepare_ms": 100.59863,
+      "return_ms": 195.33244,
+      "cpu_min_ms": 29476.6,
+      "cpu_max_ms": 30941.4,
+      "htp_min_ms": 17319.17239,
+      "htp_max_ms": 17565.89341,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 30538.1,
+      "htp_ms": 17362.093738000003,
+      "prepare_ms": 100.59863,
+      "return_ms": 195.33244,
+      "cpu_min_ms": 29476.6,
+      "cpu_max_ms": 30941.4,
+      "htp_min_ms": 17219.17239,
+      "htp_max_ms": 17468.73244,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 30538.1,
+      "htp_ms": 17361.495108000003,
+      "prepare_ms": 100.59863,
+      "return_ms": 195.33244,
+      "cpu_min_ms": 29476.6,
+      "cpu_max_ms": 30941.4,
+      "htp_min_ms": 17216.40197,
+      "htp_max_ms": 17468.73244,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 560,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 30538.1,
+      "htp_ms": 17361.495108000003,
+      "prepare_ms": 100.59863,
+      "return_ms": 195.33244,
+      "cpu_min_ms": 29476.6,
+      "cpu_max_ms": 30941.4,
+      "htp_min_ms": 17216.40197,
+      "htp_max_ms": 17468.73244,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "gap_ms": 0,
+      "repetitions": 3,
+      "cpu_ms": 54920.5,
+      "htp_ms": 32863.855876,
+      "prepare_ms": 101.572439,
+      "return_ms": 288.51215,
+      "cpu_min_ms": 53538.7,
+      "cpu_max_ms": 55441.5,
+      "htp_min_ms": 31044.50441,
+      "htp_max_ms": 33218.216069999995,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "gap_ms": 100,
+      "repetitions": 3,
+      "cpu_ms": 54920.5,
+      "htp_ms": 32763.855875999998,
+      "prepare_ms": 101.572439,
+      "return_ms": 288.51215,
+      "cpu_min_ms": 53538.7,
+      "cpu_max_ms": 55441.5,
+      "htp_min_ms": 30944.50441,
+      "htp_max_ms": 33118.49531,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "gap_ms": 500,
+      "repetitions": 3,
+      "cpu_ms": 54920.5,
+      "htp_ms": 32762.283437,
+      "prepare_ms": 101.572439,
+      "return_ms": 288.51215,
+      "cpu_min_ms": 53538.7,
+      "cpu_max_ms": 55441.5,
+      "htp_min_ms": 30736.91215,
+      "htp_max_ms": 33118.49531,
+      "choice": "htp"
+    },
+    {
+      "history_tokens": 4096,
+      "new_tokens": 1024,
+      "gap_ms": 2000,
+      "repetitions": 3,
+      "cpu_ms": 54920.5,
+      "htp_ms": 32762.283437,
+      "prepare_ms": 101.572439,
+      "return_ms": 288.51215,
+      "cpu_min_ms": 53538.7,
+      "cpu_max_ms": 55441.5,
+      "htp_min_ms": 30736.91215,
+      "htp_max_ms": 33118.49531,
+      "choice": "htp"
+    }
+  ],
+  "direct_cpu_checks": []
+}

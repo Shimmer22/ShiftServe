@@ -1,0 +1,141 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "format": "chat",
+    "vision_backend": "opencl",
+    "vision_flash": "off",
+    "cpu_repack": false,
+    "batch_size": 128,
+    "context_size": 4096,
+    "htp_queue": 1,
+    "a2o_ms": 0,
+    "compare_prefill": false,
+    "prefill_routes": [
+      "htp",
+      "htp",
+      "cpu",
+      "cpu"
+    ],
+    "timeout_s": 300,
+    "htp_opbatch": 1,
+    "decode_routes": [
+      "htp",
+      "cpu",
+      "htp",
+      "cpu"
+    ]
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Keep the session code in memory. Return only one JSON object with keys screen, action, memo, step. The action is always wait. The first step is 1; increment step after each previous assistant response. No markdown.",
+    "turns": [
+      {
+        "prompt": "Remember session code PINE-47. Inspect this screenshot. This is the FIRST turn: set step to 1. Return only one JSON object with screen, action (wait), memo (the session code), and step.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 1
+          }
+        },
+        "image": "inputs/phone_screenshots/shot0.png"
+      },
+      {
+        "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 2
+          }
+        }
+      },
+      {
+        "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 3
+          }
+        }
+      },
+      {
+        "prompt": "Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 4
+          }
+        }
+      }
+    ]
+  },
+  "device": "10.29.11.213:32937",
+  "config_file": "configs/four-path-session.json",
+  "scenario_file": "scenarios/four-path-memory.json",
+  "binary_sha256": "ac0408c3a7f1e696521c40cab5644ea17034dcf1a1265e611a7a2cf27906f55d",
+  "source_sha256": "5cdeecf916f7e61459930265dd0ae390f0bf0f3478004d29c7f552f50e07bf89",
+  "source_files_sha256": {
+    "agent_runtime.cpp": "5aedecc45c3cf7a0656d6822c1be56e4ce1950354b194d1a468f41e8802b43d7",
+    "path_runtime.h": "c5c6baa0aadf7e40cf0f541a50f9510c419faafd12b31a726275589adfc955f1",
+    "profile_runtime.h": "e13c1bdeb069ff4d29cb4b958cf2c945138d62475b9735dac14ea078d8d23258",
+    "session_runtime.h": "9b4873eab702f85c977f87f320acb7d0493cff3ddfec29c4c73de286fd3b1c70"
+  },
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions",
+  "image_sha256": {
+    "0": "512cb23e1f4985d9f0c9de76bb45b6abee31572e27bb6652e5eae097e30221ee"
+  }
+}

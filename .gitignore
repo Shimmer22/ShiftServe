@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+build/
+.DS_Store
+# 大型状态、数值张量及模型留在本地，日志和检查结果保留版本记录。
+*.bin
+*.raw
+*.f32
+*.npz
+*.gguf
+*.safetensors
+*.onnx
+*.dlc
+*.so

@@ -1,0 +1,15 @@
+{
+  "noop": {
+    "trials": 5,
+    "ok": 0,
+    "status_counts": {
+      "no_change": 5
+    },
+    "capture_cost_ms": {
+      "n": 5,
+      "mean": 247.9,
+      "median": 239.3,
+      "p90": 266.4
+    }
+  }
+}

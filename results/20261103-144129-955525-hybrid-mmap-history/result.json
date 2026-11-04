@@ -1,0 +1,98 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "batch_size": 128,
+  "cpu_repack": false,
+  "vision_flash": "off",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "none",
+  "history_tokens": 140,
+  "removed_tokens": 0,
+  "observation_tokens": 31,
+  "next_position": 174,
+  "upload_bytes": 5164648,
+  "download_bytes": 6308052,
+  "transfer_checked": true,
+  "first_token": 60195,
+  "first_piece": "WI",
+  "eog": true,
+  "output": "WI-FI",
+  "generated_ids": [
+    60195,
+    7276,
+    40
+  ],
+  "timing_ms": {
+    "a2o_wall_ms": 0.0021348,
+    "decode_ms": 228.578,
+    "download_checked_ms": 6.4301,
+    "history_prefill_ms": 4586.67,
+    "kv_select_ms": 0.000155926,
+    "model_context_init_ms": 24586.5,
+    "observation_eval_ms": 910.006,
+    "observation_to_response_ms": 1152.85,
+    "prep_overrun_ms": 0.000155926,
+    "upload_checked_ms": 7.02828
+  },
+  "resources": {
+    "contexts_ready": {
+      "RssAnon_kib": 321836,
+      "RssFile_kib": 799876,
+      "VmRSS_kib": 1122096,
+      "VmSwap_kib": 50916,
+      "major_faults": 164,
+      "minor_faults": 119461
+    },
+    "decode_end": {
+      "RssAnon_kib": 358092,
+      "RssFile_kib": 1724932,
+      "VmRSS_kib": 2083408,
+      "VmSwap_kib": 37452,
+      "major_faults": 706,
+      "minor_faults": 148702
+    },
+    "decode_start": {
+      "RssAnon_kib": 358092,
+      "RssFile_kib": 1724932,
+      "VmRSS_kib": 2083408,
+      "VmSwap_kib": 37452,
+      "major_faults": 704,
+      "minor_faults": 148675
+    },
+    "history_ready": {
+      "RssAnon_kib": 356204,
+      "RssFile_kib": 1724932,
+      "VmRSS_kib": 2081520,
+      "VmSwap_kib": 38284,
+      "major_faults": 588,
+      "minor_faults": 147549
+    },
+    "observation_arrival": {
+      "RssAnon_kib": 356204,
+      "RssFile_kib": 1724932,
+      "VmRSS_kib": 2081520,
+      "VmSwap_kib": 38284,
+      "major_faults": 588,
+      "minor_faults": 147549
+    },
+    "observation_evaluated": {
+      "RssAnon_kib": 358156,
+      "RssFile_kib": 1724932,
+      "VmRSS_kib": 2083472,
+      "VmSwap_kib": 37452,
+      "major_faults": 700,
+      "minor_faults": 148457
+    }
+  },
+  "response_check": {
+    "passed": true,
+    "expected_values": [
+      "WIFI",
+      "WI-FI"
+    ],
+    "strict_format_passed": false
+  },
+  "process_wall_ms": 30790.705124964006,
+  "budget_adjusted_response_ms": 1152.8501559259998
+}

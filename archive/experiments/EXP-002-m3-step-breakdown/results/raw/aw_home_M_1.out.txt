@@ -1,0 +1,9 @@
+
+```json
+{
+  "action": "click",
+  "coordinate": [170, 642]
+}
+```
+
+

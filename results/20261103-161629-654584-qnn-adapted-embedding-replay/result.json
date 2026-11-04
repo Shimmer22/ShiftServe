@@ -1,0 +1,140 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "batch_size": 128,
+  "cpu_repack": false,
+  "vision_flash": "off",
+  "vision_provider": "embedding_replay",
+  "vision_prepare": "arrival",
+  "trace_vision": false,
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "CPU",
+  "history_tokens": 141,
+  "removed_tokens": 0,
+  "observation_tokens": 600,
+  "next_position": 233,
+  "upload_bytes": 5201532,
+  "download_bytes": 27331932,
+  "transfer_checked": true,
+  "first_token": 515,
+  "first_piece": "{\n",
+  "eog": true,
+  "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+  "generated_ids": [
+    515,
+    220,
+    330,
+    8174,
+    788,
+    330,
+    44911,
+    14566,
+    756,
+    220,
+    330,
+    1311,
+    788,
+    330,
+    11489,
+    698,
+    92
+  ],
+  "timing_ms": {
+    "a2o_wall_ms": 2002.05,
+    "decode_ms": 1610.77,
+    "download_checked_ms": 39.8549,
+    "history_prefill_ms": 3560.47,
+    "image_preprocess_ms": 10.497,
+    "kv_select_ms": 5.24521e-05,
+    "llm_prefill_ms": 7888.73,
+    "model_context_init_ms": 15002.3,
+    "observation_eval_ms": 7917.03,
+    "observation_to_response_ms": 11767.9,
+    "prep_overrun_ms": 0,
+    "prep_work_ms": 5.24521e-05,
+    "upload_checked_ms": 5.7775,
+    "vision_embedding_load_ms": 16.8048,
+    "vision_init_ms": 1992.13,
+    "vision_release_ms": 197.696
+  },
+  "resources": {
+    "contexts_ready": {
+      "RssAnon_kib": 309396,
+      "RssFile_kib": 549544,
+      "VmRSS_kib": 859452,
+      "VmSwap_kib": 65276,
+      "major_faults": 227,
+      "minor_faults": 125022
+    },
+    "decode_end": {
+      "RssAnon_kib": 253172,
+      "RssFile_kib": 1707048,
+      "VmRSS_kib": 1960732,
+      "VmSwap_kib": 153660,
+      "major_faults": 47005,
+      "minor_faults": 475961
+    },
+    "decode_start": {
+      "RssAnon_kib": 250156,
+      "RssFile_kib": 659752,
+      "VmRSS_kib": 910420,
+      "VmSwap_kib": 156800,
+      "major_faults": 46635,
+      "minor_faults": 456578
+    },
+    "history_ready": {
+      "RssAnon_kib": 344064,
+      "RssFile_kib": 1723688,
+      "VmRSS_kib": 2068264,
+      "VmSwap_kib": 51224,
+      "major_faults": 746,
+      "minor_faults": 154268
+    },
+    "observation_arrival": {
+      "RssAnon_kib": 344064,
+      "RssFile_kib": 1723688,
+      "VmRSS_kib": 2068264,
+      "VmSwap_kib": 51224,
+      "major_faults": 746,
+      "minor_faults": 154269
+    },
+    "observation_evaluated": {
+      "RssAnon_kib": 556424,
+      "RssFile_kib": 659752,
+      "VmRSS_kib": 1216688,
+      "VmSwap_kib": 1157080,
+      "major_faults": 38702,
+      "minor_faults": 455755
+    },
+    "vision_ready": {
+      "RssAnon_kib": 1390284,
+      "RssFile_kib": 1279784,
+      "VmRSS_kib": 2670580,
+      "VmSwap_kib": 310648,
+      "major_faults": 792,
+      "minor_faults": 444519
+    },
+    "vision_released": {
+      "RssAnon_kib": 204504,
+      "RssFile_kib": 659752,
+      "VmRSS_kib": 864768,
+      "VmSwap_kib": 201840,
+      "major_faults": 38713,
+      "minor_faults": 455755
+    }
+  },
+  "response_check": {
+    "passed": true,
+    "json_action_passed": true,
+    "parsed": {
+      "screen": "Developer Options",
+      "action": "wait"
+    },
+    "response_format": "json",
+    "strict_format_passed": true,
+    "screen_passed": true
+  },
+  "process_wall_ms": 32827.14354200289,
+  "budget_adjusted_response_ms": 11767.9
+}

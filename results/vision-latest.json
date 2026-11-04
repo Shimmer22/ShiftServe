@@ -1,0 +1,12 @@
+[
+  {
+    "config": "cpu-none",
+    "scenario": "screenshot",
+    "passed": false
+  },
+  {
+    "config": "npu-none",
+    "scenario": "screenshot",
+    "passed": false
+  }
+]

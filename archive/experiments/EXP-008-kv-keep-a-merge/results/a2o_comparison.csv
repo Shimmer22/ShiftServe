@@ -1,0 +1,8 @@
+framework,a2o_budget_ms,prep_ms,fits_budget,budget_source
+UI-TARS-desktop (ADB),1345.4,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+Mobile-Agent-v1,2546.6,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+Mobile-Agent-v3,3546.6,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+AndroidLab,5703.6,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+Mobile-Agent-v2/E,6546.6,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+AppAgent,12703.6,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md
+AndroidWorld M3A (wait only),2000.0,1.0592080070637167,True,EXP-005-a2o-fixed-wait/results/a2o_summary_table.md

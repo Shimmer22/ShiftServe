@@ -1,0 +1,111 @@
+{
+  "mode": "npu",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "OpenCL",
+  "history_tokens": 0,
+  "removed_tokens": 0,
+  "observation_tokens": 622,
+  "next_position": 121,
+  "upload_bytes": 0,
+  "download_bytes": 0,
+  "transfer_checked": false,
+  "first_token": 73594,
+  "first_piece": "```",
+  "eog": true,
+  "output": "```json\n{\n  \"screen\": \"19:49\",\n  \"action\": \"wait\"\n}\n```",
+  "generated_ids": [
+    73594,
+    2236,
+    198,
+    515,
+    220,
+    330,
+    8174,
+    788,
+    330,
+    16,
+    24,
+    25,
+    19,
+    24,
+    756,
+    220,
+    330,
+    1311,
+    788,
+    330,
+    11489,
+    698,
+    532,
+    73594
+  ],
+  "timing_ms": {
+    "a2o_wall_ms": 0.00218725,
+    "decode_ms": 3120.96,
+    "history_prefill_ms": 0.000469208,
+    "kv_select_ms": 0.000312328,
+    "model_context_init_ms": 20590,
+    "observation_eval_ms": 23544.9,
+    "observation_to_response_ms": 29432.3,
+    "prep_overrun_ms": 0.000312328,
+    "vision_init_ms": 2765.61
+  },
+  "resources": {
+    "contexts_ready": {
+      "RssAnon_kib": 433396,
+      "RssFile_kib": 41744,
+      "VmRSS_kib": 475524,
+      "VmSwap_kib": 0,
+      "major_faults": 135,
+      "minor_faults": 48297
+    },
+    "decode_end": {
+      "RssAnon_kib": 246280,
+      "RssFile_kib": 1363600,
+      "VmRSS_kib": 1610264,
+      "VmSwap_kib": 265160,
+      "major_faults": 13445,
+      "minor_faults": 413789
+    },
+    "decode_start": {
+      "RssAnon_kib": 268684,
+      "RssFile_kib": 1363600,
+      "VmRSS_kib": 1632668,
+      "VmSwap_kib": 242476,
+      "major_faults": 13412,
+      "minor_faults": 398021
+    },
+    "history_ready": {
+      "RssAnon_kib": 433396,
+      "RssFile_kib": 42000,
+      "VmRSS_kib": 475780,
+      "VmSwap_kib": 0,
+      "major_faults": 135,
+      "minor_faults": 48300
+    },
+    "observation_arrival": {
+      "RssAnon_kib": 433396,
+      "RssFile_kib": 42000,
+      "VmRSS_kib": 475780,
+      "VmSwap_kib": 0,
+      "major_faults": 135,
+      "minor_faults": 48300
+    },
+    "observation_evaluated": {
+      "RssAnon_kib": 268684,
+      "RssFile_kib": 1363600,
+      "VmRSS_kib": 1632668,
+      "VmSwap_kib": 242476,
+      "major_faults": 13407,
+      "minor_faults": 398021
+    }
+  },
+  "response_check": {
+    "passed": false,
+    "reason": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "process_wall_ms": 50528.49704097025,
+  "budget_adjusted_response_ms": 29432.300312328
+}

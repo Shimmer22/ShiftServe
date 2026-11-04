@@ -1,0 +1,15 @@
+{
+  "paths": ["CC", "HH", "HC", "CH"],
+  "homes": ["cpu", "htp"],
+  "history_tokens": [1024, 4096],
+  "new_tokens": [16, 64],
+  "decode_prefix_tokens": [1, 2, 4],
+  "gap_ms": [0, 25, 100, 500],
+  "repetitions": 3,
+  "context_size": 5120,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "timeout_s_per_history": 1200,
+  "workload": "text short-action calibration; full free-generation JSON validation plus measured decode prefixes; common GPU ViT excluded"
+}

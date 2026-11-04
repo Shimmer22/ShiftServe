@@ -1,0 +1,6 @@
+cls,iter,inject,status,n_frames,inject_ms,mean_capture_ms,lower_ms,mid_ms,upper_ms,from_inject_start_mid_ms
+noop,0,:,no_change,6,9.9,284.5,,,,
+noop,1,:,no_change,6,8.4,237.9,,,,
+noop,2,:,no_change,6,24.0,239.3,,,,
+noop,3,:,no_change,6,10.8,238.6,,,,
+noop,4,:,no_change,6,8.0,239.3,,,,

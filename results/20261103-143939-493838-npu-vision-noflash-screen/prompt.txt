@@ -1,0 +1,1 @@
+Identify the current settings page. Return one JSON object with keys screen and action. The action must be "wait". Do not use markdown.

@@ -1,0 +1,13 @@
+{"step": "aw_home_S", "rep": 0, "image_tokens": 324, "vit_ms": 10346, "image_prefill_ms": 19593, "perf_prompt_tokens": 363, "perf_prompt_eval_ms": 33150.24, "decode_tokens": 27, "decode_ms": 2563.22, "wall_s": 38.68}
+{"step": "aw_home_S", "rep": 1, "image_tokens": 324, "vit_ms": 12830, "image_prefill_ms": 21256, "perf_prompt_tokens": 363, "perf_prompt_eval_ms": 36974.39, "decode_tokens": 27, "decode_ms": 2780.34, "wall_s": 43.19}
+{"step": "aw_home_S", "rep": 2, "image_tokens": 324, "vit_ms": 12030, "image_prefill_ms": 22818, "perf_prompt_tokens": 363, "perf_prompt_eval_ms": 38110.32, "decode_tokens": 27, "decode_ms": 2728.69, "wall_s": 44.12}
+{"step": "aw_home_M", "rep": 0, "image_tokens": 560, "vit_ms": 22496, "image_prefill_ms": 36655, "perf_prompt_tokens": 599, "perf_prompt_eval_ms": 62778.54, "decode_tokens": 27, "decode_ms": 2922.72, "wall_s": 69.24}
+{"step": "aw_home_M", "rep": 1, "image_tokens": 560, "vit_ms": 22883, "image_prefill_ms": 37845, "perf_prompt_tokens": 599, "perf_prompt_eval_ms": 63920.29, "decode_tokens": 27, "decode_ms": 2661.33, "wall_s": 70.53}
+{"step": "aw_home_M", "rep": 2, "image_tokens": 560, "vit_ms": 22891, "image_prefill_ms": 40033, "perf_prompt_tokens": 599, "perf_prompt_eval_ms": 66005.36, "decode_tokens": 27, "decode_ms": 2559.79, "wall_s": 72.07}
+{"step": "aw_home_L", "rep": 0, "image_tokens": 880, "vit_ms": 40563, "image_prefill_ms": 73988, "perf_prompt_tokens": 919, "perf_prompt_eval_ms": 118463.35, "decode_tokens": 27, "decode_ms": 3287.44, "wall_s": 125.88}
+{"step": "desk0_M", "rep": 0, "image_tokens": 476, "vit_ms": 23962, "image_prefill_ms": 40157, "perf_prompt_tokens": 515, "perf_prompt_eval_ms": 68345.26, "decode_tokens": 21, "decode_ms": 2574.51, "wall_s": 75.84}
+{"step": "desk1_M", "rep": 0, "image_tokens": 476, "vit_ms": 23634, "image_prefill_ms": 40645, "perf_prompt_tokens": 515, "perf_prompt_eval_ms": 68392.96, "decode_tokens": 19, "decode_ms": 2198.29, "wall_s": 75.14}
+{"step": "text_only", "rep": 0, "image_tokens": null, "vit_ms": null, "image_prefill_ms": null, "perf_prompt_tokens": null, "perf_prompt_eval_ms": null, "decode_tokens": null, "decode_ms": null, "wall_s": 18.95}
+{"step": "text_only", "rep": 1, "image_tokens": null, "vit_ms": null, "image_prefill_ms": null, "perf_prompt_tokens": null, "perf_prompt_eval_ms": null, "decode_tokens": null, "decode_ms": null, "wall_s": 29.08}
+{"step": "text_only", "rep": 2, "image_tokens": null, "vit_ms": null, "image_prefill_ms": null, "perf_prompt_tokens": null, "perf_prompt_eval_ms": null, "decode_tokens": null, "decode_ms": null, "wall_s": 23.0}
+DONE

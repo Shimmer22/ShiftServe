@@ -1,0 +1,41 @@
+{
+  "device": "10.29.11.213:42629",
+  "backend": "HTP0",
+  "prompt": "Next screenshot observation: Wi-Fi switch is on the screen. Reply with the next GUI action briefly.",
+  "chat_template": false,
+  "repeats": 1,
+  "conditions": {
+    "keep_all": {
+      "apply": {
+        "apply_ms": 0.000208378,
+        "dropped": 0,
+        "kept": 171,
+        "seq_bytes_compressed": 6308052
+      },
+      "prefill": {
+        "next_prompt_tokens": 20,
+        "prefill_next_ms": 421.186,
+        "decode_ms": 0.247187,
+        "gen": "<|im_end|>"
+      },
+      "apply_process_wall_ms": 16758.814083004836,
+      "prefill_process_wall_ms": 15675.06300000241
+    },
+    "policy": {
+      "apply": {
+        "apply_ms": 0.019114,
+        "dropped": 56,
+        "kept": 115,
+        "seq_bytes_compressed": 4242548
+      },
+      "prefill": {
+        "next_prompt_tokens": 20,
+        "prefill_next_ms": 416.388,
+        "decode_ms": 0.257448,
+        "gen": "<|im_end|>"
+      },
+      "apply_process_wall_ms": 14972.626916016452,
+      "prefill_process_wall_ms": 15080.10016597109
+    }
+  }
+}

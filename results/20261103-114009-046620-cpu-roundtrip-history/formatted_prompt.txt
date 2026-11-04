@@ -1,0 +1,9 @@
+<|im_start|>system
+You are a GUI agent. Follow the user task and respond concisely.<|im_end|>
+<|im_start|>user
+Task: Open Settings and enable Wi-Fi. The Settings screen shows a Wi-Fi entry.<|im_end|>
+<|im_start|>assistant
+{"action":"tap","target":"Wi-Fi"}<|im_end|>
+<|im_start|>user
+The Wi-Fi page is now open. To confirm that you remember the task, reply exactly WIFI.<|im_end|>
+<|im_start|>assistant

@@ -1,0 +1,31 @@
+{
+  "n_pos": 171,
+  "n_keep": 115,
+  "n_drop": 56,
+  "compression_ratio_tokens": 0.672514619883041,
+  "action_prev_intact": true,
+  "policy_tokens_in": 171,
+  "policy_tokens_out_logical": 112,
+  "policy_compression_logical": 0.6549707602339181,
+  "note": "writeback mask uses exemplar-keep for merge clusters (not centroid KV rewrite)",
+  "bytes_in_est": 6303744,
+  "bytes_out_est_mask": 4239360,
+  "action_prev_detail": {
+    "n_tokens_unchanged": true,
+    "checksum_unchanged": true,
+    "checksum": "a27b471ed12a15b4"
+  },
+  "timing_ms_policy": {
+    "keep_phase": 0.12029102072119713,
+    "merge_phase": 7.7480420004576445,
+    "policy_total": 7.868333021178842,
+    "host_memcpy_out_bytes": 0.24087500059977174,
+    "npu_dma_warmup": 0.0
+  },
+  "npu_dma": {
+    "status": "stub",
+    "hexagon_dma": false,
+    "elapsed_ms": 0.0,
+    "note": "NPU DMA warmup not implemented this round"
+  }
+}

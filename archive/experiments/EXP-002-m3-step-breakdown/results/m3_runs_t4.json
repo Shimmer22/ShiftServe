@@ -1,0 +1,470 @@
+[
+  {
+    "vit_ms": 10346,
+    "image_tokens": 324,
+    "image_prefill_ms": 19593,
+    "load_ms": 618.1,
+    "perf_prompt_eval_ms": 33150.24,
+    "perf_prompt_tokens": 363,
+    "decode_ms": 2563.22,
+    "decode_tokens": 27,
+    "perf_total_ms": 37103.67,
+    "step": "aw_home_S",
+    "kind": "image",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 38.68,
+    "ctx_before": {
+      "load1_5_15": [
+        "14.16",
+        "13.89",
+        "14.57"
+      ],
+      "mem_available_kb": 4855044,
+      "mem_free_kb": 1602724,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "15.40",
+        "14.24",
+        "14.66"
+      ],
+      "mem_available_kb": 5154984,
+      "mem_free_kb": 1852760,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [126, 502]\n}\n```"
+  },
+  {
+    "vit_ms": 12830,
+    "image_tokens": 324,
+    "image_prefill_ms": 21256,
+    "load_ms": 749.84,
+    "perf_prompt_eval_ms": 36974.39,
+    "perf_prompt_tokens": 363,
+    "decode_ms": 2780.34,
+    "decode_tokens": 27,
+    "perf_total_ms": 41382.64,
+    "step": "aw_home_S",
+    "kind": "image",
+    "rep": 1,
+    "threads": 4,
+    "wall_s": 43.19,
+    "ctx_before": {
+      "load1_5_15": [
+        "15.40",
+        "14.24",
+        "14.66"
+      ],
+      "mem_available_kb": 5152312,
+      "mem_free_kb": 1842796,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "15.93",
+        "14.52",
+        "14.73"
+      ],
+      "mem_available_kb": 5053476,
+      "mem_free_kb": 1827156,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [126, 502]\n}\n```"
+  },
+  {
+    "vit_ms": 12030,
+    "image_tokens": 324,
+    "image_prefill_ms": 22818,
+    "load_ms": 774.07,
+    "perf_prompt_eval_ms": 38110.32,
+    "perf_prompt_tokens": 363,
+    "decode_ms": 2728.69,
+    "decode_tokens": 27,
+    "perf_total_ms": 42404.92,
+    "step": "aw_home_S",
+    "kind": "image",
+    "rep": 2,
+    "threads": 4,
+    "wall_s": 44.12,
+    "ctx_before": {
+      "load1_5_15": [
+        "15.93",
+        "14.52",
+        "14.73"
+      ],
+      "mem_available_kb": 5048232,
+      "mem_free_kb": 1821808,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "16.09",
+        "14.76",
+        "14.81"
+      ],
+      "mem_available_kb": 5041360,
+      "mem_free_kb": 1661936,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [126, 502]\n}\n```"
+  },
+  {
+    "vit_ms": 22496,
+    "image_tokens": 560,
+    "image_prefill_ms": 36655,
+    "load_ms": 704.53,
+    "perf_prompt_eval_ms": 62778.54,
+    "perf_prompt_tokens": 599,
+    "decode_ms": 2922.72,
+    "decode_tokens": 27,
+    "perf_total_ms": 67341.23,
+    "step": "aw_home_M",
+    "kind": "image",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 69.24,
+    "ctx_before": {
+      "load1_5_15": [
+        "16.09",
+        "14.76",
+        "14.81"
+      ],
+      "mem_available_kb": 4992552,
+      "mem_free_kb": 1612948,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "16.12",
+        "15.07",
+        "14.91"
+      ],
+      "mem_available_kb": 5044784,
+      "mem_free_kb": 1876832,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [170, 642]\n}\n```"
+  },
+  {
+    "vit_ms": 22883,
+    "image_tokens": 560,
+    "image_prefill_ms": 37845,
+    "load_ms": 730.92,
+    "perf_prompt_eval_ms": 63920.29,
+    "perf_prompt_tokens": 599,
+    "decode_ms": 2661.33,
+    "decode_tokens": 27,
+    "perf_total_ms": 68580.59,
+    "step": "aw_home_M",
+    "kind": "image",
+    "rep": 1,
+    "threads": 4,
+    "wall_s": 70.53,
+    "ctx_before": {
+      "load1_5_15": [
+        "16.12",
+        "15.07",
+        "14.91"
+      ],
+      "mem_available_kb": 5041872,
+      "mem_free_kb": 1873864,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "16.27",
+        "15.35",
+        "15.03"
+      ],
+      "mem_available_kb": 5233372,
+      "mem_free_kb": 2065708,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [170, 642]\n}\n```"
+  },
+  {
+    "vit_ms": 22891,
+    "image_tokens": 560,
+    "image_prefill_ms": 40033,
+    "load_ms": 684.36,
+    "perf_prompt_eval_ms": 66005.36,
+    "perf_prompt_tokens": 599,
+    "decode_ms": 2559.79,
+    "decode_tokens": 27,
+    "perf_total_ms": 70221.6,
+    "step": "aw_home_M",
+    "kind": "image",
+    "rep": 2,
+    "threads": 4,
+    "wall_s": 72.07,
+    "ctx_before": {
+      "load1_5_15": [
+        "16.27",
+        "15.35",
+        "15.03"
+      ],
+      "mem_available_kb": 5231356,
+      "mem_free_kb": 2062920,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "16.18",
+        "15.52",
+        "15.11"
+      ],
+      "mem_available_kb": 5248580,
+      "mem_free_kb": 1983508,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [170, 642]\n}\n```"
+  },
+  {
+    "vit_ms": 40563,
+    "image_tokens": 880,
+    "image_prefill_ms": 73988,
+    "load_ms": 777.43,
+    "perf_prompt_eval_ms": 118463.35,
+    "perf_prompt_tokens": 919,
+    "decode_ms": 3287.44,
+    "decode_tokens": 27,
+    "perf_total_ms": 123477.77,
+    "step": "aw_home_L",
+    "kind": "image",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 125.88,
+    "ctx_before": {
+      "load1_5_15": [
+        "16.18",
+        "15.52",
+        "15.11"
+      ],
+      "mem_available_kb": 5245260,
+      "mem_free_kb": 1980180,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "18.57",
+        "16.78",
+        "15.63"
+      ],
+      "mem_available_kb": 4945464,
+      "mem_free_kb": 1675412,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"click\",\n  \"coordinate\": [212, 812]\n}\n```"
+  },
+  {
+    "vit_ms": 23962,
+    "image_tokens": 476,
+    "image_prefill_ms": 40157,
+    "load_ms": 967.11,
+    "perf_prompt_eval_ms": 68345.26,
+    "perf_prompt_tokens": 515,
+    "decode_ms": 2574.51,
+    "decode_tokens": 21,
+    "perf_total_ms": 73374.86,
+    "step": "desk0_M",
+    "kind": "image",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 75.84,
+    "ctx_before": {
+      "load1_5_15": [
+        "18.57",
+        "16.78",
+        "15.63"
+      ],
+      "mem_available_kb": 4938604,
+      "mem_free_kb": 1663344,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "18.99",
+        "17.42",
+        "15.96"
+      ],
+      "mem_available_kb": 5210272,
+      "mem_free_kb": 2124612,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n{\n  \"action\": \"system_button\",\n  \"button\": \"Home\"\n}\n```"
+  },
+  {
+    "vit_ms": 23634,
+    "image_tokens": 476,
+    "image_prefill_ms": 40645,
+    "load_ms": 856.59,
+    "perf_prompt_eval_ms": 68392.96,
+    "perf_prompt_tokens": 515,
+    "decode_ms": 2198.29,
+    "decode_tokens": 19,
+    "perf_total_ms": 72753.33,
+    "step": "desk1_M",
+    "kind": "image",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 75.14,
+    "ctx_before": {
+      "load1_5_15": [
+        "18.99",
+        "17.42",
+        "15.96"
+      ],
+      "mem_available_kb": 5226364,
+      "mem_free_kb": 2140680,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "20.68",
+        "18.26",
+        "16.36"
+      ],
+      "mem_available_kb": 5265496,
+      "mem_free_kb": 1997376,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "```json\n[\n\t{\"action\": \"system_button\", \"button\": \"Home\"}}\n```"
+  },
+  {
+    "vit_ms": null,
+    "image_tokens": null,
+    "image_prefill_ms": null,
+    "load_ms": null,
+    "perf_prompt_eval_ms": null,
+    "perf_prompt_tokens": null,
+    "decode_ms": null,
+    "decode_tokens": null,
+    "perf_total_ms": null,
+    "step": "text_only",
+    "kind": "text",
+    "rep": 0,
+    "threads": 4,
+    "wall_s": 18.95,
+    "ctx_before": {
+      "load1_5_15": [
+        "20.68",
+        "18.26",
+        "16.36"
+      ],
+      "mem_available_kb": 5347076,
+      "mem_free_kb": 2416084,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "21.00",
+        "18.49",
+        "16.48"
+      ],
+      "mem_available_kb": 3495976,
+      "mem_free_kb": 1581548,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "Running in chat mode, available commands:\n   /image <path>    load an image\n   /clear           clear the chat history\n   /quit or /exit   exit the program\n\n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> "
+  },
+  {
+    "vit_ms": null,
+    "image_tokens": null,
+    "image_prefill_ms": null,
+    "load_ms": null,
+    "perf_prompt_eval_ms": null,
+    "perf_prompt_tokens": null,
+    "decode_ms": null,
+    "decode_tokens": null,
+    "perf_total_ms": null,
+    "step": "text_only",
+    "kind": "text",
+    "rep": 1,
+    "threads": 4,
+    "wall_s": 29.08,
+    "ctx_before": {
+      "load1_5_15": [
+        "21.00",
+        "18.49",
+        "16.48"
+      ],
+      "mem_available_kb": 4566868,
+      "mem_free_kb": 2523092,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "27.39",
+        "20.21",
+        "17.11"
+      ],
+      "mem_available_kb": 3628852,
+      "mem_free_kb": 1446884,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "Running in chat mode, available commands:\n   /image <path>    load an image\n   /clear           clear the chat history\n   /quit or /exit   exit the program\n\n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> "
+  },
+  {
+    "vit_ms": null,
+    "image_tokens": null,
+    "image_prefill_ms": null,
+    "load_ms": null,
+    "perf_prompt_eval_ms": null,
+    "perf_prompt_tokens": null,
+    "decode_ms": null,
+    "decode_tokens": null,
+    "perf_total_ms": null,
+    "step": "text_only",
+    "kind": "text",
+    "rep": 2,
+    "threads": 4,
+    "wall_s": 23.0,
+    "ctx_before": {
+      "load1_5_15": [
+        "27.39",
+        "20.21",
+        "17.11"
+      ],
+      "mem_available_kb": 4191288,
+      "mem_free_kb": 1876728,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "ctx_after": {
+      "load1_5_15": [
+        "24.24",
+        "19.95",
+        "17.09"
+      ],
+      "mem_available_kb": 3021220,
+      "mem_free_kb": 1897928,
+      "battery_temp_deci_c": "",
+      "battery_pct": null
+    },
+    "output_text": "Running in chat mode, available commands:\n   /image <path>    load an image\n   /clear           clear the chat history\n   /quit or /exit   exit the program\n\n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> \n> "
+  }
+]

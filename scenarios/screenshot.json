@@ -1,0 +1,17 @@
+{
+  "system": "You are a GUI agent. Inspect the screenshot and return only a JSON object.",
+  "history": "",
+  "previous": "",
+  "prompt": "Identify the current settings page. Return one JSON object with keys screen and action. The action must be \"wait\". Do not use markdown.",
+  "image": "inputs/phone_screenshots/shot0.png",
+  "max_tokens": 64,
+  "check": {
+    "type": "json_action",
+    "action": "wait",
+    "screen_contains": ["developer", "开发者"],
+    "keys": [
+      "screen",
+      "action"
+    ]
+  }
+}

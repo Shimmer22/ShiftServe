@@ -1,0 +1,106 @@
+{
+  "aw_home_S": {
+    "n": 3,
+    "image_tokens": 324,
+    "text_tokens": 39,
+    "decode_tokens": [
+      27,
+      27,
+      27
+    ],
+    "vit_ms_mean_ms": 11735.0,
+    "image_prefill_ms_mean_ms": 21222.0,
+    "text_prefill_residual_ms_mean_ms": 3121.0,
+    "decode_ms_mean_ms": 2691.0,
+    "vit_min_max": [
+      10346,
+      12830
+    ],
+    "image_prefill_min_max": [
+      19593,
+      22818
+    ]
+  },
+  "aw_home_M": {
+    "n": 3,
+    "image_tokens": 560,
+    "text_tokens": 39,
+    "decode_tokens": [
+      27,
+      27,
+      27
+    ],
+    "vit_ms_mean_ms": 22757.0,
+    "image_prefill_ms_mean_ms": 38178.0,
+    "text_prefill_residual_ms_mean_ms": 3300.0,
+    "decode_ms_mean_ms": 2715.0,
+    "vit_min_max": [
+      22496,
+      22891
+    ],
+    "image_prefill_min_max": [
+      36655,
+      40033
+    ]
+  },
+  "aw_home_L": {
+    "n": 1,
+    "image_tokens": 880,
+    "text_tokens": 39,
+    "decode_tokens": [
+      27
+    ],
+    "vit_ms_mean_ms": 40563.0,
+    "image_prefill_ms_mean_ms": 73988.0,
+    "text_prefill_residual_ms_mean_ms": 3912.0,
+    "decode_ms_mean_ms": 3287.0,
+    "vit_min_max": [
+      40563,
+      40563
+    ],
+    "image_prefill_min_max": [
+      73988,
+      73988
+    ]
+  },
+  "desk0_M": {
+    "n": 1,
+    "image_tokens": 476,
+    "text_tokens": 39,
+    "decode_tokens": [
+      21
+    ],
+    "vit_ms_mean_ms": 23962.0,
+    "image_prefill_ms_mean_ms": 40157.0,
+    "text_prefill_residual_ms_mean_ms": 4226.0,
+    "decode_ms_mean_ms": 2575.0,
+    "vit_min_max": [
+      23962,
+      23962
+    ],
+    "image_prefill_min_max": [
+      40157,
+      40157
+    ]
+  },
+  "desk1_M": {
+    "n": 1,
+    "image_tokens": 476,
+    "text_tokens": 39,
+    "decode_tokens": [
+      19
+    ],
+    "vit_ms_mean_ms": 23634.0,
+    "image_prefill_ms_mean_ms": 40645.0,
+    "text_prefill_residual_ms_mean_ms": 4114.0,
+    "decode_ms_mean_ms": 2198.0,
+    "vit_min_max": [
+      23634,
+      23634
+    ],
+    "image_prefill_min_max": [
+      40645,
+      40645
+    ]
+  }
+}

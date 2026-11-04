@@ -1,0 +1,12 @@
+{
+  "history_tokens": [141, 1024, 4096, 8192],
+  "new_tokens": [64, 256, 560, 1024],
+  "gap_ms": [0, 100, 500, 2000],
+  "repetitions": 3,
+  "context_size": 10240,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "timeout_s_per_history": 1800,
+  "workload": "text_suffix; GPU vision common cost excluded; no vision weights resident"
+}

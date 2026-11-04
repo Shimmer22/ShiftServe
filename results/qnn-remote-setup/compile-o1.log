@@ -1,0 +1,11 @@
+context
+Traceback (most recent call last):
+  File "/workspace/projects/a2o-gap-profiling/scripts/compile_qnn_vision.py", line 60, in <module>
+    main()
+  File "/workspace/projects/a2o-gap-profiling/scripts/compile_qnn_vision.py", line 50, in main
+    run('context', [tools / 'qnn-context-binary-generator', '--backend', libs / 'libQnnHtp.so',
+  File "/workspace/projects/a2o-gap-profiling/scripts/compile_qnn_vision.py", line 36, in run
+    subprocess.run([str(x) for x in cmd], env=env, check=True, stdout=log,
+  File "/usr/local/lib/python3.10/subprocess.py", line 526, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/workspace/tools/qairt/2.51.1.261002/bin/x86_64-linux-clang/qnn-context-binary-generator', '--backend', '/workspace/tools/qairt/2.51.1.261002/lib/x86_64-linux-clang/libQnnHtp.so', '--model', '/workspace/tools/qairt/2.51.1.261002/lib/x86_64-linux-clang/libQnnModelDlc.so', '--dlc_path', '/workspace/outputs/a2o-gap-profiling/20261103-qnn-vision-dlc/vision_encoder.dlc', '--binary_file', 'vision_encoder', '--output_dir', '/workspace/outputs/a2o-gap-profiling/20261103-qnn-vision-htp-o1/context', '--config_file', '/workspace/outputs/a2o-gap-profiling/20261103-qnn-vision-htp-o1/extensions.json', '--optimization_level_override', '1']' died with <Signals.SIGTERM: 15>.

@@ -1,0 +1,6 @@
+{
+  "mode": "npu",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "raw"
+}

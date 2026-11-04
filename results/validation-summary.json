@@ -1,0 +1,1085 @@
+{
+  "runs": [
+    {
+      "run": "results/20261103-113731-880809-npu-ready",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "READY",
+      "initial_check": {
+        "passed": true,
+        "expected": "READY"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected": "READY"
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00218725,
+        "decode_ms": 77.4659,
+        "history_prefill_ms": 0.000364304,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 17705.4,
+        "observation_eval_ms": 551.17,
+        "observation_to_response_ms": 629.029,
+        "prep_overrun_ms": 0.000155926
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-113839-593799-raw-original",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "raw",
+      "output": "",
+      "initial_check": {
+        "passed": false
+      },
+      "evaluation": {
+        "passed": false
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.001719,
+        "decode_ms": 0.00135422,
+        "history_prefill_ms": 0.00260401,
+        "kv_select_ms": 5.19753e-05,
+        "model_context_init_ms": 15635.7,
+        "observation_eval_ms": 1493.31,
+        "observation_to_response_ms": 1493.91,
+        "prep_overrun_ms": 5.19753e-05
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-113915-241542-npu-none-original-context",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "Toggle the Wi-Fi switch to enable it.",
+      "initial_check": {
+        "passed": true
+      },
+      "evaluation": {
+        "passed": true
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00151014,
+        "decode_ms": 1033.33,
+        "history_prefill_ms": 0.000313282,
+        "kv_select_ms": 5.19753e-05,
+        "model_context_init_ms": 14900.6,
+        "observation_eval_ms": 1565.13,
+        "observation_to_response_ms": 2599.84,
+        "prep_overrun_ms": 5.19753e-05
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-113934-484043-cpu-none-ready",
+      "mode": "cpu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "READY",
+      "initial_check": {
+        "passed": true,
+        "expected": "READY"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected": "READY"
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00187492,
+        "decode_ms": 38.5022,
+        "history_prefill_ms": 0.000364304,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 14416.2,
+        "observation_eval_ms": 740.684,
+        "observation_to_response_ms": 779.598,
+        "prep_overrun_ms": 0.000155926
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-113951-524660-npu-roundtrip-history",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 59,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00374985,
+        "decode_ms": 223.363,
+        "history_prefill_ms": 745.565,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 14119.1,
+        "observation_eval_ms": 676.764,
+        "observation_to_response_ms": 902.346,
+        "prep_overrun_ms": 0.000155926,
+        "same_backend_roundtrip_checked_ms": 8.93318
+      },
+      "same_backend_roundtrip": true,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-114009-046620-cpu-roundtrip-history",
+      "mode": "cpu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 59,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00338602,
+        "decode_ms": 78.5756,
+        "history_prefill_ms": 791.885,
+        "kv_select_ms": 0.000208855,
+        "model_context_init_ms": 14127.9,
+        "observation_eval_ms": 280.288,
+        "observation_to_response_ms": 359.38,
+        "prep_overrun_ms": 0.000208855,
+        "same_backend_roundtrip_checked_ms": 3.78677
+      },
+      "same_backend_roundtrip": true,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-114118-668900-cpu-none-history",
+      "mode": "cpu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WI-FI",
+      "initial_check": {
+        "passed": false,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "history_tokens": 140,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00213623,
+        "decode_ms": 125.736,
+        "history_prefill_ms": 1304.99,
+        "kv_select_ms": 0.000156879,
+        "model_context_init_ms": 14927.7,
+        "observation_eval_ms": 430.651,
+        "observation_to_response_ms": 558.649,
+        "prep_overrun_ms": 0.000156879
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114137-379475-cpu-recent-history",
+      "mode": "cpu",
+      "policy": "recent",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 140,
+      "removed_tokens": 95,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.0416675,
+        "decode_ms": 85.6059,
+        "history_prefill_ms": 1278.05,
+        "kv_select_ms": 0.0406251,
+        "model_context_init_ms": 14155,
+        "observation_eval_ms": 339.318,
+        "observation_to_response_ms": 427.135,
+        "prep_overrun_ms": 0.0406251
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114155-143889-npu-none-history",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WI-FI",
+      "initial_check": {
+        "passed": false,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "history_tokens": 140,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.0019269,
+        "decode_ms": 361.905,
+        "history_prefill_ms": 1296.49,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 14067.4,
+        "observation_eval_ms": 753.316,
+        "observation_to_response_ms": 1118.48,
+        "prep_overrun_ms": 0.000155926
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114213-390150-npu-recent-history",
+      "mode": "npu",
+      "policy": "recent",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 140,
+      "removed_tokens": 95,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.0482292,
+        "decode_ms": 244.386,
+        "history_prefill_ms": 1231.94,
+        "kv_select_ms": 0.046875,
+        "model_context_init_ms": 14320.4,
+        "observation_eval_ms": 754.541,
+        "observation_to_response_ms": 1004.53,
+        "prep_overrun_ms": 0.046875
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114232-081373-hybrid-none-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WI-FI",
+      "initial_check": {
+        "passed": false,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "history_tokens": 140,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5164648,
+      "download_bytes": 6308052,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00307274,
+        "decode_ms": 8021.62,
+        "download_checked_ms": 12.615,
+        "history_prefill_ms": 7126.41,
+        "kv_select_ms": 0.000103951,
+        "model_context_init_ms": 19487.7,
+        "observation_eval_ms": 941.706,
+        "observation_to_response_ms": 9070.7,
+        "prep_overrun_ms": 0.000103951,
+        "upload_checked_ms": 94.2265
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114310-300158-hybrid-none-pre-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": true,
+      "format": "chat",
+      "output": "WI-FI",
+      "initial_check": {
+        "passed": false,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "history_tokens": 140,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5164648,
+      "download_bytes": 6308052,
+      "timing_ms": {
+        "a2o_wall_ms": 35.9528,
+        "decode_ms": 5871.45,
+        "download_checked_ms": 9.49563,
+        "history_prefill_ms": 4379.48,
+        "kv_select_ms": 5.19753e-05,
+        "model_context_init_ms": 26705.8,
+        "observation_eval_ms": 876.677,
+        "observation_to_response_ms": 6758.16,
+        "prep_overrun_ms": 35.9343,
+        "upload_checked_ms": 35.9342
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114350-520186-hybrid-recent-history",
+      "mode": "hybrid",
+      "policy": "recent",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 140,
+      "removed_tokens": 95,
+      "transfer_checked": true,
+      "upload_bytes": 1660668,
+      "download_bytes": 2804072,
+      "timing_ms": {
+        "a2o_wall_ms": 1.60661,
+        "decode_ms": 10106.2,
+        "download_checked_ms": 18.7256,
+        "history_prefill_ms": 3517.11,
+        "kv_select_ms": 1.6051,
+        "model_context_init_ms": 25916.2,
+        "observation_eval_ms": 1579.97,
+        "observation_to_response_ms": 11770.6,
+        "prep_overrun_ms": 1.6051,
+        "upload_checked_ms": 64.7039
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-114434-133692-hybrid-recent-pre-history",
+      "mode": "hybrid",
+      "policy": "recent",
+      "pre_move": true,
+      "format": "chat",
+      "output": "WIFI",
+      "initial_check": {
+        "passed": true,
+        "expected": "WIFI"
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": true
+      },
+      "history_tokens": 140,
+      "removed_tokens": 95,
+      "transfer_checked": true,
+      "upload_bytes": 1660668,
+      "download_bytes": 2804072,
+      "timing_ms": {
+        "a2o_wall_ms": 32.2808,
+        "decode_ms": 2954.13,
+        "download_checked_ms": 7.13,
+        "history_prefill_ms": 6898.67,
+        "kv_select_ms": 1.40266,
+        "model_context_init_ms": 31340.2,
+        "observation_eval_ms": 989.941,
+        "observation_to_response_ms": 3951.76,
+        "prep_overrun_ms": 32.2767,
+        "upload_checked_ms": 30.874
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-143059-873138-cpu-none-screenshot",
+      "mode": "cpu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "```json\n{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}\n```",
+      "initial_check": {
+        "passed": false,
+        "reason": "Expecting value: line 1 column 1 (char 0)"
+      },
+      "evaluation": {
+        "passed": false,
+        "reason": "Expecting value: line 1 column 1 (char 0)"
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00177145,
+        "decode_ms": 1114.45,
+        "history_prefill_ms": 0.000312805,
+        "kv_select_ms": 0.000261307,
+        "model_context_init_ms": 18109.6,
+        "observation_eval_ms": 41552.8,
+        "observation_to_response_ms": 45620.1,
+        "prep_overrun_ms": 0.000261307,
+        "vision_init_ms": 2948.9
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-143206-872737-npu-none-screenshot",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "```json\n{\n  \"screen\": \"19:49\",\n  \"action\": \"wait\"\n}\n```",
+      "initial_check": {
+        "passed": false,
+        "reason": "Expecting value: line 1 column 1 (char 0)"
+      },
+      "evaluation": {
+        "passed": false,
+        "reason": "Expecting value: line 1 column 1 (char 0)"
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00218725,
+        "decode_ms": 3120.96,
+        "history_prefill_ms": 0.000469208,
+        "kv_select_ms": 0.000312328,
+        "model_context_init_ms": 20590,
+        "observation_eval_ms": 23544.9,
+        "observation_to_response_ms": 29432.3,
+        "prep_overrun_ms": 0.000312328,
+        "vision_init_ms": 2765.61
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-143620-782752-npu-vision-cpu-screen",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "```json\n{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}\n```",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": true
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00343895,
+        "decode_ms": 2983.74,
+        "history_prefill_ms": 0.000625134,
+        "kv_select_ms": 0.000156879,
+        "model_context_init_ms": 27365.9,
+        "observation_eval_ms": 49531.4,
+        "observation_to_response_ms": 55645.3,
+        "prep_overrun_ms": 0.000156879,
+        "vision_init_ms": 3125.76
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-143805-283219-cpu-vision-opencl-screen",
+      "mode": "cpu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "```json\n{\n  \"screen\": \"current\",\n  \"action\": \"wait\"\n}\n```",
+      "initial_check": {
+        "passed": false,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "current",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": false
+      },
+      "evaluation": {
+        "passed": false,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "current",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": false
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00213623,
+        "decode_ms": 1970.53,
+        "history_prefill_ms": 0.000677109,
+        "kv_select_ms": 0.000261307,
+        "model_context_init_ms": 27392.1,
+        "observation_eval_ms": 49319.8,
+        "observation_to_response_ms": 55547.8,
+        "prep_overrun_ms": 0.000261307,
+        "vision_init_ms": 4250.34
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-143939-493838-npu-vision-noflash-screen",
+      "mode": "npu",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "```json\n{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}\n```",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json_code_fence",
+        "strict_format_passed": false,
+        "screen_passed": true
+      },
+      "history_tokens": 0,
+      "removed_tokens": 0,
+      "transfer_checked": false,
+      "upload_bytes": 0,
+      "download_bytes": 0,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00234509,
+        "decode_ms": 2669.11,
+        "history_prefill_ms": 0.00109291,
+        "kv_select_ms": 0.000156879,
+        "model_context_init_ms": 30466.5,
+        "observation_eval_ms": 15756.6,
+        "observation_to_response_ms": 22335.4,
+        "prep_overrun_ms": 0.000156879,
+        "vision_init_ms": 3903.51
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-144129-955525-hybrid-mmap-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "WI-FI",
+      "initial_check": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "evaluation": {
+        "passed": true,
+        "expected_values": [
+          "WIFI",
+          "WI-FI"
+        ],
+        "strict_format_passed": false
+      },
+      "history_tokens": 140,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5164648,
+      "download_bytes": 6308052,
+      "timing_ms": {
+        "a2o_wall_ms": 0.0021348,
+        "decode_ms": 228.578,
+        "download_checked_ms": 6.4301,
+        "history_prefill_ms": 4586.67,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 24586.5,
+        "observation_eval_ms": 910.006,
+        "observation_to_response_ms": 1152.85,
+        "prep_overrun_ms": 0.000155926,
+        "upload_checked_ms": 7.02828
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": true
+    },
+    {
+      "run": "results/20261103-144216-731036-hybrid-mmap-screen-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5201532,
+      "download_bytes": 27331932,
+      "timing_ms": {
+        "a2o_wall_ms": 0.00166607,
+        "decode_ms": 5569.34,
+        "download_checked_ms": 26.1641,
+        "history_prefill_ms": 4566.36,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 19149.6,
+        "observation_eval_ms": 18010.2,
+        "observation_to_response_ms": 26959.9,
+        "prep_overrun_ms": 0.000155926,
+        "upload_checked_ms": 4.76911,
+        "vision_init_ms": 3343.66
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-144959-909906-hybrid-serial-screen-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5201532,
+      "download_bytes": 27331932,
+      "timing_ms": {
+        "a2o_wall_ms": 2000.28,
+        "decode_ms": 27797.1,
+        "download_checked_ms": 74.7081,
+        "history_prefill_ms": 5862.8,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 16390,
+        "observation_eval_ms": 17702.8,
+        "observation_to_response_ms": 48325.5,
+        "prep_overrun_ms": 0,
+        "upload_checked_ms": 4.60338,
+        "vision_init_ms": 2743.4
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-145229-319495-hybrid-none-screenshot-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": false,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5201532,
+      "download_bytes": 27331932,
+      "timing_ms": {
+        "a2o_wall_ms": 2001.93,
+        "decode_ms": 1805.65,
+        "download_checked_ms": 46.556,
+        "history_prefill_ms": 3300.32,
+        "kv_select_ms": 0.000155926,
+        "model_context_init_ms": 14123.4,
+        "observation_eval_ms": 17311.8,
+        "observation_to_response_ms": 22104.4,
+        "prep_overrun_ms": 0,
+        "upload_checked_ms": 7.65526,
+        "vision_init_ms": 2751.39,
+        "vision_release_ms": 179.68
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-145315-264640-hybrid-none-pre-screenshot-history",
+      "mode": "hybrid",
+      "policy": "none",
+      "pre_move": true,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 0,
+      "transfer_checked": true,
+      "upload_bytes": 5201532,
+      "download_bytes": 27331932,
+      "timing_ms": {
+        "a2o_wall_ms": 2002.19,
+        "decode_ms": 1807.64,
+        "download_checked_ms": 46.0039,
+        "history_prefill_ms": 3518.89,
+        "kv_select_ms": 0.000156403,
+        "model_context_init_ms": 14172.6,
+        "observation_eval_ms": 17066.2,
+        "observation_to_response_ms": 21004.6,
+        "prep_overrun_ms": 0,
+        "upload_checked_ms": 3.81792,
+        "vision_init_ms": 1925.96,
+        "vision_release_ms": 153.297
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-145358-148081-hybrid-recent-screenshot-history",
+      "mode": "hybrid",
+      "policy": "recent",
+      "pre_move": false,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 95,
+      "transfer_checked": true,
+      "upload_bytes": 1697552,
+      "download_bytes": 23827952,
+      "timing_ms": {
+        "a2o_wall_ms": 2002.16,
+        "decode_ms": 1907.12,
+        "download_checked_ms": 41.5186,
+        "history_prefill_ms": 3303.86,
+        "kv_select_ms": 0.0273428,
+        "model_context_init_ms": 14143.5,
+        "observation_eval_ms": 16746.3,
+        "observation_to_response_ms": 20828,
+        "prep_overrun_ms": 0,
+        "upload_checked_ms": 2.79151,
+        "vision_init_ms": 1985.02,
+        "vision_release_ms": 140.805
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    },
+    {
+      "run": "results/20261103-145440-670886-hybrid-recent-pre-screenshot-history",
+      "mode": "hybrid",
+      "policy": "recent",
+      "pre_move": true,
+      "format": "chat",
+      "output": "{\n  \"screen\": \"Developer Options\",\n  \"action\": \"wait\"\n}",
+      "initial_check": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "evaluation": {
+        "passed": true,
+        "json_action_passed": true,
+        "parsed": {
+          "screen": "Developer Options",
+          "action": "wait"
+        },
+        "response_format": "json",
+        "strict_format_passed": true,
+        "screen_passed": true
+      },
+      "history_tokens": 141,
+      "removed_tokens": 95,
+      "transfer_checked": true,
+      "upload_bytes": 1697552,
+      "download_bytes": 23827952,
+      "timing_ms": {
+        "a2o_wall_ms": 2001.95,
+        "decode_ms": 1752.7,
+        "download_checked_ms": 34.9446,
+        "history_prefill_ms": 3583.49,
+        "kv_select_ms": 0.0264587,
+        "model_context_init_ms": 14151,
+        "observation_eval_ms": 16984.6,
+        "observation_to_response_ms": 20984.6,
+        "prep_overrun_ms": 0,
+        "upload_checked_ms": 2.45734,
+        "vision_init_ms": 2072.77,
+        "vision_release_ms": 135.601
+      },
+      "same_backend_roundtrip": false,
+      "matrix_case": false
+    }
+  ],
+  "matrix": {
+    "conditions": 8,
+    "semantic_passed": 8,
+    "original_strict_format_passed": 4,
+    "hybrid_transfer_passed": 4,
+    "connection_check": {
+      "type": "one_of",
+      "values": [
+        "WIFI",
+        "WI-FI"
+      ],
+      "strict_value": "WIFI"
+    }
+  }
+}

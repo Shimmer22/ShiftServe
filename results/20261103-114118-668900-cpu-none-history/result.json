@@ -1,0 +1,38 @@
+{
+  "mode": "cpu",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "none",
+  "history_tokens": 140,
+  "removed_tokens": 0,
+  "observation_tokens": 31,
+  "next_position": 174,
+  "upload_bytes": 0,
+  "download_bytes": 0,
+  "transfer_checked": false,
+  "first_token": 60195,
+  "first_piece": "WI",
+  "eog": true,
+  "output": "WI-FI",
+  "generated_ids": [
+    60195,
+    7276,
+    40
+  ],
+  "timing_ms": {
+    "a2o_wall_ms": 0.00213623,
+    "decode_ms": 125.736,
+    "history_prefill_ms": 1304.99,
+    "kv_select_ms": 0.000156879,
+    "model_context_init_ms": 14927.7,
+    "observation_eval_ms": 430.651,
+    "observation_to_response_ms": 558.649,
+    "prep_overrun_ms": 0.000156879
+  },
+  "response_check": {
+    "passed": false,
+    "expected": "WIFI"
+  },
+  "process_wall_ms": 17160.848375002388
+}

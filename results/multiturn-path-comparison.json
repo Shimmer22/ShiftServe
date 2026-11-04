@@ -1,0 +1,38 @@
+{
+  "runs": [
+    "results/20261103-193638-545355-multiturn-serial",
+    "results/20261103-194350-190510-multiturn-cpu"
+  ],
+  "same_source": true,
+  "same_binary": true,
+  "passed": [
+    true,
+    true
+  ],
+  "turns": [
+    {
+      "turn": 0,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true
+    },
+    {
+      "turn": 1,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true
+    },
+    {
+      "turn": 2,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true
+    },
+    {
+      "turn": 3,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true
+    }
+  ]
+}

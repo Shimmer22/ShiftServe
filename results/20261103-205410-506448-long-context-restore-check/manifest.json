@@ -1,0 +1,36 @@
+{
+  "config": {
+    "history_tokens": [
+      8192
+    ],
+    "new_tokens": [
+      64
+    ],
+    "gap_ms": [
+      0,
+      100,
+      500,
+      2000
+    ],
+    "repetitions": 1,
+    "context_size": 10240,
+    "batch_size": 128,
+    "htp_queue": 1,
+    "htp_opbatch": 1,
+    "timeout_s_per_history": 1800,
+    "workload": "text_suffix; GPU vision common cost excluded; no vision weights resident"
+  },
+  "device": "10.29.11.213:32937",
+  "source_files_sha256": {
+    "profile_runtime.h": "e13c1bdeb069ff4d29cb4b958cf2c945138d62475b9735dac14ea078d8d23258",
+    "session_runtime.h": "a853cb81b46d8a62c510804137a9c62a59703e8b53018677f96f10f56f74e99a",
+    "agent_runtime.cpp": "7a83779f691f6fab9146a01397af6879b45c6c6c9645d917d6c9499f9bdfce68"
+  },
+  "binary_sha256": "34bf5df170dbd552cb4f32ddbd02d825290bc820e5b7839305a35dac7b461bf0",
+  "scope": "phase B paired text microbenchmark; common GPU ViT excluded; ideal overlap simulated offline",
+  "decode_backend": "cpu",
+  "cpu_repack": false,
+  "kv_type": "F16",
+  "llm_flash_attention": false,
+  "direct_cpu_check": true
+}

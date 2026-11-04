@@ -1,0 +1,23 @@
+{
+  "runs": {
+    "20261103-145229-319495-hybrid-none-screenshot-history": "results/20261103-145229-319495-hybrid-none-screenshot-history/result.json",
+    "20261103-145315-264640-hybrid-none-pre-screenshot-history": "results/20261103-145315-264640-hybrid-none-pre-screenshot-history/result.json",
+    "20261103-145358-148081-hybrid-recent-screenshot-history": "results/20261103-145358-148081-hybrid-recent-screenshot-history/result.json",
+    "20261103-145440-670886-hybrid-recent-pre-screenshot-history": "results/20261103-145440-670886-hybrid-recent-pre-screenshot-history/result.json",
+    "20261103-144959-909906-hybrid-serial-screen-history": "results/20261103-144959-909906-hybrid-serial-screen-history/result.json"
+  },
+  "figure_qa": {
+    "01_latency_breakdown": {
+      "text_collisions": [],
+      "text_outside_figure": []
+    },
+    "02_kv_transfer_volume": {
+      "text_collisions": [],
+      "text_outside_figure": []
+    },
+    "03_encoder_lifetime": {
+      "text_collisions": [],
+      "text_outside_figure": []
+    }
+  }
+}

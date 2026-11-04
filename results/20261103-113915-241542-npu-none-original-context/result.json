@@ -1,0 +1,43 @@
+{
+  "mode": "npu",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "none",
+  "history_tokens": 0,
+  "removed_tokens": 0,
+  "observation_tokens": 211,
+  "next_position": 220,
+  "upload_bytes": 0,
+  "download_bytes": 0,
+  "transfer_checked": false,
+  "first_token": 18897,
+  "first_piece": "Toggle",
+  "eog": true,
+  "output": "Toggle the Wi-Fi switch to enable it.",
+  "generated_ids": [
+    18897,
+    279,
+    17220,
+    26299,
+    3398,
+    311,
+    7283,
+    432,
+    13
+  ],
+  "timing_ms": {
+    "a2o_wall_ms": 0.00151014,
+    "decode_ms": 1033.33,
+    "history_prefill_ms": 0.000313282,
+    "kv_select_ms": 5.19753e-05,
+    "model_context_init_ms": 14900.6,
+    "observation_eval_ms": 1565.13,
+    "observation_to_response_ms": 2599.84,
+    "prep_overrun_ms": 5.19753e-05
+  },
+  "response_check": {
+    "passed": true
+  },
+  "process_wall_ms": 17784.35479098698
+}

@@ -1,0 +1,12 @@
+metric,ms
+keep_phase,0.018250022549182177
+merge_phase,0.12266699923202395
+policy_total,0.14091702178120613
+host_memcpy_out_bytes,0.2271659905090928
+npu_dma_warmup,0.0
+repeat_mean_ms,0.8537533180788159
+repeat_median_ms,0.8320420165546238
+repeat_p90_ms,0.9264579857699573
+repeat_min_ms,0.8113749790936708
+repeat_max_ms,0.964208971709013
+prep_plus_host_memcpy_median_approx,1.0592080070637167

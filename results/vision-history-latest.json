@@ -1,0 +1,22 @@
+[
+  {
+    "config": "hybrid-none",
+    "scenario": "screenshot-history",
+    "passed": true
+  },
+  {
+    "config": "hybrid-none-pre",
+    "scenario": "screenshot-history",
+    "passed": true
+  },
+  {
+    "config": "hybrid-recent",
+    "scenario": "screenshot-history",
+    "passed": true
+  },
+  {
+    "config": "hybrid-recent-pre",
+    "scenario": "screenshot-history",
+    "passed": true
+  }
+]

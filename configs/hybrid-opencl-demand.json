@@ -1,0 +1,16 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "keep_history": 48,
+  "a2o_ms": 2000,
+  "format": "chat",
+  "vision_flash": "off",
+  "cpu_repack": false,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "vision_backend": "opencl",
+  "vision_prepare": "arrival",
+  "trace_vision": false,
+  "timeout_s": 180
+}

@@ -1,0 +1,48 @@
+{
+  "four_path_run": "results/20261103-214617-564245-four-path-memory",
+  "cpu_control_run": "results/20261103-214834-584625-four-path-memory-cpu-control",
+  "same_binary": true,
+  "turns": [
+    {
+      "turn": 0,
+      "route": "htp/htp",
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true,
+      "image_encode_calls": 1,
+      "cached_tokens": 0,
+      "state_bytes": 26372948
+    },
+    {
+      "turn": 1,
+      "route": "htp/cpu",
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true,
+      "image_encode_calls": 0,
+      "cached_tokens": 715,
+      "state_bytes": 29508088
+    },
+    {
+      "turn": 2,
+      "route": "cpu/htp",
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true,
+      "image_encode_calls": 0,
+      "cached_tokens": 800,
+      "state_bytes": 32643228
+    },
+    {
+      "turn": 3,
+      "route": "cpu/cpu",
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "prefix_bytes_equal": true,
+      "image_encode_calls": 0,
+      "cached_tokens": 885,
+      "state_bytes": 35778368
+    }
+  ],
+  "passed": true
+}

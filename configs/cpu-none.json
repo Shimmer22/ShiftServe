@@ -1,0 +1,8 @@
+{
+  "mode": "cpu",
+  "kv_policy": "none",
+  "pre_move": false,
+  "keep_history": 48,
+  "a2o_ms": 0,
+  "format": "chat"
+}

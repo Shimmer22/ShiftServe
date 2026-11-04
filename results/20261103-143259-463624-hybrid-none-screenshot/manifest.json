@@ -1,0 +1,38 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "keep_history": 48,
+    "a2o_ms": 0,
+    "format": "chat"
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Inspect the screenshot and return only a JSON object.",
+    "history": "",
+    "previous": "",
+    "prompt": "Identify the current settings page. Return one JSON object with keys screen and action. The action must be \"wait\". Do not use markdown.",
+    "image": "inputs/phone_screenshots/shot0.png",
+    "max_tokens": 64,
+    "check": {
+      "type": "json_action",
+      "action": "wait",
+      "screen_contains": [
+        "developer",
+        "开发者"
+      ],
+      "keys": [
+        "screen",
+        "action"
+      ]
+    }
+  },
+  "device": "10.29.11.213:32927",
+  "config_file": "configs/hybrid-none.json",
+  "scenario_file": "scenarios/screenshot.json",
+  "binary_sha256": "8749cc135e77ecf874f88fdce396651fae8e96367e72b901ca3d635a8f118de8",
+  "source_sha256": "36e8f83b4b0b2d57671e28ca539825710edb2823c6da9518bbf67d953d3863d6",
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

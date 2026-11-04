@@ -1,0 +1,137 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "format": "chat",
+    "vision_backend": "opencl",
+    "vision_flash": "off",
+    "cpu_repack": false,
+    "batch_size": 128,
+    "context_size": 4096,
+    "htp_queue": 1,
+    "a2o_ms": 0,
+    "compare_prefill": false,
+    "prefill_routes": [
+      "cpu",
+      "cpu",
+      "cpu",
+      "cpu"
+    ],
+    "timeout_s": 600,
+    "htp_opbatch": 1
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Keep the session code in memory. Return only one JSON object with keys screen, action, memo, step. The action is always wait. The first step is 1; increment step after each previous assistant response. No markdown.",
+    "turns": [
+      {
+        "prompt": "Remember session code PINE-47. Inspect this screenshot. This is the FIRST turn: set step to 1. Return only one JSON object with screen, action (wait), memo (the session code), and step.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 1
+          }
+        },
+        "image": "inputs/phone_screenshots/shot0.png"
+      },
+      {
+        "prompt": "Inspect the new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 2
+          }
+        },
+        "image": "inputs/phone_screenshots/shot1.png"
+      },
+      {
+        "prompt": "Inspect the new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 3
+          }
+        },
+        "image": "inputs/phone_screenshots/shot2.png"
+      },
+      {
+        "prompt": "From history, recall the most recent settings page; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 4
+          }
+        }
+      }
+    ]
+  },
+  "device": "10.29.11.213:32937",
+  "config_file": "configs/multiturn-cpu.json",
+  "scenario_file": "scenarios/multiturn-screenshots.json",
+  "binary_sha256": "111ecbff82747f2efffdac7d217b8a7773191c66875659ef5ab058b4454a3932",
+  "source_sha256": "f5aca8dd80c77822df5e1b4df893213ce2aa4c8d47d618c398d3fc7fb9cd91a3",
+  "source_files_sha256": {
+    "agent_runtime.cpp": "c81758b6aa9ec464814cfa84b7dd55e2d42101da075a51399e8aeb54b86736b3",
+    "session_runtime.h": "a853cb81b46d8a62c510804137a9c62a59703e8b53018677f96f10f56f74e99a"
+  },
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions",
+  "image_sha256": {
+    "0": "512cb23e1f4985d9f0c9de76bb45b6abee31572e27bb6652e5eae097e30221ee",
+    "1": "1a820ad2af764b7521b36372e4f07a36a6a3ecc4c298b8061ad445b37da70c6e",
+    "2": "01d3935921a9c75f1da144b9a6aa0a9e5e4aaaa5961a1bb422bd1f921ea6a829"
+  }
+}

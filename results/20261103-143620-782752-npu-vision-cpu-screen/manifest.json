@@ -1,0 +1,39 @@
+{
+  "config": {
+    "mode": "npu",
+    "kv_policy": "none",
+    "pre_move": false,
+    "keep_history": 48,
+    "a2o_ms": 0,
+    "format": "chat",
+    "vision_backend": "cpu"
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Inspect the screenshot and return only a JSON object.",
+    "history": "",
+    "previous": "",
+    "prompt": "Identify the current settings page. Return one JSON object with keys screen and action. The action must be \"wait\". Do not use markdown.",
+    "image": "inputs/phone_screenshots/shot0.png",
+    "max_tokens": 64,
+    "check": {
+      "type": "json_action",
+      "action": "wait",
+      "screen_contains": [
+        "developer",
+        "开发者"
+      ],
+      "keys": [
+        "screen",
+        "action"
+      ]
+    }
+  },
+  "device": "10.29.11.213:32927",
+  "config_file": "configs/npu-vision-cpu.json",
+  "scenario_file": "scenarios/screenshot.json",
+  "binary_sha256": "a0eaae22b9d3d573422b34e8c8352aebef3f9861c63da5e07afa130bb90bc619",
+  "source_sha256": "4ca0063cd2c6ac22750f6a67ef33f011c6120c994dfb51de8aff7bf05a503237",
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

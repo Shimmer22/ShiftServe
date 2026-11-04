@@ -1,0 +1,12 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "recent",
+  "pre_move": true,
+  "keep_history": 24,
+  "a2o_ms": 2000,
+  "format": "chat",
+  "vision_flash": "off",
+  "cpu_repack": false,
+  "batch_size": 128,
+  "htp_queue": 1
+}

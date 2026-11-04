@@ -1,0 +1,11 @@
+{
+  "system": "You are a helpful assistant.",
+  "history": "",
+  "previous": "",
+  "prompt": "Reply exactly READY.",
+  "max_tokens": 8,
+  "check": {
+    "type": "exact",
+    "value": "READY"
+  }
+}

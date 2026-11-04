@@ -1,0 +1,84 @@
+{
+  "experiment": "EXP-009-real-kv-e2e",
+  "device": {
+    "phone": "Xiaomi 15 (24129PN74C, SM8750)",
+    "adb": "10.29.11.213:42629",
+    "backend": "HTP0 (Hexagon v79)",
+    "model": "Qwen2.5-VL-3B-Instruct-Q4_0.gguf",
+    "note": "wireless adb; no CPU freq / settings / user-data changes"
+  },
+  "pipeline": [
+    "dump real KV on HTP0 (multi-seg text history)",
+    "parse seq blob → per-token K features",
+    "EXP-008 policy → keep_mask (exemplar-keep for merge)",
+    "llama_memory_seq_rm apply + state save",
+    "HTP0 prefill next prompt on compressed state"
+  ],
+  "dump": {
+    "n_tokens": 171,
+    "seq_bytes": 6308052,
+    "prefill_history_ms": 4228.32,
+    "bytes_per_token": 36864
+  },
+  "policy": {
+    "n_keep": 115,
+    "n_drop": 56,
+    "compression_ratio_tokens": 0.672514619883041,
+    "action_prev_intact": true,
+    "policy_total_ms": 7.868333021178842,
+    "npu_dma": {
+      "status": "stub",
+      "hexagon_dma": false,
+      "elapsed_ms": 0.0,
+      "note": "NPU DMA warmup not implemented this round"
+    }
+  },
+  "apply": {
+    "apply_ms": 0.026927,
+    "dropped": 56,
+    "kept": 115,
+    "seq_bytes_compressed": 4242548
+  },
+  "action_prev_check_compressed": {
+    "compressed_cells": 115,
+    "compressed_bytes": 4242548,
+    "action_prev_range": [
+      139,
+      171
+    ],
+    "action_prev_all_present": true,
+    "n_action_prev_present": 32,
+    "pos_min": 0,
+    "pos_max": 170,
+    "positions_sparse": true
+  },
+  "prefill_next": {
+    "next_prompt_tokens": 20,
+    "prefill_next_ms": 468.297,
+    "decode_ms": 0.280365,
+    "gen": "<|im_end|>"
+  },
+  "generation_note": "greedy next-token immediately <|im_end|>; positions remain sparse after seq_rm (pos_max still 170 with holes). Output quality not validated; chat template not applied.",
+  "timing_vs_a2o": {
+    "kv_prep_host_policy_plus_seq_rm_ms": 7.895260021178841,
+    "note": "A2O is wait+screenshot budget for KV prep, NOT compared to NPU inference. Dump/model-load excluded.",
+    "a2o_budgets_ms": {
+      "UI-TARS-desktop (ADB)": 1345.4,
+      "Mobile-Agent-v1": 2546.6,
+      "Mobile-Agent-v3": 3546.6,
+      "AndroidLab": 5703.6,
+      "Mobile-Agent-v2/E": 6546.6,
+      "AppAgent": 12703.6,
+      "AndroidWorld M3A (wait only)": 2000.0
+    },
+    "fits_all_listed_a2o": true
+  },
+  "limitations": [
+    "History is controllable multi-turn TEXT segments, not real multi-image GUI dumps",
+    "Merge writeback = exemplar-keep (not centroid rewrite of K/V tensors)",
+    "NPU DMA / layout convert = stub",
+    "After seq_rm positions are sparse; no compact/renumber; M-RoPE continuity risk",
+    "Prefill generation immediately EOG — smoke only, not quality proof",
+    "Host parse projects mean-layer K (256) → 64-d for policy"
+  ]
+}

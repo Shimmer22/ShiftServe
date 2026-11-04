@@ -1,0 +1,1 @@
+Remember session code PINE-47. Inspect the screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.

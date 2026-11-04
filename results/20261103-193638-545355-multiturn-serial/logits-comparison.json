@@ -1,0 +1,30 @@
+[
+  {
+    "turn": 0,
+    "n_vocab": 151936,
+    "kl_cpu_to_htp": 0.001804037010753396,
+    "top10_overlap": 10,
+    "top1_equal": true
+  },
+  {
+    "turn": 1,
+    "n_vocab": 151936,
+    "kl_cpu_to_htp": 6.666424527823946e-05,
+    "top10_overlap": 10,
+    "top1_equal": true
+  },
+  {
+    "turn": 2,
+    "n_vocab": 151936,
+    "kl_cpu_to_htp": 1.270490118756886e-05,
+    "top10_overlap": 10,
+    "top1_equal": true
+  },
+  {
+    "turn": 3,
+    "n_vocab": 151936,
+    "kl_cpu_to_htp": 9.20327072297448e-06,
+    "top10_overlap": 10,
+    "top1_equal": true
+  }
+]

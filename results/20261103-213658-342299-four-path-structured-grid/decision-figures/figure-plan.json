@@ -1,0 +1,39 @@
+{
+  "curve_claim": "H4K measured decode prefixes show different CPU/HTP path slopes; failed traces are diagnostic only",
+  "map_claim": "Among qualified candidates, measured P16 selects CC and P64 selects HC for G0–200; intermediate P is unknown",
+  "source": [
+    "results/20261103-213658-342299-four-path-structured-grid/H1024.jsonl",
+    "results/20261103-213658-342299-four-path-structured-grid/H4096.jsonl"
+  ],
+  "qualified_paths": {
+    "cpu": {
+      "16": [
+        "CC",
+        "HC",
+        "CH"
+      ],
+      "64": [
+        "CC",
+        "HC",
+        "CH"
+      ]
+    },
+    "htp": {
+      "16": [
+        "CC",
+        "HC",
+        "CH"
+      ],
+      "64": [
+        "CC",
+        "HC",
+        "CH"
+      ]
+    }
+  },
+  "roles": {
+    "curves": "measured cost and failure boundary",
+    "map": "qualified discrete choices; unmeasured region explicitly blank"
+  },
+  "no_interpolation_or_extrapolation": true
+}

@@ -1,0 +1,1398 @@
+diff --git a/include/llama.h b/include/llama.h
+index 2ea2267..bfd00fc 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -554,6 +554,16 @@ extern "C" {
+     LLAMA_API int32_t llama_model_n_head_kv  (const struct llama_model * model);
+     LLAMA_API int32_t llama_model_n_swa      (const struct llama_model * model);
+ 
++    // Look up token embeddings from the model's embedding table.
++    // tokens: array of token IDs [n_tokens]
++    // output: pre-allocated buffer [n_tokens * n_embd_inp] in f32, row-major
++    // returns 0 on success, -1 if tok_embd is not available
++    LLAMA_API int32_t llama_model_get_token_embeddings(
++        const struct llama_model * model,
++        const llama_token * tokens,
++        int32_t n_tokens,
++        float * output);
++
+     // Get the model's RoPE frequency scaling factor
+     LLAMA_API float llama_model_rope_freq_scale_train(const struct llama_model * model);
+ 
+diff --git a/pocs/CMakeLists.txt b/pocs/CMakeLists.txt
+index d49d14d..9ec3b94 100644
+--- a/pocs/CMakeLists.txt
++++ b/pocs/CMakeLists.txt
+@@ -11,4 +11,5 @@ else()
+     if (NOT GGML_BACKEND_DL)
+         add_subdirectory(vdot)
+     endif()
++    add_subdirectory(vit-gemm-bench)
+ endif()
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 9d011ff..511dec2 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "ggml.h"
+ #include "ggml-cpp.h"
++#include "ggml-backend.h"
+ 
+ #include <algorithm>
+ #include <cassert>
+@@ -2134,6 +2135,41 @@ int32_t llama_model_n_embd_out(const llama_model * model) {
+     return model->hparams.n_embd_out();
+ }
+ 
++int32_t llama_model_get_token_embeddings(
++        const struct llama_model * model,
++        const llama_token * tokens,
++        int32_t n_tokens,
++        float * output) {
++    if (!model->tok_embd) {
++        return -1;
++    }
++
++    const int n_vocab = llama_vocab_n_tokens(&model->vocab);
++    const int n_embd  = model->hparams.n_embd_inp();
++    const float type_sizef = (float)ggml_type_sizef(model->tok_embd->type);
++    const int   stride_tensor = (int)(n_vocab * type_sizef);
++
++    for (int32_t i = 0; i < n_tokens; i++) {
++        int token_id = tokens[i];
++        if (token_id < 0 || token_id >= n_vocab) {
++            // invalid token, zero the embedding
++            memset(output + i * n_embd, 0, n_embd * sizeof(float));
++            continue;
++        }
++        size_t offset = (size_t)(token_id * type_sizef);
++        ggml_backend_tensor_get_2d(
++            model->tok_embd,
++            output + i * n_embd,
++            offset,
++            (size_t)type_sizef,
++            n_embd,
++            stride_tensor,
++            sizeof(float));
++    }
++
++    return 0;
++}
++
+ int32_t llama_model_n_layer(const llama_model * model) {
+     return model->hparams.n_layer;
+ }
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index edb585b..7dd0f88 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -265,6 +265,11 @@ llama_build_and_test(test-mtmd-c-api.c)
+ target_link_libraries(${LLAMA_TEST_NAME} PRIVATE mtmd)
+ unset(LLAMA_TEST_NAME)
+ 
++set(LLAMA_TEST_NAME test-visiontrim)
++llama_build_and_test(test-visiontrim.cpp)
++target_link_libraries(${LLAMA_TEST_NAME} PRIVATE mtmd)
++unset(LLAMA_TEST_NAME)
++
+ # GGUF model data fetcher library for tests that need real model metadata
+ # Only compile when cpp-httplib has SSL support (CPPHTTPLIB_OPENSSL_SUPPORT)
+ if (TARGET cpp-httplib)
+diff --git a/tools/mtmd/CMakeLists.txt b/tools/mtmd/CMakeLists.txt
+index 21d17db..fd74f2c 100644
+--- a/tools/mtmd/CMakeLists.txt
++++ b/tools/mtmd/CMakeLists.txt
+@@ -9,6 +9,8 @@ add_library(mtmd
+             mtmd.h
+             mtmd-helper.cpp
+             mtmd-helper.h
++            visiontrim.cpp
++            visiontrim.h
+             clip.cpp
+             clip.h
+             clip-impl.h
+diff --git a/tools/mtmd/clip-graph.h b/tools/mtmd/clip-graph.h
+index d3e7b1e..73bd204 100644
+--- a/tools/mtmd/clip-graph.h
++++ b/tools/mtmd/clip-graph.h
+@@ -41,6 +41,26 @@ struct clip_graph {
+     virtual ~clip_graph() = default;
+     virtual ggml_cgraph * build() = 0;
+ 
++    // for staged timing: intermediate cut points in the ViT pipeline
++    //   stage1_out = after patch embedding + window setup
++    //   stage2_out = after all ViT layers (before post-norm/projector)
++    ggml_tensor * stage1_out = nullptr;
++    ggml_tensor * stage2_out = nullptr;
++
++    // partial compute graphs for per-stage timing (created in build(), used in encode)
++    ggml_cgraph * gf_stage1 = nullptr;
++    ggml_cgraph * gf_stage2 = nullptr;
++
++    // mid-ViT cut points for VisionTrim experiment (after full-attention layers 7, 15, 23)
++    ggml_tensor * split_L7  = nullptr;
++    ggml_tensor * split_L15 = nullptr;
++    ggml_tensor * split_L23 = nullptr;
++
++    // partial graphs for mid-ViT cut points
++    ggml_cgraph * gf_split_L7  = nullptr;
++    ggml_cgraph * gf_split_L15 = nullptr;
++    ggml_cgraph * gf_split_L23 = nullptr;
++
+     // wrapper around ggml_mul_mat, allow hooking (e.g. LoRA, clamping) depending on the model
+     // tensor w should be the weight matrix, and tensor x should be the input
+     virtual ggml_tensor * build_mm(ggml_tensor * w, ggml_tensor * x) const;
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
+index 513b94f..0fd4f72 100644
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
+@@ -2,6 +2,7 @@
+ #include "clip-impl.h"
+ #include "clip-model.h"
+ #include "clip-graph.h"
++#include "visiontrim.h"
+ #include "models/models.h"
+ 
+ #include "ggml.h"
+@@ -162,6 +163,33 @@ struct clip_ctx {
+ 
+     bool debug_output_embeddings = false;
+ 
++    // for Qwen2.5VL staged timing (populated by clip_graph_qwen2vl::build())
++    ggml_cgraph * vit_gf_stage1 = nullptr; // patch embedding graph
++    ggml_cgraph * vit_gf_stage2 = nullptr; // ViT layers graph (includes patch)
++    double vit_stage1_ms = 0.0;            // patch embedding time
++    double vit_stage2_ms = 0.0;            // ViT layers time (excludes patch)
++    bool   vit_stage_timing_done = false;  // flag for printing after compute
++
++    // mid-ViT VisionTrim experiment: cut point tensors from build()
++    ggml_tensor * vit_split_L7  = nullptr;
++    ggml_tensor * vit_split_L15 = nullptr;
++    ggml_tensor * vit_split_L23 = nullptr;
++    ggml_cgraph * vit_gf_split_L7  = nullptr;
++    ggml_cgraph * vit_gf_split_L15 = nullptr;
++    ggml_cgraph * vit_gf_split_L23 = nullptr;
++
++    // mid-ViT VisionTrim tail graph (created on-demand)
++    ggml_context_ptr vit_tail_ctx;
++    ggml_cgraph *    vit_tail_gf    = nullptr;
++    ggml_tensor *    vit_tail_inp   = nullptr;
++    int              vit_tail_n_tokens = 0;
++
++    // for ViT graph reuse experiment (MTMD_VIT_GRAPH_REUSE=1)
++    bool           vit_graph_reuse = false;
++    ggml_cgraph *  vit_gf_cached = nullptr;
++    int            vit_cached_w = 0;
++    int            vit_cached_h = 0;
++
+     clip_ctx(clip_context_params & ctx_params) {
+         flash_attn_type = ctx_params.flash_attn_type;
+         backend_cpu = ggml_backend_init_by_type(GGML_BACKEND_DEVICE_TYPE_CPU, nullptr);
+@@ -210,6 +238,7 @@ struct clip_ctx {
+         }
+ 
+         debug_output_embeddings = std::getenv("MTMD_DEBUG_EMBEDDINGS") != nullptr;
++        vit_graph_reuse = std::getenv("MTMD_VIT_GRAPH_REUSE") != nullptr;
+     }
+ 
+     ~clip_ctx() {
+@@ -964,7 +993,23 @@ static ggml_cgraph * clip_image_build_graph(clip_ctx * ctx, const clip_image_f32
+             GGML_ABORT("missing cgraph builder");
+     }
+ 
+-    return builder->build();
++    ggml_cgraph * gf = builder->build();
++
++    // Capture per-stage partial graphs for timed computation
++    if (builder->gf_stage1 && builder->gf_stage2) {
++        ctx->vit_gf_stage1 = builder->gf_stage1;
++        ctx->vit_gf_stage2 = builder->gf_stage2;
++    }
++
++    // Capture mid-ViT cut points for VisionTrim experiment
++    ctx->vit_split_L7  = builder->split_L7;
++    ctx->vit_split_L15 = builder->split_L15;
++    ctx->vit_split_L23 = builder->split_L23;
++    ctx->vit_gf_split_L7  = builder->gf_split_L7;
++    ctx->vit_gf_split_L15 = builder->gf_split_L15;
++    ctx->vit_gf_split_L23 = builder->gf_split_L23;
++
++    return gf;
+ }
+ 
+ //
+@@ -2987,6 +3032,10 @@ size_t clip_embd_nbytes_by_img(const struct clip_ctx * ctx, int img_w, int img_h
+     return clip_n_output_tokens(ctx, &img) * clip_n_mmproj_embd(ctx) * sizeof(float);
+ }
+ 
++int clip_get_midvit_n_output_tokens(const struct clip_ctx * ctx) {
++    return ctx->vit_tail_n_tokens;
++}
++
+ int32_t clip_get_image_size(const struct clip_ctx * ctx) {
+     return ctx->model.hparams.image_size;
+ }
+@@ -3289,18 +3338,38 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+         clip_model_loader::warmup(*ctx, *imgs_c_ptr);
+     }
+ 
+-    // build the inference graph
+-    ggml_backend_sched_reset(ctx->sched.get());
+-    ggml_cgraph * gf = clip_image_build_graph(ctx, imgs);
+-    ggml_backend_sched_alloc_graph(ctx->sched.get(), gf);
+-
+-    // set inputs
++    // set inputs (need image size early for reuse check)
+     const auto & model   = ctx->model;
+     const auto & hparams = model.hparams;
+ 
+     const int image_size_width  = imgs.entries[0]->nx;
+     const int image_size_height = imgs.entries[0]->ny;
+ 
++    // build or reuse the inference graph
++    const bool can_reuse = ctx->vit_graph_reuse && ctx->vit_gf_cached != nullptr
++        && ctx->vit_cached_w == image_size_width && ctx->vit_cached_h == image_size_height;
++
++    ggml_cgraph * gf;
++    int64_t t_build_us = 0;
++
++    if (!can_reuse) {
++        int64_t t0 = ggml_time_us();
++        ggml_backend_sched_reset(ctx->sched.get());
++        gf = clip_image_build_graph(ctx, imgs);
++        ggml_backend_sched_alloc_graph(ctx->sched.get(), gf);
++        t_build_us = ggml_time_us() - t0;
++
++        if (ctx->vit_graph_reuse) {
++            ctx->vit_gf_cached = gf;
++            ctx->vit_cached_w = image_size_width;
++            ctx->vit_cached_h = image_size_height;
++            LOG_INF("%s: [graph_reuse] build+alloc: %.2f ms (cached)\n", __func__, t_build_us / 1000.0);
++        }
++    } else {
++        gf = ctx->vit_gf_cached;
++        LOG_INF("%s: [graph_reuse] build+alloc: 0.00 ms (reused, w=%d h=%d)\n", __func__, image_size_width, image_size_height);
++    }
++
+     const int patch_size    = hparams.patch_size;
+     const int num_patches   = ((image_size_width / patch_size) * (image_size_height / patch_size));
+     const int n_pos = num_patches + (model.class_embedding ? 1 : 0);
+@@ -3334,12 +3403,13 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+     };
+ 
+     // set input pixel values
++    std::vector<float> saved_inp_raw;
+     if (!imgs.is_audio) {
+         size_t nelem = 0;
+         for (const auto & img : imgs.entries) {
+             nelem += img->nx * img->ny * 3;
+         }
+-        std::vector<float> inp_raw(nelem);
++        saved_inp_raw.resize(nelem);
+ 
+         // layout of data (note: the channel dim is unrolled to better visualize the layout):
+         //
+@@ -3358,7 +3428,7 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+             const int n = nx * ny;
+ 
+             for (int b = 0; b < batch_size; b++) {
+-                float * batch_entry = inp_raw.data() + b * (3*n);
++                float * batch_entry = saved_inp_raw.data() + b * (3*n);
+                 for (int y = 0; y < ny; y++) {
+                     for (int x = 0; x < nx; x++) {
+                         size_t base_src = 3*(y * nx + x); // idx of the first channel
+@@ -3370,7 +3440,7 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+                 }
+             }
+         }
+-        set_input_f32("inp_raw", inp_raw);
++        set_input_f32("inp_raw", saved_inp_raw);
+ 
+     } else {
+         // audio input
+@@ -3601,6 +3671,8 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+         case PROJECTOR_TYPE_QWEN25VL:
+         case PROJECTOR_TYPE_YOUTUVL:
+             {
++                bool midvit_done = false;
++
+                 // pw * ph = number of tokens output by ViT after apply patch merger
+                 // ipw * ipw = number of vision token been processed inside ViT
+                 const bool use_window_attn = ctx->model.proj_type == PROJECTOR_TYPE_QWEN25VL ? hparams.n_wa_pattern > 0 : !hparams.wa_layer_indexes.empty();
+@@ -3612,13 +3684,14 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+ 
+                 std::vector<int> idx    (ph * pw);
+                 std::vector<int> inv_idx(ph * pw);
++                std::vector<float> mask; // hoisted for staged timing reuse
+ 
+                 if (use_window_attn) {
+                     const int attn_window_size = hparams.attn_window_size > 0 ? hparams.attn_window_size : 112;
+                     const int grid_window = attn_window_size / patch_size / merge_ratio;
+                     int dst = 0;
+                     // [num_vision_tokens, num_vision_tokens] attention mask tensor
+-                    std::vector<float> mask(pow(ipw * iph, 2), std::numeric_limits<float>::lowest());
++                    mask.resize(pow(ipw * iph, 2), std::numeric_limits<float>::lowest());
+                     int mask_row = 0;
+ 
+                     for (int y = 0; y < ph; y += grid_window) {
+@@ -3680,6 +3753,298 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+                 }
+ 
+                 set_input_i32("positions", positions);
++
++                // ── ViT Staged Timing (Qwen2.5VL) ──
++                if (ctx->vit_gf_stage1 && ctx->vit_gf_stage2 && std::getenv("MTMD_VIT_TIMING")) {
++                    auto set_input_from_graph = [&](ggml_cgraph * g, const char * name, const std::vector<float> & data) {
++                        ggml_tensor * t = ggml_graph_get_tensor(g, name);
++                        if (t) ggml_backend_tensor_set(t, data.data(), 0, ggml_nbytes(t));
++                    };
++                    auto set_input_i32_from_graph = [&](ggml_cgraph * g, const char * name, const std::vector<int> & data) {
++                        ggml_tensor * t = ggml_graph_get_tensor(g, name);
++                        if (t) ggml_backend_tensor_set(t, data.data(), 0, ggml_nbytes(t));
++                    };
++
++                    // Stage 1: Patch Embedding
++                    int64_t t_patch_us = 0;
++                    {
++                        ggml_backend_sched_reset(ctx->sched.get());
++                        ggml_backend_sched_alloc_graph(ctx->sched.get(), ctx->vit_gf_stage1);
++
++                        set_input_from_graph(ctx->vit_gf_stage1, "inp_raw", saved_inp_raw);
++                        if (use_window_attn) {
++                            set_input_i32_from_graph(ctx->vit_gf_stage1, "inv_window_idx", inv_idx);
++                        }
++
++                        int64_t t0 = ggml_time_us();
++                        ggml_backend_sched_graph_compute(ctx->sched.get(), ctx->vit_gf_stage1);
++                        int64_t t1 = ggml_time_us();
++                        t_patch_us = t1 - t0;
++                    }
++
++                    // Stage 2: ViT Layers (includes patch)
++                    int64_t t_vit_us = 0;
++                    {
++                        ggml_backend_sched_reset(ctx->sched.get());
++                        ggml_backend_sched_alloc_graph(ctx->sched.get(), ctx->vit_gf_stage2);
++
++                        set_input_from_graph(ctx->vit_gf_stage2, "inp_raw", saved_inp_raw);
++                        set_input_i32_from_graph(ctx->vit_gf_stage2, "positions", positions);
++                        if (use_window_attn) {
++                            set_input_i32_from_graph(ctx->vit_gf_stage2, "inv_window_idx", inv_idx);
++                            set_input_from_graph(ctx->vit_gf_stage2, "window_mask", mask);
++                        }
++
++                        int64_t t0 = ggml_time_us();
++                        ggml_backend_sched_graph_compute(ctx->sched.get(), ctx->vit_gf_stage2);
++                        int64_t t1 = ggml_time_us();
++                        t_vit_us = t1 - t0;
++                    }
++
++                    // Re-alloc full graph and re-set all inputs for production compute
++                    ggml_backend_sched_reset(ctx->sched.get());
++                    ggml_backend_sched_alloc_graph(ctx->sched.get(), gf);
++                    set_input_f32("inp_raw", saved_inp_raw);
++                    if (use_window_attn) {
++                        set_input_i32("window_idx",     idx);
++                        set_input_i32("inv_window_idx", inv_idx);
++                        set_input_f32("window_mask",    mask);
++                    }
++                    set_input_i32("positions", positions);
++
++                    // Store partial times for printing after full compute
++                    ctx->vit_stage1_ms = t_patch_us / 1000.0;
++                    ctx->vit_stage2_ms = (t_vit_us - t_patch_us) / 1000.0;
++                    ctx->vit_stage_timing_done = true;
++
++                    ctx->vit_gf_stage1 = nullptr;
++                    ctx->vit_gf_stage2 = nullptr;
++                }
++
++                // ── Mid-ViT VisionTrim Experiment ──
++                if (!midvit_done) {
++                    const char * vt_layer_str = std::getenv("MTMD_VISIONTRIM_VIT_LAYER");
++                    // Skip mid-ViT at retain_ratio >= 1.0 (use normal full ViT path)
++                    const char * vt_rr = std::getenv("MTMD_VISIONTRIM_VIT_RETAIN_RATIO");
++                    float vt_retain_ratio = vt_rr ? atof(vt_rr) : 0.5f;
++                    if (vt_layer_str && vt_retain_ratio >= 1.0f) {
++                        LOG_INF("[Mid-ViT] retain_ratio=%.2f, using normal ViT path (no split)\n", vt_retain_ratio);
++                        // Fall through to normal full-graph compute
++                    } else if (vt_layer_str) {
++                        int vt_layer = atoi(vt_layer_str);
++                        float vt_ratio = 0.5f;
++                        const char * rr = std::getenv("MTMD_VISIONTRIM_VIT_RETAIN_RATIO");
++                        if (rr) vt_ratio = atof(rr);
++                        int vt_block_mode = VISIONTRIM_BLOCK_MODE_DVTS;
++                        const char * block_mode = std::getenv("MTMD_VISIONTRIM_VIT_BLOCK_MODE");
++                        if (block_mode) {
++                            if (strcmp(block_mode, "prefix") == 0) {
++                                vt_block_mode = VISIONTRIM_BLOCK_MODE_PREFIX;
++                            } else if (strcmp(block_mode, "uniform") == 0) {
++                                vt_block_mode = VISIONTRIM_BLOCK_MODE_UNIFORM;
++                            }
++                        }
++
++                        ggml_cgraph * gf_partial = nullptr;
++                        if (vt_layer == 7)  gf_partial = ctx->vit_gf_split_L7;
++                        if (vt_layer == 15) gf_partial = ctx->vit_gf_split_L15;
++                        if (vt_layer == 23) gf_partial = ctx->vit_gf_split_L23;
++
++                        if (gf_partial) {
++                            int64_t t_midvit_us = ggml_time_us();
++
++                            // Step 1: compute partial graph (layers 0..vt_layer)
++                            ggml_backend_sched_reset(ctx->sched.get());
++                            ggml_backend_sched_alloc_graph(ctx->sched.get(), gf_partial);
++
++                            set_input_f32("inp_raw", saved_inp_raw);
++                            set_input_i32("positions", positions);
++                            if (use_window_attn) {
++                                set_input_i32("inv_window_idx", inv_idx);
++                                set_input_f32("window_mask", mask);
++                            }
++
++                            ggml_backend_sched_graph_compute(ctx->sched.get(), gf_partial);
++
++                            // Step 2: extract intermediate embeddings (use stored pointer)
++                            ggml_tensor * split_out = nullptr;
++                            if (vt_layer == 7)  split_out = ctx->vit_split_L7;
++                            if (vt_layer == 15) split_out = ctx->vit_split_L15;
++                            if (vt_layer == 23) split_out = ctx->vit_split_L23;
++                            GGML_ASSERT(split_out != nullptr);
++                            int n_inter = (int)split_out->ne[1];
++                            int n_embd_inter = (int)split_out->ne[0];
++                            std::vector<float> inter_embd(n_inter * n_embd_inter);
++                            ggml_backend_tensor_get(split_out, inter_embd.data(), 0,
++                                n_inter * n_embd_inter * sizeof(float));
++
++                            // Step 3: block-wise VisionTrim on CPU.
++                            // Keep complete 2x2 groups so the Qwen2.5-VL projector still sees
++                            // valid 4-token merge units.
++                            int m_req = std::max(1, (int)(n_inter * vt_ratio));
++                            int m = ((m_req + 3) / 4) * 4;
++                            m = std::min(m, n_inter);
++                            std::vector<float> compressed(m * n_embd_inter);
++                            std::vector<int32_t> vt_src_indices(m);
++                            int32_t n_comp = visiontrim_compress_blocks_ex(
++                                inter_embd.data(), n_inter,
++                                n_embd_inter,
++                                (float)m / n_inter,
++                                vt_block_mode,
++                                compressed.data(), m, vt_src_indices.data());
++                            GGML_ASSERT(n_comp > 0 && n_comp % 4 == 0);
++
++                            // ── Build M-RoPE positions for compressed tokens ──
++                            // The original positions array is: [y0..yN, x0..xN, y0..yN, x0..xN]
++                            // where N = n_inter (number of internal ViT tokens)
++                            const int n_pos_inter = n_inter;
++                            std::vector<int> comp_positions(n_comp * 4);
++                            for (int32_t i = 0; i < n_comp; i++) {
++                                int src = vt_src_indices[i];
++                                GGML_ASSERT(src >= 0 && src < n_pos_inter);
++                                const int y = positions[src];
++                                const int x = positions[n_pos_inter + src];
++                                comp_positions[i]                    = y;
++                                comp_positions[n_comp + i]           = x;
++                                comp_positions[2 * n_comp + i]       = y;
++                                comp_positions[3 * n_comp + i]       = x;
++                            }
++
++                            // ── Build window indices for compressed tokens ──
++                            int n_groups = n_comp / 4;
++
++                            // Match original Qwen2.5-VL semantics:
++                            //   window_idx[window_order] = raster_order
++                            //   inv_window_idx[raster_order] = window_order
++                            std::vector<int> comp_window_idx(n_comp / 4);
++                            std::vector<int> comp_inv_window_idx(n_comp / 4);
++                            std::vector<float> comp_window_mask;
++
++                            if (use_window_attn && hparams.n_wa_pattern > 0) {
++                                const int aws = hparams.attn_window_size > 0 ? hparams.attn_window_size : 112;
++                                const int grid_window = aws / patch_size / merge_ratio;
++                                comp_window_mask.resize(n_groups * n_groups, std::numeric_limits<float>::lowest());
++                                struct selected_group {
++                                    int index;
++                                    int gy;
++                                    int gx;
++                                    int wy;
++                                    int wx;
++                                };
++                                std::vector<selected_group> groups;
++                                groups.reserve(n_groups);
++                                for (int gi = 0; gi < n_groups; ++gi) {
++                                    const int tok = gi * 4;
++                                    const int gy = comp_positions[tok] / 2;
++                                    const int gx = comp_positions[n_comp + tok] / 2;
++                                    groups.push_back({gi, gy, gx, gy / grid_window, gx / grid_window});
++                                }
++
++                                std::stable_sort(groups.begin(), groups.end(),
++                                    [](const selected_group & a, const selected_group & b) {
++                                        if (a.wy != b.wy) return a.wy < b.wy;
++                                        if (a.wx != b.wx) return a.wx < b.wx;
++                                        if (a.gy != b.gy) return a.gy < b.gy;
++                                        return a.gx < b.gx;
++                                    });
++
++                                int win_begin = 0;
++                                for (int dst = 0; dst < n_groups; ++dst) {
++                                    const int raster_idx = groups[dst].index;
++                                    const int window_idx = dst;
++                                    comp_window_idx[window_idx] = raster_idx;
++                                    comp_inv_window_idx[raster_idx] = window_idx;
++
++                                    const bool same_window_as_prev =
++                                        dst > 0 &&
++                                        groups[dst].wy == groups[dst - 1].wy &&
++                                        groups[dst].wx == groups[dst - 1].wx;
++                                    if (!same_window_as_prev) {
++                                        win_begin = dst;
++                                    }
++
++                                    int win_end = dst + 1;
++                                    while (win_end < n_groups &&
++                                           groups[win_end].wy == groups[dst].wy &&
++                                           groups[win_end].wx == groups[dst].wx) {
++                                        win_end++;
++                                    }
++
++                                    for (int row = dst; row < win_end; ++row) {
++                                        std::fill(
++                                            comp_window_mask.begin() + row * n_groups + win_begin,
++                                            comp_window_mask.begin() + row * n_groups + win_end,
++                                            0.0f);
++                                    }
++                                }
++
++                                for (int i = 0; i < n_groups; ++i) {
++                                    GGML_ASSERT(comp_inv_window_idx[comp_window_idx[i]] == i);
++                                }
++                            }
++
++                            // ── Step 4: build tail graph ──
++                            auto tail = qwen2vl_build_tail_graph(
++                                ctx->model, ctx->model.hparams,
++                                ctx->model.proj_type,
++                                vt_layer + 1, n_comp);
++
++                            // Step 5: allocate tail graph buffers FIRST
++                            ggml_backend_sched_reset(ctx->sched.get());
++                            ggml_backend_sched_alloc_graph(ctx->sched.get(), tail.gf);
++
++                            // Step 6: set all inputs on tail graph
++                            ggml_backend_tensor_set(tail.inp_embd,
++                                compressed.data(), 0,
++                                n_comp * n_embd_inter * sizeof(float));
++
++                            // Set M-RoPE positions (look up by name since tail builder creates them)
++                            {
++                                ggml_tensor * t = ggml_graph_get_tensor(tail.gf, "vt_positions");
++                                if (t) ggml_backend_tensor_set(t, comp_positions.data(), 0, ggml_nbytes(t));
++                            }
++
++                            // Set window attention inputs
++                            if (use_window_attn && hparams.n_wa_pattern > 0) {
++                                ggml_tensor * t_inv = ggml_graph_get_tensor(tail.gf, "vt_inv_window_idx");
++                                ggml_tensor * t_win = ggml_graph_get_tensor(tail.gf, "vt_window_idx");
++                                ggml_tensor * t_mask = ggml_graph_get_tensor(tail.gf, "vt_window_mask");
++                                if (t_inv)  ggml_backend_tensor_set(t_inv,  comp_inv_window_idx.data(), 0, ggml_nbytes(t_inv));
++                                if (t_win)  ggml_backend_tensor_set(t_win,  comp_window_idx.data(), 0, ggml_nbytes(t_win));
++                                if (t_mask) ggml_backend_tensor_set(t_mask, comp_window_mask.data(), 0, ggml_nbytes(t_mask));
++                            }
++
++                            // Step 7: compute tail graph
++                            ggml_backend_sched_graph_compute(ctx->sched.get(), tail.gf);
++
++                            // Step 7: copy tail output to vec
++                            ggml_tensor * tail_out = ggml_graph_node(tail.gf, -1);
++                            int n_tail_tokens = (int)tail_out->ne[1];
++                            if (vec != nullptr) {
++                                ggml_backend_tensor_get(tail_out, vec, 0, ggml_nbytes(tail_out));
++                            }
++
++                            // Save tail context for lifetime management
++                            ctx->vit_tail_ctx      = std::move(tail.ctx);
++                            ctx->vit_tail_gf       = tail.gf;
++                            ctx->vit_tail_inp      = tail.inp_embd;
++                            ctx->vit_tail_n_tokens = n_tail_tokens;
++
++                            double t_ms = (ggml_time_us() - t_midvit_us) / 1000.0;
++
++                            int n_vit_layers = hparams.n_layer;
++                            LOG_INF("=== Mid-ViT VisionTrim (layer %d) ===\n", vt_layer);
++                            LOG_INF("  Pre-comp tokens:     %d\n", n_inter);
++                            LOG_INF("  Post-comp tokens:    %d (ratio=%.2f)\n", n_comp, vt_ratio);
++                            LOG_INF("  Tail layers:         %d → %d\n", vt_layer + 1, n_vit_layers - 1);
++                            LOG_INF("  Mid-ViT VT time:     %.1f ms\n", t_ms);
++                            LOG_INF("===================================\n\n");
++
++                            midvit_done = true;
++                            return true; // skip normal full-graph compute
++                        }
++                    }
++                }
+             } break;
+         case PROJECTOR_TYPE_PIXTRAL:
+         case PROJECTOR_TYPE_KIMIVL:
+@@ -3987,12 +4352,28 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
+         }
+     }
+ 
++    int64_t t_full_start_us = ggml_time_us();
+     auto status = ggml_backend_sched_graph_compute(ctx->sched.get(), gf);
++    int64_t t_full_end_us = ggml_time_us();
+     if (status != GGML_STATUS_SUCCESS) {
+         LOG_ERR("%s: ggml_backend_sched_graph_compute failed with error %d\n", __func__, status);
+         return false;
+     }
+ 
++    // Print ViT staged timing if available
++    if (ctx->vit_stage_timing_done) {
++        double t_full_ms = (t_full_end_us - t_full_start_us) / 1000.0;
++        double t_proj_ms = t_full_ms - (ctx->vit_stage1_ms + ctx->vit_stage2_ms);
++        LOG_INF("\n");
++        LOG_INF("=== ViT Staged Timing (Qwen2.5VL) ===\n");
++        LOG_INF("  Patch Embedding:  %8.1f ms\n", ctx->vit_stage1_ms);
++        LOG_INF("  ViT %d Layers:    %8.1f ms\n", ctx->model.hparams.n_layer, ctx->vit_stage2_ms);
++        LOG_INF("  Projector:        %8.1f ms\n", t_proj_ms);
++        LOG_INF("  Total ViT:        %8.1f ms\n", t_full_ms);
++        LOG_INF("========================================\n\n");
++        ctx->vit_stage_timing_done = false;
++    }
++
+     // the last node is the embedding tensor
+     ggml_tensor * embeddings = ggml_graph_node(gf, -1);
+ 
+diff --git a/tools/mtmd/clip.h b/tools/mtmd/clip.h
+index a859b38..4217a80 100644
+--- a/tools/mtmd/clip.h
++++ b/tools/mtmd/clip.h
+@@ -63,6 +63,10 @@ const char * clip_patch_merge_type(const struct clip_ctx * ctx);
+ 
+ int clip_n_output_tokens(const struct clip_ctx * ctx, struct clip_image_f32 * img);
+ 
++// Get actual output token count after mid-ViT VisionTrim compression.
++// Returns 0 if mid-ViT was not used, otherwise the compressed token count.
++int clip_get_midvit_n_output_tokens(const struct clip_ctx * ctx);
++
+ // for M-RoPE, this will be the number of token positions in X and Y directions
+ // for other models, X will be the total number of tokens and Y will be 1
+ int clip_n_output_tokens_x(const struct clip_ctx * ctx, struct clip_image_f32 * img);
+diff --git a/tools/mtmd/models/models.h b/tools/mtmd/models/models.h
+index dbba233..5d8279b 100644
+--- a/tools/mtmd/models/models.h
++++ b/tools/mtmd/models/models.h
+@@ -28,6 +28,25 @@ struct clip_graph_qwen2vl : clip_graph {
+     ggml_cgraph * build() override;
+ };
+ 
++// Build a tail ViT graph for mid-ViT VisionTrim experiment.
++// Takes compressed embeddings as input and runs layers [start_layer .. n_layer-1]
++// with full attention + post-norm + projector.
++// Returns {graph, context, input_tensor} where:
++//   - graph: the compute graph
++//   - context: ggml context that must stay alive while graph is used
++//   - input_tensor: set compressed embeddings here before computing
++struct qwen2vl_tail_graph {
++    ggml_context_ptr ctx;
++    ggml_cgraph *    gf;
++    ggml_tensor *    inp_embd;  // [n_embd, n_tokens] - set data before compute
++};
++qwen2vl_tail_graph qwen2vl_build_tail_graph(
++    const clip_model & model,
++    const clip_hparams & hparams,
++    projector_type proj_type,
++    int start_layer,
++    int n_tokens);
++
+ struct clip_graph_qwen3vl : clip_graph {
+     clip_graph_qwen3vl(clip_ctx * ctx, const clip_image_f32 & img) : clip_graph(ctx, img) {}
+     ggml_cgraph * build() override;
+diff --git a/tools/mtmd/models/qwen2vl.cpp b/tools/mtmd/models/qwen2vl.cpp
+index ebf1075..69cb612 100644
+--- a/tools/mtmd/models/qwen2vl.cpp
++++ b/tools/mtmd/models/qwen2vl.cpp
+@@ -1,5 +1,239 @@
+ #include "models.h"
+ 
++// ============================================================================
++// Qwen2.5-VL ViT tail builder (for mid-ViT VisionTrim experiment)
++//
++// Builds a ViT tail that takes compressed embeddings as input.
++// M-RoPE positions and window attention are preserved — the tail is
++// architecturally identical to the original ViT layers, just with
++// fewer tokens and starting from a specific layer.
++// ============================================================================
++struct qwen2vl_tail_builder {
++    const clip_model  & model;
++    const clip_hparams & hparams;
++    projector_type proj_type;
++
++    int n_embd, d_head, n_head, n_layer;
++    int start_layer;
++    int n_tokens;
++    float kq_scale, eps;
++    int n_wa_pattern;
++
++    ggml_context_ptr ctx0_ptr;
++    ggml_context * ctx0;
++    ggml_cgraph * gf;
++
++    // input tensors
++    ggml_tensor * inp_embd;        // [n_embd, n_tokens] compressed embeddings
++    ggml_tensor * positions;       // [n_tokens*4] M-RoPE positions (i32)
++    ggml_tensor * inv_window_idx;  // [n_tokens/4] window reorder indices (i32)
++    ggml_tensor * window_idx;      // [n_tokens/4] forward window indices (i32)
++    ggml_tensor * window_mask;     // [n_tokens, n_tokens] window attn mask (f32)
++
++    qwen2vl_tail_builder(const clip_model & m, const clip_hparams & hp,
++                         projector_type pt, int sl, int nt,
++                         int wa_pattern)
++        : model(m), hparams(hp), proj_type(pt), start_layer(sl), n_tokens(nt),
++          n_wa_pattern(wa_pattern)
++    {
++        n_embd    = hparams.n_embd;
++        d_head    = hparams.n_head > 0 ? n_embd / hparams.n_head : 64;
++        n_head    = hparams.n_head;
++        n_layer   = hparams.n_layer;
++        kq_scale  = 1.0f / sqrtf((float)d_head);
++        eps       = hparams.eps;
++
++        struct ggml_init_params params = {
++            /*.mem_size   =*/ 256 * 1024 * 1024,
++            /*.mem_buffer =*/ NULL,
++            /*.no_alloc   =*/ true,
++        };
++        ctx0_ptr.reset(ggml_init(params));
++        ctx0 = ctx0_ptr.get();
++
++        gf = ggml_new_graph_custom(ctx0, 4096, false);
++
++        // compressed embeddings input [n_embd, n_tokens]
++        GGML_ASSERT(n_tokens % 4 == 0);
++        inp_embd = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, n_embd, n_tokens);
++        ggml_set_name(inp_embd, "vt_inp_embd");
++        ggml_set_input(inp_embd);
++
++        // M-RoPE positions [n_tokens * 4]
++        positions = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_tokens * 4);
++        ggml_set_name(positions, "vt_positions");
++        ggml_set_input(positions);
++
++        // window attention indices (only used if n_wa_pattern > 0)
++        if (n_wa_pattern > 0) {
++            inv_window_idx = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_tokens / 4);
++            ggml_set_name(inv_window_idx, "vt_inv_window_idx");
++            ggml_set_input(inv_window_idx);
++
++            window_idx = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_tokens / 4);
++            ggml_set_name(window_idx, "vt_window_idx");
++            ggml_set_input(window_idx);
++
++            window_mask = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, n_tokens, n_tokens);
++            ggml_set_name(window_mask, "vt_window_mask");
++            ggml_set_input(window_mask);
++        }
++    }
++
++    ggml_tensor * build_norm(ggml_tensor * cur, ggml_tensor * mw, ggml_tensor * mb,
++                             int norm_t, float norm_eps, int il) {
++        if (norm_t == NORM_TYPE_RMS) {
++            cur = ggml_rms_norm(ctx0, cur, norm_eps);
++            cur = ggml_mul(ctx0, cur, mw);
++            if (mb) cur = ggml_add(ctx0, cur, mb);
++        } else {
++            cur = ggml_norm(ctx0, cur, norm_eps);
++            cur = ggml_add(ctx0, ggml_mul(ctx0, cur, mw), mb);
++        }
++        (void)il;
++        return cur;
++    }
++
++    ggml_tensor * build_ffn(ggml_tensor * cur, ggml_tensor * up, ggml_tensor * up_b,
++                             ggml_tensor * gate, ggml_tensor * gate_b,
++                             ggml_tensor * down, ggml_tensor * down_b,
++                             ffn_op_type type_op, int il) {
++        ggml_tensor * tmp;
++        if (type_op == FFN_GELU) {
++            tmp = ggml_mul_mat(ctx0, up, cur);
++            if (up_b) tmp = ggml_add(ctx0, tmp, up_b);
++            tmp = ggml_gelu(ctx0, tmp);
++            cur = ggml_mul_mat(ctx0, down, tmp);
++            if (down_b) cur = ggml_add(ctx0, cur, down_b);
++        } else {
++            tmp = ggml_mul_mat(ctx0, up, cur);
++            if (up_b) tmp = ggml_add(ctx0, tmp, up_b);
++            if (gate) {
++                ggml_tensor * tmp2 = ggml_mul_mat(ctx0, gate, cur);
++                if (gate_b) tmp2 = ggml_add(ctx0, tmp2, gate_b);
++                tmp = ggml_mul(ctx0, tmp, ggml_silu(ctx0, tmp2));
++            }
++            cur = ggml_mul_mat(ctx0, down, tmp);
++            if (down_b) cur = ggml_add(ctx0, cur, down_b);
++        }
++        (void)il;
++        return cur;
++    }
++
++    ggml_tensor * build_attn(ggml_tensor * wo, ggml_tensor * wo_b,
++                              ggml_tensor * q, ggml_tensor * k, ggml_tensor * v,
++                              ggml_tensor * attn_mask, float kq_scale, int il) {
++        q = ggml_permute(ctx0, q, 0, 2, 1, 3);
++        k = ggml_permute(ctx0, k, 0, 2, 1, 3);
++        v = ggml_permute(ctx0, v, 0, 2, 1, 3);
++
++        ggml_tensor * cur = ggml_flash_attn_ext(ctx0, q, k, v,
++            attn_mask, kq_scale, 0.0f, 0.0f);
++        cur = ggml_reshape_2d(ctx0, cur, d_head * n_head, n_tokens);
++        cur = ggml_mul_mat(ctx0, wo, cur);
++        if (wo_b) cur = ggml_add(ctx0, cur, wo_b);
++        (void)il;
++        return cur;
++    }
++
++    ggml_cgraph * build() {
++        ggml_tensor * inpL = inp_embd;
++        bool use_window_attn = n_wa_pattern > 0;
++        int mrope_sections[4] = {d_head/4, d_head/4, d_head/4, d_head/4};
++
++        // Apply window reorder to input embeddings (same as original ViT)
++        if (use_window_attn) {
++            // Cast mask to F16 for flash attention (same as original)
++            window_mask = ggml_cast(ctx0, window_mask, GGML_TYPE_F16);
++
++            inpL = ggml_reshape_2d(ctx0, inpL, n_embd * 4, n_tokens / 4);
++            inpL = ggml_get_rows(ctx0, inpL, inv_window_idx);
++            inpL = ggml_reshape_3d(ctx0, inpL, n_embd, n_tokens, 1);
++        }
++
++        // layer loop — same as original, just starts from start_layer
++        for (int il = start_layer; il < n_layer; il++) {
++            const auto & layer = model.layers[il];
++            const bool full_attn = use_window_attn ? (il + 1) % n_wa_pattern == 0 : true;
++
++            ggml_tensor * cur = inpL;
++
++            // layernorm1
++            cur = build_norm(cur, layer.ln_1_w, layer.ln_1_b,
++                (proj_type == PROJECTOR_TYPE_QWEN25VL) ? NORM_TYPE_RMS : NORM_TYPE_NORMAL,
++                eps, il);
++
++            // Q/K/V + M-RoPE + window attention
++            {
++                ggml_tensor * Qcur = ggml_add(ctx0, ggml_mul_mat(ctx0, layer.q_w, cur), layer.q_b);
++                ggml_tensor * Kcur = ggml_add(ctx0, ggml_mul_mat(ctx0, layer.k_w, cur), layer.k_b);
++                ggml_tensor * Vcur = ggml_add(ctx0, ggml_mul_mat(ctx0, layer.v_w, cur), layer.v_b);
++
++                Qcur = ggml_reshape_3d(ctx0, Qcur, d_head, n_head, n_tokens);
++                Kcur = ggml_reshape_3d(ctx0, Kcur, d_head, n_head, n_tokens);
++                Vcur = ggml_reshape_3d(ctx0, Vcur, d_head, n_head, n_tokens);
++
++                // M-RoPE — same as original
++                Qcur = ggml_rope_multi(
++                    ctx0, Qcur, positions, nullptr,
++                    d_head/2, mrope_sections, GGML_ROPE_TYPE_VISION, 32768, 10000, 1, 0, 1, 32, 1);
++                Kcur = ggml_rope_multi(
++                    ctx0, Kcur, positions, nullptr,
++                    d_head/2, mrope_sections, GGML_ROPE_TYPE_VISION, 32768, 10000, 1, 0, 1, 32, 1);
++
++                // window attention mask (same as original)
++                ggml_tensor * attn_mask = full_attn ? nullptr : window_mask;
++
++                cur = build_attn(layer.o_w, layer.o_b, Qcur, Kcur, Vcur, attn_mask, kq_scale, il);
++            }
++
++            cur = ggml_add(ctx0, cur, inpL);
++            inpL = cur;
++
++            // layernorm2
++            cur = build_norm(cur, layer.ln_2_w, layer.ln_2_b,
++                (proj_type == PROJECTOR_TYPE_QWEN25VL) ? NORM_TYPE_RMS : NORM_TYPE_NORMAL,
++                eps, il);
++
++            // FFN
++            cur = build_ffn(cur, layer.ff_up_w, layer.ff_up_b,
++                layer.ff_gate_w, layer.ff_gate_b,
++                layer.ff_down_w, layer.ff_down_b,
++                hparams.ffn_op, il);
++
++            cur = ggml_add(ctx0, inpL, cur);
++            inpL = cur;
++        }
++
++        // post-layernorm
++        if (model.post_ln_w) {
++            inpL = build_norm(inpL, model.post_ln_w, model.post_ln_b,
++                (proj_type == PROJECTOR_TYPE_QWEN25VL) ? NORM_TYPE_RMS : NORM_TYPE_NORMAL,
++                eps, n_layer);
++        }
++
++        // projector: 4-way merge + MLP GELU + window reverse
++        ggml_tensor * embeddings = inpL;
++        embeddings = ggml_reshape_3d(ctx0, embeddings, n_embd * 4, n_tokens / 4, 1);
++        embeddings = build_ffn(embeddings,
++            model.mm_0_w, model.mm_0_b,
++            nullptr, nullptr,
++            model.mm_1_w, model.mm_1_b,
++            FFN_GELU, -1);
++
++        // window reverse (same as original)
++        if (use_window_attn) {
++            int proj_dim = hparams.projection_dim;
++            embeddings = ggml_reshape_2d(ctx0, embeddings, proj_dim, n_tokens / 4);
++            embeddings = ggml_get_rows(ctx0, embeddings, window_idx);
++            embeddings = ggml_reshape_3d(ctx0, embeddings, proj_dim, n_tokens / 4, 1);
++        }
++
++        ggml_build_forward_expand(gf, embeddings);
++        return gf;
++    }
++};
++
+ ggml_cgraph * clip_graph_qwen2vl::build() {
+     GGML_ASSERT(model.patch_bias == nullptr);
+     GGML_ASSERT(model.class_embedding == nullptr);
+@@ -8,11 +242,11 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+     const bool use_window_attn = hparams.n_wa_pattern > 0;
+     const int n_wa_pattern     = hparams.n_wa_pattern;
+     const int n_pos            = n_patches;
+-    const int num_position_ids = n_pos * 4; // m-rope requires 4 dim per position
++    const int num_position_ids = n_pos * 4;
+ 
+     norm_type norm_t = proj_type == PROJECTOR_TYPE_QWEN25VL
+-        ? NORM_TYPE_RMS // qwen 2.5 vl
+-        : NORM_TYPE_NORMAL; // qwen 2 vl
++        ? NORM_TYPE_RMS
++        : NORM_TYPE_NORMAL;
+ 
+     int mrope_sections[4] = {d_head/4, d_head/4, d_head/4, d_head/4};
+ 
+@@ -27,7 +261,7 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+         auto inp_1 = ggml_conv_2d(ctx0, model.patch_embeddings_1, inp_raw, patch_size, patch_size, 0, 0, 1, 1);
+         inp = ggml_add(ctx0, inp, inp_1);
+ 
+-        inp = ggml_permute(ctx0, inp, 1, 2, 0, 3);  // [w, h, c, b] -> [c, w, h, b]
++        inp = ggml_permute(ctx0, inp, 1, 2, 0, 3);
+         inp = ggml_cont_4d(
+             ctx0, inp,
+             n_embd * 2, n_patches_x / 2, n_patches_y, batch_size);
+@@ -55,39 +289,36 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+     }
+ 
+     if (use_window_attn) {
+-        // handle window attention inputs
+         inv_window_idx = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_pos / 4);
+         ggml_set_name(inv_window_idx, "inv_window_idx");
+         ggml_set_input(inv_window_idx);
+-        // mask for window attention
++
+         window_mask = ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, n_pos, n_pos);
+         ggml_set_name(window_mask, "window_mask");
+         ggml_set_input(window_mask);
+ 
+-        // if flash attn is used, we need to pad the mask and cast to f16
+         if (flash_attn_type == CLIP_FLASH_ATTN_TYPE_ENABLED) {
+             window_mask = ggml_cast(ctx0, window_mask, GGML_TYPE_F16);
+         }
+ 
+-        // inpL shape: [n_embd, n_patches_x * n_patches_y, batch_size]
+         GGML_ASSERT(batch_size == 1);
+         inpL = ggml_reshape_2d(ctx0, inpL, n_embd * 4, n_patches_x * n_patches_y * batch_size / 4);
+         inpL = ggml_get_rows(ctx0, inpL, inv_window_idx);
+         inpL = ggml_reshape_3d(ctx0, inpL, n_embd, n_patches_x * n_patches_y, batch_size);
+     }
+ 
+-    // loop over layers
++    stage1_out = inpL;
++    ggml_set_name(stage1_out, "stage1_patch_done");
++
+     for (int il = 0; il < n_layer; il++) {
+         const auto & layer = model.layers[il];
+         const bool full_attn = use_window_attn ? (il + 1) % n_wa_pattern == 0 : true;
+ 
+-        ggml_tensor * cur = inpL; // inpL = residual, cur = hidden_states
++        ggml_tensor * cur = inpL;
+ 
+-        // layernorm1
+         cur = build_norm(cur, layer.ln_1_w, layer.ln_1_b, norm_t, eps, il);
+         cb(cur, "ln1", il);
+ 
+-        // self-attention
+         {
+             ggml_tensor * Qcur = ggml_add(ctx0,
+                 build_mm(layer.q_w, cur), layer.q_b);
+@@ -104,7 +335,6 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+             cb(Kcur, "Kcur", il);
+             cb(Vcur, "Vcur", il);
+ 
+-            // apply M-RoPE
+             Qcur = ggml_rope_multi(
+                 ctx0, Qcur, positions, nullptr,
+                 d_head/2, mrope_sections, GGML_ROPE_TYPE_VISION, 32768, 10000, 1, 0, 1, 32, 1);
+@@ -122,39 +352,51 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+             cb(cur, "attn_out", il);
+         }
+ 
+-        // re-add the layer input, e.g., residual
+         cur = ggml_add(ctx0, cur, inpL);
+-
+-        inpL = cur; // inpL = residual, cur = hidden_states
+-
++        inpL = cur;
+         cb(cur, "ffn_inp", il);
+ 
+-        // layernorm2
+         cur = build_norm(cur, layer.ln_2_w, layer.ln_2_b, norm_t, eps, il);
+         cb(cur, "ffn_inp_normed", il);
+ 
+-        // ffn
+         cur = build_ffn(cur,
+             layer.ff_up_w, layer.ff_up_b,
+             layer.ff_gate_w, layer.ff_gate_b,
+             layer.ff_down_w, layer.ff_down_b,
+             hparams.ffn_op, il);
+-
+         cb(cur, "ffn_out", il);
+ 
+-        // residual 2
+         cur = ggml_add(ctx0, inpL, cur);
+         cb(cur, "layer_out", il);
+ 
+         inpL = cur;
++
++        if (full_attn) {
++            if (il == 7)  {
++                split_L7 = inpL; ggml_set_name(split_L7, "split_L7");
++                gf_split_L7 = ggml_new_graph_custom(ctx0, 4096, false);
++                ggml_build_forward_expand(gf_split_L7, split_L7);
++            }
++            if (il == 15) {
++                split_L15 = inpL; ggml_set_name(split_L15, "split_L15");
++                gf_split_L15 = ggml_new_graph_custom(ctx0, 4096, false);
++                ggml_build_forward_expand(gf_split_L15, split_L15);
++            }
++            if (il == 23) {
++                split_L23 = inpL; ggml_set_name(split_L23, "split_L23");
++                gf_split_L23 = ggml_new_graph_custom(ctx0, 4096, false);
++                ggml_build_forward_expand(gf_split_L23, split_L23);
++            }
++        }
+     }
+ 
+-    // post-layernorm
++    stage2_out = inpL;
++    ggml_set_name(stage2_out, "stage2_vit_done");
++
+     if (model.post_ln_w) {
+         inpL = build_norm(inpL, model.post_ln_w, model.post_ln_b, norm_t, eps, n_layer);
+     }
+ 
+-    // multimodal projection
+     ggml_tensor * embeddings = inpL;
+     embeddings = ggml_reshape_3d(ctx0, embeddings, n_embd * 4, n_pos / 4, batch_size);
+     embeddings = build_ffn(embeddings,
+@@ -169,15 +411,39 @@ ggml_cgraph * clip_graph_qwen2vl::build() {
+         ggml_set_name(window_idx, "window_idx");
+         ggml_set_input(window_idx);
+ 
+-        // embeddings shape: [n_embd, n_patches_x * n_patches_y, batch_size]
+         GGML_ASSERT(batch_size == 1);
+         embeddings = ggml_reshape_2d(ctx0, embeddings, hparams.projection_dim, n_patches_x * n_patches_y / 4);
+         embeddings = ggml_get_rows(ctx0, embeddings, window_idx);
+         embeddings = ggml_reshape_3d(ctx0, embeddings, hparams.projection_dim, n_patches_x * n_patches_y / 4, batch_size);
+     }
+ 
+-    // build the graph
+     ggml_build_forward_expand(gf, embeddings);
+ 
++    gf_stage1 = ggml_new_graph_custom(ctx0, 1024, false);
++    ggml_build_forward_expand(gf_stage1, stage1_out);
++
++    gf_stage2 = ggml_new_graph_custom(ctx0, 4096, false);
++    ggml_build_forward_expand(gf_stage2, stage2_out);
++
+     return gf;
+ }
++
++// ----------------------------------------------------------------------------
++// Mid-ViT VisionTrim tail graph builder (public wrapper)
++// ----------------------------------------------------------------------------
++qwen2vl_tail_graph qwen2vl_build_tail_graph(
++    const clip_model & model,
++    const clip_hparams & hparams,
++    projector_type proj_type,
++    int start_layer,
++    int n_tokens)
++{
++    int wa_pattern = hparams.n_wa_pattern;
++    qwen2vl_tail_builder builder(model, hparams, proj_type, start_layer, n_tokens, wa_pattern);
++
++    qwen2vl_tail_graph result;
++    result.ctx      = std::move(builder.ctx0_ptr);
++    result.gf       = builder.build();
++    result.inp_embd = builder.inp_embd;
++    return result;
++}
+diff --git a/tools/mtmd/mtmd-helper.cpp b/tools/mtmd/mtmd-helper.cpp
+index 4094074..d659189 100644
+--- a/tools/mtmd/mtmd-helper.cpp
++++ b/tools/mtmd/mtmd-helper.cpp
+@@ -9,6 +9,7 @@
+ 
+ #include "mtmd.h"
+ #include "mtmd-helper.h"
++#include "visiontrim.h"
+ #include "llama.h"
+ 
+ #include <algorithm>
+@@ -401,14 +402,195 @@ int32_t mtmd_helper_eval_chunks(mtmd_context * ctx,
+         return 0;
+     }
+ 
++    // Check if VisionTrim is enabled
++    const char * vt_env = getenv("MTMD_VISIONTRIM");
++    bool use_visiontrim = (vt_env && strcmp(vt_env, "1") == 0);
++    float retain_ratio  = 1.0f;  // default: identity (no post-ViT compression)
++    float dvts_ratio    = 1.0f;
++    int   tgvc_iter     = 0;
++
++    if (use_visiontrim) {
++        retain_ratio = 0.33f;
++        dvts_ratio   = 0.75f;
++        tgvc_iter    = 1;
++        const char * rr = getenv("MTMD_VISIONTRIM_RETAIN_RATIO");
++        const char * dr = getenv("MTMD_VISIONTRIM_DVTS_RATIO");
++        const char * ti = getenv("MTMD_VISIONTRIM_TGVC_ITER");
++        if (rr) retain_ratio = atof(rr);
++        if (dr) dvts_ratio   = atof(dr);
++        if (ti) tgvc_iter    = atoi(ti);
++        LOG_INF("[VisionTrim] enabled: retain_ratio=%.4f dvts_ratio=%.4f tgvc_iter=%d\n",
++                retain_ratio, dvts_ratio, tgvc_iter);
++    }
++
++    // Pre-collect text token IDs for VisionTrim TGVC guidance
++    std::vector<llama_token> all_text_tokens;
++    if (use_visiontrim) {
++        for (size_t i = 0; i < n_chunks; i++) {
++            auto chunk = mtmd_input_chunks_get(chunks, i);
++            if (mtmd_input_chunk_get_type(chunk) == MTMD_INPUT_CHUNK_TYPE_TEXT) {
++                size_t n_tokens;
++                const auto tokens = mtmd_input_chunk_get_tokens_text(chunk, &n_tokens);
++                all_text_tokens.insert(all_text_tokens.end(), tokens, tokens + n_tokens);
++            }
++        }
++    }
++
++    // Get text token embeddings for TGVC guidance
++    const llama_model * model = llama_get_model(lctx);
++    int n_embd_inp = llama_model_n_embd_inp(model);
++    std::vector<float> text_embd;
++    double vt_text_embd_ms = 0.0;
++    if (use_visiontrim && !all_text_tokens.empty()) {
++        int64_t t_embd_us = ggml_time_us();
++        text_embd.resize(all_text_tokens.size() * n_embd_inp);
++        int ret = llama_model_get_token_embeddings(
++            model, all_text_tokens.data(), (int32_t)all_text_tokens.size(), text_embd.data());
++        vt_text_embd_ms = (ggml_time_us() - t_embd_us) / 1000.0;
++        if (ret != 0) {
++            LOG_WRN("[VisionTrim] failed to get token embeddings, TGVC will use fallback\n");
++            text_embd.clear();
++        } else {
++            LOG_INF("[VisionTrim] collected %zu text token embeddings for TGVC guidance (%.1f ms)\n",
++                    all_text_tokens.size(), vt_text_embd_ms);
++        }
++    }
++
+     for (size_t i = 0; i < n_chunks; i++) {
+         bool chunk_logits_last = (i == n_chunks - 1) && logits_last;
+         auto chunk = mtmd_input_chunks_get(chunks, i);
++        auto chunk_type = mtmd_input_chunk_get_type(chunk);
++
++        // Mid-ViT also needs the VisionTrim decode path (for correct token count)
++        bool is_midvit = (getenv("MTMD_VISIONTRIM_VIT_LAYER") != nullptr);
++
++        if (chunk_type != MTMD_INPUT_CHUNK_TYPE_IMAGE || (!use_visiontrim && !is_midvit)) {
++            // Normal path: use existing single-chunk eval
++            int32_t res = mtmd_helper_eval_chunk_single(ctx, lctx, chunk, n_past, seq_id, n_batch, chunk_logits_last, &n_past);
++            if (res != 0) {
++                LOG_ERR("failed to eval chunk %zu\n", i);
++                return res;
++            }
++            *new_n_past = n_past;
++            continue;
++        }
+ 
+-        int32_t res = mtmd_helper_eval_chunk_single(ctx, lctx, chunk, n_past, seq_id, n_batch, chunk_logits_last, &n_past);
+-        if (res != 0) {
+-            LOG_ERR("failed to eval chunk %zu\n", i);
+-            return res;
++        // VisionTrim path for image chunks
++        int64_t t0 = ggml_time_ms();
++        LOG_INF("encoding image slice...\n");
++
++        int32_t ret = mtmd_encode_chunk(ctx, chunk);
++        if (ret != 0) {
++            LOG_ERR("failed to encode image slice\n");
++            return ret;
++        }
++
++        LOG_INF("image slice encoded in %" PRId64 " ms\n", ggml_time_ms() - t0);
++
++        float * embd = mtmd_get_output_embd(ctx);
++        int32_t n_img_tokens = mtmd_get_n_output_tokens(ctx, chunk); // respects mid-ViT VT
++
++        // Apply VisionTrim compression (skip if ratio=1.0 dvts=1.0 for identity)
++        double vt_compress_ms = 0.0;
++        int32_t n_compressed;
++        float * decode_embd_ptr;
++        bool owns_compressed = false;
++        std::vector<float> compressed_embd;
++
++        if (retain_ratio >= 1.0f && dvts_ratio >= 1.0f) {
++            // Identity passthrough: use original embeddings, no compression
++            n_compressed = n_img_tokens;
++            decode_embd_ptr = embd;
++            LOG_INF("[VisionTrim] identity passthrough: %d tokens (ratio=1.0 dvts=1.0)\n", n_img_tokens);
++        } else {
++            int64_t t_vt_us = ggml_time_us();
++            compressed_embd.resize(n_img_tokens * n_embd_inp);
++            n_compressed = visiontrim_compress(
++                embd, n_img_tokens,
++                text_embd.empty() ? nullptr : text_embd.data(),
++                text_embd.empty() ? 0 : (int32_t)(text_embd.size() / n_embd_inp),
++                n_embd_inp,
++                retain_ratio, dvts_ratio, tgvc_iter,
++                compressed_embd.data(), n_img_tokens, nullptr);
++            vt_compress_ms = (ggml_time_us() - t_vt_us) / 1000.0;
++
++            if (n_compressed <= 0) {
++                LOG_ERR("visiontrim_compress failed\n");
++                return -1;
++            }
++            decode_embd_ptr = compressed_embd.data();
++            owns_compressed = true;
++
++            LOG_INF("[VisionTrim] compressed %d→%d tokens (%.1f%% reduction) in %.1f ms\n",
++                    n_img_tokens, n_compressed, 100.0f * (1.0f - (float)n_compressed / n_img_tokens),
++                    vt_compress_ms);
++
++            LOG_INF("=== VisionTrim Timing ===\n");
++            LOG_INF("  Text Emb Lookup:    %8.1f ms\n", vt_text_embd_ms);
++            LOG_INF("  DVTS + TGVC:        %8.1f ms\n", vt_compress_ms);
++            LOG_INF("  Total VisionTrim:   %8.1f ms\n", vt_text_embd_ms + vt_compress_ms);
++        }
++
++        // Decode compressed image embeddings with correct M-RoPE 2D positions
++        bool use_mrope = mtmd_decode_use_mrope(ctx);
++        int n_pos_per_embd = use_mrope ? 4 : 1;
++
++        const auto image_tokens = mtmd_input_chunk_get_tokens_image(chunk);
++        decode_embd_batch batch_embd(decode_embd_ptr, n_compressed, n_pos_per_embd, n_embd_inp);
++
++        if (use_mrope && image_tokens) {
++            // Get original 2D positions
++            const auto n_orig = (int32_t)mtmd_image_tokens_get_n_tokens(image_tokens);
++            std::vector<mtmd_decoder_pos> orig_pos(n_orig);
++            mtmd_helper_image_get_decoder_pos(image_tokens, n_past, orig_pos.data());
++
++            if (n_compressed == n_orig) {
++                // No compression: use original 2D positions directly
++                batch_embd.set_position_mrope_2d(orig_pos, seq_id);
++            } else {
++                // Compressed: assign sequential positions
++                std::vector<mtmd_decoder_pos> comp_pos(n_compressed);
++                for (int32_t i = 0; i < n_compressed; i++) {
++                    comp_pos[i].t = n_past;
++                    comp_pos[i].x = (uint32_t)i;
++                    comp_pos[i].y = 0;
++                    comp_pos[i].z = 0;
++                }
++                batch_embd.set_position_mrope_2d(comp_pos, seq_id);
++            }
++        } else if (use_mrope) {
++            batch_embd.set_position_mrope_1d(n_past, seq_id);
++        } else {
++            batch_embd.set_position_normal(n_past, seq_id);
++        }
++
++        const bool use_non_causal = mtmd_decode_use_non_causal(ctx, chunk);
++        if (use_non_causal) llama_set_causal_attn(lctx, false);
++
++        int32_t i_batch = 0;
++        int32_t n_img_batches = (n_compressed + n_batch - 1) / n_batch;
++        while (i_batch < n_img_batches) {
++            int pos_offset = i_batch * n_batch;
++            int n_tokens_batch = std::min(n_batch, n_compressed - pos_offset);
++            llama_batch batch_embd_view = batch_embd.get_view(pos_offset, n_tokens_batch);
++
++            int32_t dec_ret = llama_decode(lctx, batch_embd_view);
++            if (dec_ret != 0) {
++                LOG_ERR("failed to decode image (visiontrim)\n");
++                if (use_non_causal) llama_set_causal_attn(lctx, true);
++                return dec_ret;
++            }
++            i_batch++;
++        }
++
++        if (use_non_causal) llama_set_causal_attn(lctx, true);
++
++        // For M-RoPE, n_past advances by max(t,h,w), not by n_tokens
++        // This must match mtmd_helper_decode_image_chunk's behavior
++        if (use_mrope) {
++            n_past += mtmd_input_chunk_get_n_pos(chunk);
++        } else {
++            n_past += n_compressed;
+         }
+         *new_n_past = n_past;
+     }
+diff --git a/tools/mtmd/mtmd.cpp b/tools/mtmd/mtmd.cpp
+index 87da687..d6864f3 100644
+--- a/tools/mtmd/mtmd.cpp
++++ b/tools/mtmd/mtmd.cpp
+@@ -147,6 +147,7 @@ struct mtmd_context {
+     std::string media_marker;
+     const int n_embd_text;
+     mtmd_pos_type pos_type;
++    int midvit_n_tokens = 0; // actual output tokens after mid-ViT VisionTrim
+ 
+     // these are not token, but strings used to mark the beginning and end of image/audio embeddings
+     std::string img_beg;
+@@ -1082,9 +1083,22 @@ int32_t mtmd_encode(mtmd_context * ctx, const mtmd_image_tokens * image_tokens)
+             ctx->image_embd_v.data());
+     }
+ 
++    // Update mid-ViT token count if VisionTrim was used inside the ViT
++    int midvit_n = clip_get_midvit_n_output_tokens(ctx_clip);
++    if (midvit_n > 0) {
++        ctx->midvit_n_tokens = midvit_n;
++    }
++
+     return ok ? 0 : 1;
+ }
+ 
++int32_t mtmd_get_n_output_tokens(mtmd_context * ctx, const mtmd_input_chunk * chunk) {
++    if (ctx->midvit_n_tokens > 0) {
++        return ctx->midvit_n_tokens;
++    }
++    return (int32_t)mtmd_input_chunk_get_n_tokens(chunk);
++}
++
+ float * mtmd_get_output_embd(mtmd_context * ctx) {
+     return ctx->image_embd_v.data();
+ }
+diff --git a/tools/mtmd/mtmd.h b/tools/mtmd/mtmd.h
+index e364174..1f5523d 100644
+--- a/tools/mtmd/mtmd.h
++++ b/tools/mtmd/mtmd.h
+@@ -240,6 +240,10 @@ MTMD_API int32_t mtmd_encode_chunk(mtmd_context * ctx,
+ // llama_model_n_embd_inp(model) * mtmd_input_chunk_get_n_tokens(chunk) * sizeof(float)
+ MTMD_API float * mtmd_get_output_embd(mtmd_context * ctx);
+ 
++// Get actual output token count after mid-ViT VisionTrim compression.
++// Returns the compressed token count if mid-ViT was active, otherwise the input token count.
++MTMD_API int32_t mtmd_get_n_output_tokens(mtmd_context * ctx, const mtmd_input_chunk * chunk);
++
+ // Set callback for all future logging events.
+ // If this is not called, or NULL is supplied, everything is output on stderr.
+ MTMD_API void mtmd_log_set(ggml_log_callback log_callback, void * user_data);

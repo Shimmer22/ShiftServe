@@ -1,0 +1,82 @@
+[
+  {
+    "name": "aw_home_S",
+    "kind": "mobile(AndroidWorld emulator)",
+    "source": "2026-10-qwen38-prune-launch/results/androidworld-setup-20261024-v1/home.png",
+    "source_sha256": "2665388c39ae0a7f3cfa952b981c262ac5216b25e7b32a9d7792dfe484dabdda",
+    "source_size": [
+      1080,
+      2400
+    ],
+    "resized": [
+      336,
+      756
+    ],
+    "expected_image_tokens": 324,
+    "resized_sha256": "63745a8106a63ed978c32b1b22d13316c5ffa44aed3358d5c546979e843fc637"
+  },
+  {
+    "name": "aw_home_M",
+    "kind": "mobile(AndroidWorld emulator)",
+    "source": "2026-10-qwen38-prune-launch/results/androidworld-setup-20261024-v1/home.png",
+    "source_sha256": "2665388c39ae0a7f3cfa952b981c262ac5216b25e7b32a9d7792dfe484dabdda",
+    "source_size": [
+      1080,
+      2400
+    ],
+    "resized": [
+      448,
+      980
+    ],
+    "expected_image_tokens": 560,
+    "resized_sha256": "178e819376232848889e1634a8ebb455c6f62dc63017d58b3080c7457e456f47"
+  },
+  {
+    "name": "aw_home_L",
+    "kind": "mobile(AndroidWorld emulator)",
+    "source": "2026-10-qwen38-prune-launch/results/androidworld-setup-20261024-v1/home.png",
+    "source_sha256": "2665388c39ae0a7f3cfa952b981c262ac5216b25e7b32a9d7792dfe484dabdda",
+    "source_size": [
+      1080,
+      2400
+    ],
+    "resized": [
+      560,
+      1232
+    ],
+    "expected_image_tokens": 880,
+    "resized_sha256": "7b0c0d2e311d75bc7575713458af8a4ac746704121d8bd1044aa90692a058d6c"
+  },
+  {
+    "name": "desk0_M",
+    "kind": "desktop(ScreenSpot-v2)",
+    "source": "2026-10-qwen38-prune-launch/results/pvst-thinking-screenspot-inputs-20261017-v2/originals/pc_07faaa86-6e6b-457b-9a51-9b30edff21da.png",
+    "source_sha256": "6a44e88e35a3a32c9aa01dde24cb8ae69a7dba2c7c3582ec11d1c88fe8926e23",
+    "source_size": [
+      960,
+      540
+    ],
+    "resized": [
+      784,
+      476
+    ],
+    "expected_image_tokens": 476,
+    "resized_sha256": "e67566d050e9000ba737cbf0a66c49496a54e2ad32d5a8a19fe62b9a849399ab"
+  },
+  {
+    "name": "desk1_M",
+    "kind": "desktop(ScreenSpot-v2)",
+    "source": "2026-10-qwen38-prune-launch/results/pvst-thinking-screenspot-inputs-20261017-v2/originals/pc_3f7ea28c-0425-4837-a540-dc5bb23449b8.png",
+    "source_sha256": "369e49beba7f98bff9bf4155543fcb58f1b67678bd850e7e036de13e8c385da6",
+    "source_size": [
+      960,
+      540
+    ],
+    "resized": [
+      784,
+      476
+    ],
+    "expected_image_tokens": 476,
+    "resized_sha256": "49b47c89cecad7681d67e5aeb5abc24ce0526f01155c41939cf9222e05b0a02f"
+  }
+]

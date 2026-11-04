@@ -1,0 +1,22 @@
+[
+  {
+    "config": "npu-none",
+    "scenario": "original-context",
+    "passed": true
+  },
+  {
+    "config": "cpu-none",
+    "scenario": "ready",
+    "passed": true
+  },
+  {
+    "config": "npu-roundtrip",
+    "scenario": "history",
+    "passed": true
+  },
+  {
+    "config": "cpu-roundtrip",
+    "scenario": "history",
+    "passed": true
+  }
+]

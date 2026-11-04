@@ -1,0 +1,1 @@
+You are a GUI agent. Follow the user task and respond concisely.

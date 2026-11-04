@@ -1,0 +1,5 @@
+
+<|im_start|>user
+ note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note note
+Return only a JSON object with action set to wait.<|im_end|>
+<|im_start|>assistant

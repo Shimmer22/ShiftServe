@@ -1,0 +1,5 @@
+{
+  "reason": "Severe memory pressure and prolonged swapping in dual-model vision baseline; terminate own test before further pressure",
+  "time_utc": "2026-11-03T06:35:50.988918+00:00",
+  "pid": 30081
+}

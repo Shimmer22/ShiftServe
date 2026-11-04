@@ -1,0 +1,28 @@
+{
+  "config": {
+    "mode": "cpu",
+    "kv_policy": "none",
+    "pre_move": false,
+    "keep_history": 48,
+    "a2o_ms": 0,
+    "format": "chat",
+    "roundtrip": true
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Follow the user task and respond concisely.",
+    "history": "Task: Open Settings and enable Wi-Fi. The Settings screen shows a Wi-Fi entry.",
+    "previous": "{\"action\":\"tap\",\"target\":\"Wi-Fi\"}",
+    "prompt": "The Wi-Fi page is now open. To confirm that you remember the task, reply exactly WIFI.",
+    "max_tokens": 8,
+    "check": {
+      "type": "exact",
+      "value": "WIFI"
+    }
+  },
+  "device": "10.29.11.213:42629",
+  "binary_sha256": "5bb4639935ace404cf7c215956a58c529c7b5ac00514d5c683815172ef84f9fb",
+  "source_sha256": "e18d07b077b2b3a65b794cb1a47c869f7ab449d0531b652d22d72295cd76babf",
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

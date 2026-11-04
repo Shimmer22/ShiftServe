@@ -1,0 +1,8 @@
+device,scenario,n_tok_src,n_tok_keep,keep_frac,src_mib,keep_mib,organize_memcpy_full_median_ms,organize_trunc_median_ms,organize_trunc_p90_ms,organize_layer_half_median_ms,move_page_aligned_median_ms,move_page_aligned_p90_ms,prep_trunc_plus_move_median_ms,prep_trunc_plus_move_p90_ms,hexagon_dma
+mac_host,gui_1step_M,600,600,1.0,21.094,21.094,0.363,0.3815,0.4119,0.1695,0.3616,0.4114,0.743,0.8233,False
+mac_host,gui_3step_keep_last,1800,600,0.3333333333333333,63.281,21.094,1.1099,0.3413,0.3608,0.522,0.3538,0.3857,0.695,0.7465,False
+mac_host,gui_5step_keep_2,3000,1200,0.4,105.469,42.188,1.9164,0.7345,0.781,0.9421,0.7277,0.7428,1.4622,1.5238,False
+mac_host,ctx_512_full,512,512,1.0,18.0,18.0,0.3001,0.3098,0.3306,0.1369,0.3237,0.336,0.6335,0.6666,False
+mac_host,ctx_1024_full,1024,1024,1.0,36.0,36.0,0.6176,0.6149,0.6624,0.3041,0.6184,0.6681,1.2333,1.3305,False
+mac_host,ctx_2048_full,2048,2048,1.0,72.0,72.0,1.304,1.31,1.3909,0.6372,1.3294,1.4206,2.6394,2.8115,False
+mac_host,ctx_4096_full,4096,4096,1.0,144.0,144.0,2.6491,2.712,2.7837,1.3048,2.6928,2.8543,5.4048,5.638,False

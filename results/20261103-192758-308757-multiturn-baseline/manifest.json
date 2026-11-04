@@ -1,0 +1,131 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "format": "chat",
+    "vision_backend": "opencl",
+    "vision_flash": "off",
+    "cpu_repack": false,
+    "batch_size": 128,
+    "context_size": 4096,
+    "htp_queue": 1,
+    "a2o_ms": 0,
+    "compare_prefill": true,
+    "prefill_routes": [
+      "cpu",
+      "htp",
+      "cpu",
+      "htp"
+    ],
+    "timeout_s": 600
+  },
+  "scenario": {
+    "system": "You are a GUI agent. Keep the session code in memory. Return only one JSON object with keys screen, action, memo, step. The action is always wait. The first step is 1; increment step after each previous assistant response. No markdown.",
+    "turns": [
+      {
+        "prompt": "Remember session code PINE-47. Inspect the screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 1
+          }
+        },
+        "image": "inputs/phone_screenshots/shot0.png"
+      },
+      {
+        "prompt": "Inspect the new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 2
+          }
+        },
+        "image": "inputs/phone_screenshots/shot1.png"
+      },
+      {
+        "prompt": "Inspect the new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 3
+          }
+        },
+        "image": "inputs/phone_screenshots/shot2.png"
+      },
+      {
+        "prompt": "From history, recall the most recent settings page; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.",
+        "max_tokens": 80,
+        "check": {
+          "type": "json_action",
+          "action": "wait",
+          "keys": [
+            "screen",
+            "action",
+            "memo",
+            "step"
+          ],
+          "screen_contains": [
+            "developer",
+            "开发者"
+          ],
+          "equals": {
+            "memo": "PINE-47",
+            "step": 4
+          }
+        }
+      }
+    ]
+  },
+  "device": "10.29.11.213:32937",
+  "config_file": "configs/multiturn-baseline.json",
+  "scenario_file": "scenarios/multiturn-screenshots.json",
+  "binary_sha256": "d3eb8992b3259afec93fd2768dce0f9a70fbfd1523c6813354b170fbb52a9dec",
+  "source_sha256": "6055d27724f3fd5bf0ed2393d148fa2d15a28c277fa7361b7370c93b65fc12b8",
+  "source_files_sha256": {
+    "agent_runtime.cpp": "c81758b6aa9ec464814cfa84b7dd55e2d42101da075a51399e8aeb54b86736b3",
+    "session_runtime.h": "58f3dc6df96bda35f0054c6c6e5216237a0f8e03428f24d2fa524d7306111398"
+  },
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

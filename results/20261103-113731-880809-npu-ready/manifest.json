@@ -1,0 +1,27 @@
+{
+  "config": {
+    "mode": "npu",
+    "kv_policy": "none",
+    "pre_move": false,
+    "keep_history": 48,
+    "a2o_ms": 0,
+    "format": "chat"
+  },
+  "scenario": {
+    "system": "You are a helpful assistant.",
+    "history": "",
+    "previous": "",
+    "prompt": "Reply exactly READY.",
+    "max_tokens": 8,
+    "check": {
+      "type": "exact",
+      "value": "READY"
+    }
+  },
+  "device": "10.29.11.213:42629",
+  "binary_sha256": "b9db22518fc81bdcd0ccb1ee5349b2fc8d3320182e44f815786169eab503b9ce",
+  "source_sha256": "380650cad4ac8fe3709f7a44b5d810e9cf8f097c07cb9dc9dc927f0d1d42c125",
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

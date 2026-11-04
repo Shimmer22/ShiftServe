@@ -1,0 +1,2 @@
+Flag --pause has been deprecated, and enabled by default. Use --no-pause to disable pausing during commit.
+sha256:7379389959426f0b627b4530a4eb064ffba45fdf58a0784e5bad4d111a193e7f

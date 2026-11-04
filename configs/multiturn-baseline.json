@@ -1,0 +1,22 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "format": "chat",
+  "vision_backend": "opencl",
+  "vision_flash": "off",
+  "cpu_repack": false,
+  "batch_size": 128,
+  "context_size": 4096,
+  "htp_queue": 1,
+  "a2o_ms": 0,
+  "compare_prefill": true,
+  "prefill_routes": [
+    "cpu",
+    "htp",
+    "cpu",
+    "htp"
+  ],
+  "timeout_s": 600,
+  "htp_opbatch": 1
+}

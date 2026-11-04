@@ -1,0 +1,389 @@
+{
+  "meta": {
+    "timestamp_asia_shanghai": "2026-11-03 10:57:16 CST",
+    "synthetic_kv": true,
+    "feat_dim_proxy": 64,
+    "model_bytes_per_token": 36864,
+    "model": {
+      "name": "Qwen2.5-VL-3B",
+      "n_layer": 36,
+      "n_kv_head": 2,
+      "head_dim": 128,
+      "kv_dtype": "f16",
+      "note": "字节按真实 KV 公式计；聚类特征为 FEAT_DIM 维代理（非真实 dump）"
+    },
+    "policy": {
+      "action_prev": "keep_full immutable",
+      "task": "attention-weighted keep if score>=0.55; else merge pool",
+      "history": "k-means merge to weighted centroid",
+      "high_thr": 0.55,
+      "mid_thr": 0.35,
+      "n_clusters": 3
+    },
+    "npu_dma": "stub",
+    "a2o_budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md",
+    "input_segments": [
+      {
+        "seg_id": "task",
+        "kind": "task",
+        "n_tokens": 64,
+        "mib": 2.25
+      },
+      {
+        "seg_id": "action_prev",
+        "kind": "action_prev",
+        "n_tokens": 40,
+        "mib": 1.40625
+      },
+      {
+        "seg_id": "history_0",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_1",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_2",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_3",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_4",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_5",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_6",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      },
+      {
+        "seg_id": "history_7",
+        "kind": "history",
+        "n_tokens": 120,
+        "mib": 4.21875
+      }
+    ]
+  },
+  "result": {
+    "tokens_in": 1064,
+    "tokens_out": 344,
+    "bytes_in": 39223296,
+    "bytes_out": 12681216,
+    "mib_in": 37.40625,
+    "mib_out": 12.09375,
+    "compression_ratio_tokens": 0.3233082706766917,
+    "compression_ratio_bytes": 0.3233082706766917,
+    "action_prev_intact": true,
+    "action_prev_detail": {
+      "n_tokens_unchanged": true,
+      "checksum_unchanged": true,
+      "checksum": "c200dcbd50963b91"
+    },
+    "merge_stats": {
+      "n_in": 9,
+      "n_out": 3,
+      "n_clusters": 3,
+      "tokens_in": 990,
+      "tokens_out": 270
+    },
+    "dispositions": [
+      {
+        "seg_id": "task",
+        "kind": "task",
+        "action": "keep_partial",
+        "n_tokens_in": 64,
+        "n_tokens_out": 34,
+        "detail": {
+          "n_high": 34,
+          "n_to_merge_pool": 30,
+          "high_thr": 0.55,
+          "mid_thr": 0.35,
+          "score_mean": 0.53125,
+          "score_min": 0.0,
+          "score_max": 1.0
+        }
+      },
+      {
+        "seg_id": "action_prev",
+        "kind": "action_prev",
+        "action": "keep_full",
+        "n_tokens_in": 40,
+        "n_tokens_out": 40,
+        "detail": {
+          "policy": "action_prev_immutable"
+        }
+      },
+      {
+        "seg_id": "history_0",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 0,
+          "rep_id": "merged_0_history_0_history_2_history_4_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_2",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 0,
+          "rep_id": "merged_0_history_0_history_2_history_4_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_4",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 0,
+          "rep_id": "merged_0_history_0_history_2_history_4_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_6",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 0,
+          "rep_id": "merged_0_history_0_history_2_history_4_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "merged_0_history_0_history_2_history_4_plus1",
+        "kind": "history",
+        "action": "merged_rep",
+        "n_tokens_in": 480,
+        "n_tokens_out": 120,
+        "detail": {
+          "cluster": 0,
+          "members": [
+            "history_0",
+            "history_2",
+            "history_4",
+            "history_6"
+          ],
+          "compression_in_cluster": 0.25
+        }
+      },
+      {
+        "seg_id": "task_merge_pool",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 30,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 1,
+          "rep_id": "merged_1_task_merge_pool",
+          "rep_n_tokens": 30
+        }
+      },
+      {
+        "seg_id": "merged_1_task_merge_pool",
+        "kind": "history",
+        "action": "merged_rep",
+        "n_tokens_in": 30,
+        "n_tokens_out": 30,
+        "detail": {
+          "cluster": 1,
+          "members": [
+            "task_merge_pool"
+          ],
+          "compression_in_cluster": 1.0
+        }
+      },
+      {
+        "seg_id": "history_1",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 2,
+          "rep_id": "merged_2_history_1_history_3_history_5_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_3",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 2,
+          "rep_id": "merged_2_history_1_history_3_history_5_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_5",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 2,
+          "rep_id": "merged_2_history_1_history_3_history_5_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "history_7",
+        "kind": "history",
+        "action": "merge_in",
+        "n_tokens_in": 120,
+        "n_tokens_out": 0,
+        "detail": {
+          "cluster": 2,
+          "rep_id": "merged_2_history_1_history_3_history_5_plus1",
+          "rep_n_tokens": 120
+        }
+      },
+      {
+        "seg_id": "merged_2_history_1_history_3_history_5_plus1",
+        "kind": "history",
+        "action": "merged_rep",
+        "n_tokens_in": 480,
+        "n_tokens_out": 120,
+        "detail": {
+          "cluster": 2,
+          "members": [
+            "history_1",
+            "history_3",
+            "history_5",
+            "history_7"
+          ],
+          "compression_in_cluster": 0.25
+        }
+      }
+    ],
+    "out_segment_ids": [
+      "task_kept",
+      "action_prev",
+      "merged_0_history_0_history_2_history_4_plus1",
+      "merged_1_task_merge_pool",
+      "merged_2_history_1_history_3_history_5_plus1"
+    ],
+    "out_segment_kinds": [
+      "task",
+      "action_prev",
+      "history",
+      "history",
+      "history"
+    ],
+    "out_segment_tokens": [
+      34,
+      40,
+      120,
+      30,
+      120
+    ],
+    "timing_ms": {
+      "keep_phase": 0.01812499249354005,
+      "merge_phase": 0.13950001448392868,
+      "policy_total": 0.15762500697746873,
+      "host_memcpy_out_bytes": 0.21058303536847234,
+      "npu_dma_warmup": 0.0
+    },
+    "npu_dma": {
+      "status": "stub",
+      "hexagon_dma": false,
+      "elapsed_ms": 0.0,
+      "note": "NPU DMA warmup not implemented this round"
+    },
+    "timing_repeats_ms": {
+      "n": 25,
+      "mean_ms": 1.0487666772678494,
+      "median_ms": 1.0703750303946435,
+      "p90_ms": 1.1676330352202058,
+      "min_ms": 0.928749970626086,
+      "max_ms": 1.302249962463975
+    }
+  },
+  "a2o_comparison": [
+    {
+      "framework": "UI-TARS-desktop (ADB)",
+      "a2o_budget_ms": 1345.4,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "Mobile-Agent-v1",
+      "a2o_budget_ms": 2546.6,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "Mobile-Agent-v3",
+      "a2o_budget_ms": 3546.6,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "AndroidLab",
+      "a2o_budget_ms": 5703.6,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "Mobile-Agent-v2/E",
+      "a2o_budget_ms": 6546.6,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "AppAgent",
+      "a2o_budget_ms": 12703.6,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    },
+    {
+      "framework": "AndroidWorld M3A (wait only)",
+      "a2o_budget_ms": 2000.0,
+      "prep_ms": 1.2809580657631159,
+      "fits_budget": true,
+      "budget_source": "EXP-005-a2o-fixed-wait/results/a2o_summary_table.md"
+    }
+  ],
+  "prep_plus_host_memcpy_ms": 1.2809580657631159
+}

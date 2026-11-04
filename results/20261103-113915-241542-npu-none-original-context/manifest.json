@@ -1,0 +1,26 @@
+{
+  "config": {
+    "mode": "npu",
+    "kv_policy": "none",
+    "pre_move": false,
+    "keep_history": 48,
+    "a2o_ms": 0,
+    "format": "chat"
+  },
+  "scenario": {
+    "system": "You are a helpful GUI agent.",
+    "history": "",
+    "previous": "",
+    "prompt": "[SEG task/task]\nTask: Open Settings and enable Wi-Fi. Stay on the current app context.\n[SEG history_0/history]\nStep0: Home screen visible. Icons: Settings, Camera, Browser.\n[SEG history_1/history]\nStep1: Tapped Settings icon at bottom left. Transitioning.\n[SEG history_2/history]\nStep2: Settings list shows Wi-Fi, Bluetooth, Display.\n[SEG history_3/history]\nStep3: Scrolled down past Network section once.\n[SEG history_4/history]\nStep4: Saw unrelated About phone entry; ignore for task.\n[SEG history_5/history]\nStep5: Returned focus toward Wireless and networks.\n[SEG action_prev/action_prev]\nPrevious action: tap(x=540,y=820) on Wi-Fi row. Waiting for toggle UI.\nNext screenshot observation: Wi-Fi switch is on the screen. Reply with the next GUI action briefly.",
+    "max_tokens": 64,
+    "check": {
+      "type": "nonempty"
+    }
+  },
+  "device": "10.29.11.213:42629",
+  "binary_sha256": "5bb4639935ace404cf7c215956a58c529c7b5ac00514d5c683815172ef84f9fb",
+  "source_sha256": "e18d07b077b2b3a65b794cb1a47c869f7ab449d0531b652d22d72295cd76babf",
+  "runtime_package": "/Users/hui/code/exp/shared/runtime/llama.cpp-hexagon-pkg",
+  "execution": "phone",
+  "agent": "observation replay; no device actions"
+}

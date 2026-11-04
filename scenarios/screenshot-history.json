@@ -1,0 +1,20 @@
+{
+  "system": "You are a GUI agent. Inspect the screenshot and return only a JSON object.",
+  "history": "Task: Open Settings and enable Wi-Fi.\nStep0: Home screen showed Settings, Camera and Browser icons.\nStep1: Tapped Settings. The page listed Network, Bluetooth and Display.\nStep2: Scrolled through unrelated display brightness and sound entries.\nStep3: Opened About phone, saw device information, and returned to Settings.\nStep4: Located Wireless and networks, then opened the Wi-Fi entry.\nStep5: The page is transitioning. The task remains to enable Wi-Fi.",
+  "previous": "{\"action\":\"tap\",\"target\":\"Wi-Fi\"}",
+  "prompt": "Identify the current settings page. Return one JSON object with keys screen and action. The action must be \"wait\". Do not use markdown.",
+  "image": "inputs/phone_screenshots/shot0.png",
+  "max_tokens": 64,
+  "check": {
+    "type": "json_action",
+    "action": "wait",
+    "screen_contains": [
+      "developer",
+      "开发者"
+    ],
+    "keys": [
+      "screen",
+      "action"
+    ]
+  }
+}

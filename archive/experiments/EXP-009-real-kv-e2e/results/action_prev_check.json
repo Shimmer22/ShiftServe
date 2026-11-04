@@ -1,0 +1,13 @@
+{
+  "compressed_cells": 115,
+  "compressed_bytes": 4242548,
+  "action_prev_range": [
+    139,
+    171
+  ],
+  "action_prev_all_present": true,
+  "n_action_prev_present": 32,
+  "pos_min": 0,
+  "pos_max": 170,
+  "positions_sparse": true
+}

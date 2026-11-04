@@ -1,0 +1,234 @@
+{
+  "loadavg_start": [
+    "13.31",
+    "13.77",
+    "14.83"
+  ],
+  "loadavg_end": [
+    "16.36",
+    "15.08",
+    "15.15"
+  ],
+  "resize": [
+    448,
+    980
+  ],
+  "prompt": "You are a GUI agent operating an Android phone. Task: open the Settings app. Look at the screenshot and output the next action as JSON with fields action, coordinate (x,y in the screenshot pixels) and a short reason.",
+  "rows": [
+    {
+      "tag": "shot0",
+      "idx": 0,
+      "cache_prompt": false,
+      "screencap_s": 0.565,
+      "screenshot_png_bytes": 296151,
+      "screenshot_wh": [
+        1200,
+        2670
+      ],
+      "resize_encode_s": 0.077,
+      "sent_png_bytes": 140804,
+      "request_json_bytes": 188187,
+      "http_e2e_s": 52.721,
+      "e2e_incl_screencap_s": 53.363,
+      "usage": {
+        "completion_tokens": 41,
+        "prompt_tokens": 627,
+        "total_tokens": 668,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 627,
+        "prompt_ms": 49639.281,
+        "predicted_n": 41,
+        "predicted_ms": 2978.746
+      },
+      "loadavg_before": [
+        "13.31",
+        "13.77",
+        "14.83"
+      ],
+      "loadavg_after": [
+        "15.34",
+        "14.24",
+        "14.93"
+      ],
+      "finish_reason": "stop",
+      "output": "```json\n{\n    \"action\": \"system_button\",\n    \"coordinate\": [39, 80], \n    \"coordinate2\": [39, 80]\n}\n```"
+    },
+    {
+      "tag": "shot1",
+      "idx": 1,
+      "cache_prompt": false,
+      "screencap_s": 0.452,
+      "screenshot_png_bytes": 297924,
+      "screenshot_wh": [
+        1200,
+        2670
+      ],
+      "resize_encode_s": 0.06,
+      "sent_png_bytes": 140960,
+      "request_json_bytes": 188395,
+      "http_e2e_s": 60.743,
+      "e2e_incl_screencap_s": 61.255,
+      "usage": {
+        "completion_tokens": 41,
+        "prompt_tokens": 627,
+        "total_tokens": 668,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 627,
+        "prompt_ms": 56573.0,
+        "predicted_n": 41,
+        "predicted_ms": 4082.603
+      },
+      "loadavg_before": [
+        "15.34",
+        "14.24",
+        "14.93"
+      ],
+      "loadavg_after": [
+        "15.94",
+        "14.62",
+        "15.02"
+      ],
+      "finish_reason": "stop",
+      "output": "```json\n{\n  \"action\": \"system_button\",\n  \"coordinate\": [39, 80], \n  \"coordinate2\": [39, 80]\n}\n```"
+    },
+    {
+      "tag": "shot2",
+      "idx": 2,
+      "cache_prompt": false,
+      "screencap_s": 0.49,
+      "screenshot_png_bytes": 296588,
+      "screenshot_wh": [
+        1200,
+        2670
+      ],
+      "resize_encode_s": 0.06,
+      "sent_png_bytes": 140569,
+      "request_json_bytes": 187875,
+      "http_e2e_s": 68.601,
+      "e2e_incl_screencap_s": 69.151,
+      "usage": {
+        "completion_tokens": 41,
+        "prompt_tokens": 627,
+        "total_tokens": 668,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        }
+      },
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 627,
+        "prompt_ms": 64639.969,
+        "predicted_n": 41,
+        "predicted_ms": 3870.752
+      },
+      "loadavg_before": [
+        "15.94",
+        "14.62",
+        "15.02"
+      ],
+      "loadavg_after": [
+        "16.43",
+        "15.05",
+        "15.14"
+      ],
+      "finish_reason": "stop",
+      "output": "```json\n{\n  \"action\": \"system_button\",\n  \"coordinate\": [35, 80],\n  \"coordinate2d\": [35, 80]\n}\n```"
+    },
+    {
+      "tag": "shot2_cache0",
+      "idx": 3,
+      "cache_prompt": true,
+      "screencap_s": 0.49,
+      "screenshot_png_bytes": 296588,
+      "screenshot_wh": [
+        1200,
+        2670
+      ],
+      "resize_encode_s": 0.05,
+      "sent_png_bytes": 140569,
+      "request_json_bytes": 187874,
+      "http_e2e_s": 4.349,
+      "e2e_incl_screencap_s": 4.889,
+      "usage": {
+        "completion_tokens": 42,
+        "prompt_tokens": 627,
+        "total_tokens": 669,
+        "prompt_tokens_details": {
+          "cached_tokens": 626
+        }
+      },
+      "timings": {
+        "cache_n": 626,
+        "prompt_n": 1,
+        "prompt_ms": 113.85,
+        "predicted_n": 42,
+        "predicted_ms": 4163.949
+      },
+      "loadavg_before": [
+        "16.43",
+        "15.05",
+        "15.14"
+      ],
+      "loadavg_after": [
+        "16.39",
+        "15.07",
+        "15.15"
+      ],
+      "finish_reason": "stop",
+      "output": "```json\n{\n  \"action\": \"system_button\",\n  \"coordinate\": [39, 80], \n  \"coordinate2d\": [40, 80]\n}\n```"
+    },
+    {
+      "tag": "shot2_cache1",
+      "idx": 4,
+      "cache_prompt": true,
+      "screencap_s": 0.49,
+      "screenshot_png_bytes": 296588,
+      "screenshot_wh": [
+        1200,
+        2670
+      ],
+      "resize_encode_s": 0.05,
+      "sent_png_bytes": 140569,
+      "request_json_bytes": 187874,
+      "http_e2e_s": 4.813,
+      "e2e_incl_screencap_s": 5.353,
+      "usage": {
+        "completion_tokens": 42,
+        "prompt_tokens": 627,
+        "total_tokens": 669,
+        "prompt_tokens_details": {
+          "cached_tokens": 626
+        }
+      },
+      "timings": {
+        "cache_n": 626,
+        "prompt_n": 1,
+        "prompt_ms": 113.233,
+        "predicted_n": 42,
+        "predicted_ms": 4615.535
+      },
+      "loadavg_before": [
+        "16.39",
+        "15.07",
+        "15.15"
+      ],
+      "loadavg_after": [
+        "16.36",
+        "15.08",
+        "15.15"
+      ],
+      "finish_reason": "stop",
+      "output": "```json\n{\n  \"action\": \"system_button\",\n  \"coordinate\": [39, 80], \n  \"coordinate2d\": [40, 80]\n}\n```"
+    }
+  ]
+}
