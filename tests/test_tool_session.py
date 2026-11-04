@@ -8,8 +8,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
-from a2o.router_table import export_table
-from a2o.tool_session import execute_tool, validate_tool_config, validate_lifecycle
+from a2o.scheduling.router_table import export_table
+from a2o.tools.adapters import execute_tool
+from a2o.validation.tool_session import validate_tool_config, validate_lifecycle
 
 
 class ToolSessionTest(unittest.TestCase):

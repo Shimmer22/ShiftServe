@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
-from a2o.bfcl_collect import common_prefix, parse_calls, run_case, load_entries, _tool_ok
+from a2o.workloads.bfcl import common_prefix, parse_calls, run_case, load_entries, _tool_ok
 
 
 class ContractTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class ContractTests(unittest.TestCase):
             if route=='/tokenize': return {'tokens':list(data['content'].encode())}
             text=next(iterator)
             return {'content':text,'tokens':list(text.encode()),'stop_type':'eos','timings':{}}
-        with tempfile.TemporaryDirectory() as temp, patch('a2o.bfcl_collect.post',side_effect=fake_post):
+        with tempfile.TemporaryDirectory() as temp, patch('a2o.workloads.bfcl.post',side_effect=fake_post):
             result=run_case(entry,cfg,'test',0,Path(temp))
             self.assertTrue(result['trace_complete'],result)
             self.assertTrue(result['quality']['valid'],result)

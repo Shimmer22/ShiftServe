@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from a2o.cost_model import route_times
+from a2o.scheduling.cost_model import route_times
 
 
 class CostModel(unittest.TestCase):

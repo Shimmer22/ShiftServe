@@ -1,6 +1,7 @@
 # 项目约束
 
 - 维护一个工程：代码放 src/，执行入口放 scripts/，配置放 configs/，场景放 scenarios/，每次结果放 results/ 的具名目录。历史实验保留在 archive/，不增加 EXP 编号目录。
+- src/a2o 按机制分包，原生代码放 native/ 并按 backend/state/scheduling/session/vision/profiling 划分。scripts 与 docs 的正文入口必须放二级目录；根目录只留 README.md 和 AGENTS.md，docs/README.md 作为文档索引。
 - 中文说明，复用 shared/ 下已有运行时、模型与工具链，不复制大资产。默认使用手机已有 Qwen2.5-VL-3B Q4_0 和 F16 mmproj。
 - CPU / HTP / hybrid 必须显式配置并记录，设备不可用时直接失败，不静默回退。模型设备实验串行执行，避免不同条件争抢手机资源。
 - 默认关闭 KV 整理和预搬移；先通过正常响应和状态迁移检查，再比较策略与延迟。

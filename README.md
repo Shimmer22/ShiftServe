@@ -1,59 +1,28 @@
-# 面向端侧 Agent 的工具等待感知异构推理状态准备与动态调度
+# Tool Slack 感知的端侧异构推理
 
-论文主线：**Slack-Aware Speculative State Preparation for Heterogeneous On-Device Agents**。目标是在 Tool 开始时决定是否投机准备，返回后根据真实 P、预计 D 和准备进度延迟绑定后端，并保留 CPU 可执行状态。当前跨轮回收、固定D成本 Router 和实际只读文本 Tool 已通过最小验证，见 [TOOL_SESSION.md](TOOL_SESSION.md)；Tool/Gap策略、真实轨迹代价覆盖和端到端收益尚未验证。四路径用于成本校准与正确性验证，KV 压缩为可选扩展。远端 BFCL 轨迹采集见 [BFCL.md](BFCL.md)，历史状态链路见 [MULTITURN.md](MULTITURN.md)。默认仍关闭 KV 整理与传统预搬移，暂停 QNN/NPU ViT 工作。
+围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。默认复用 shared 工具链和手机已有 Qwen2.5-VL-3B Q4_0，视觉投影为 F16；不执行模型生成的设备动作。
 
-当前工程用同一 Android 运行器提供 CPU、HTP、混合三条路径。默认关闭 KV 整理与预搬移，先验证模板、模型响应和状态迁移。观察回放输入支持文本历史和真实截图，输出由 host 校验；不会执行模型给出的设备动作。
+跨轮资源回收、固定 D 成本 Router、实际只读文本 Tool 已通过基础验证。实测代价覆盖仍有限，尚无可信的端到端收益或 Gap 翻转结论；当前存在并行资源竞争，耗时不用于性能判断。KV 压缩、独立 Tiling 与 QNN ViT 暂缓。
 
-真截图闭环已恢复正常响应：OpenCL 视觉默认配置关闭视觉侧 Flash Attention；混合路径使用 mmap 原始 CPU 权重、batch128，图像 prefill 后释放视觉编码器，并使用 HTP 队列深度1。具体对照与结果见 VALIDATION。
+| 目录 | 内容 |
+|---|---|
+| [src/a2o/](src/a2o/) | Python 按运行时、调度、工具、验收、工作负载、视觉分包；原生机制放在 native/ |
+| [scripts/](scripts/) | 二级入口：run、validate、profile、collect、analyze、plot、vision |
+| [docs/](docs/README.md) | 二级文档：design、guides、validation、reference |
+| [configs/](configs/) / [scenarios/](scenarios/) | 显式后端配置与观察/响应场景 |
+| [results/](results/) / [archive/](archive/) | 具名实验结果与历史记录；保留失败输出和原始日志 |
 
-## 入口
+常用入口（均从仓库根目录执行）：
 
-开发状态与验收见 [ROADMAP.md](ROADMAP.md)。多轮状态与最小异步准备已有基础验证，四路径代价仍部分合格。新常驻入口已接入会话级跨轮回收、独立成本 Router 与实际只读 Tool，见 [TOOL_SESSION.md](TOOL_SESSION.md)；旧 readiness 夹具保留回归。预测特征、KV 压缩和独立 Tiling 暂缓。
+```bash
+# 本地测试，不使用手机
+conda run --no-capture-output -n visiontrim-qwen25vl python -m unittest discover -s tests
 
-历史固定CPU Decode的B矩阵16个H/P点各测3次：12点通过，当前均偏向HTP；8K历史的4点空响应，已排除选路。因此还没有证据说明 Gap 会改变最优路径，也不把这轮文本微基准当作GUI端到端加速。
+# 实际只读 Tool 的常驻会话
+conda run --no-capture-output -n visiontrim-qwen25vl python scripts/run/tool_session.py --config configs/tool-session-smoke.json --scenario scenarios/tool-session-real.json
 
-- [RUN.md](RUN.md)：环境、构建与复现命令。
-- [ARCHITECTURE.md](ARCHITECTURE.md)：时序、KV 迁移、计时边界。
-- [VALIDATION.md](VALIDATION.md)：输出问题的定位与设备验证结果。
-- [BACKEND_REVIEW.md](BACKEND_REVIEW.md)：阶段分工相关工作与当前性能配置、内存压力的对照。
-- [MULTITURN.md](MULTITURN.md)：当前主线、多轮基线、Snapshot/Prefix 管理与 DeltaNet 验证边界。
-- [QNN.md](QNN.md)：已搁置的 NPU ViT 路线，保留已有代码与产物。
-- [configs/](configs/)：后端、KV 策略与预搬移配置。
-- [scenarios/](scenarios/)：响应、历史记忆和截图场景。
-- [src/a2o/](src/a2o/)：统一 Android runtime 与 host runner。
-- [results/](results/)：带配置、场景、源码 hash、日志和响应校验的运行结果。
-- [archive/](archive/)：既有测量、脚本和原始结果，作为历史记录保留。
+# 串行最小机制与 CPU 对照
+conda run --no-capture-output -n visiontrim-qwen25vl python scripts/validate/tool_session.py
+```
 
-## 已有单轮消融配置（历史）
-
-| LLM 路径 | KV 整理 | 预搬移 |
-|---|---|---|
-| `cpu`：CPU prefill + decode | `none` / `recent` | 关闭 |
-| `npu`：HTP0 prefill + decode | `none` / `recent` | 关闭 |
-| `hybrid`：CPU 历史、HTP0 新观察 prefill、CPU decode | `none` / `recent` | 开 / 关 |
-
-整理策略先使用可解释的 `recent`：保留 system、完整上一动作和最近历史 KV，原 position 不变。后续选择器从这一对照起比较。预搬移只在混合路径有实际意义：开启时在模拟 A2O 内同步历史 KV，关闭时在观察到达后同步。
-
-NPU 配置特指 LLM 的 HTP0；图像编码使用 OpenCL。CPU 配置的图像编码与 LLM 均使用 CPU。模型固定为手机现有 Qwen2.5-VL-3B Q4_0，视觉投影为 F16。
-
-当前设备地址由 `configs/device.json` 统一保存；`DEVICE` 环境变量或 `--device` 可覆盖。混合机制消融统一使用 batch128、关闭 CPU 额外 repack、视觉 FA 关闭和 2000ms 模拟 A2O；CPU/HTP 的单后端基线保留 batch512 与 CPU repack，运行 manifest 会记录全部配置。跨配置速度比较需同时考虑这些执行参数。
-
-## 此前固定CPU Decode的多轮基线
-
-`configs/multiturn-baseline.json`＋`scenarios/multiturn-screenshots.json` 在同一进程内完成 CPU→HTP→CPU→HTP 四轮 prefill 选择，decode 始终在 CPU。每轮从上一轮真实 CPU decode snapshot 继续；三张新截图各 GPU 编码一次，最后一轮纯文本追问历史。同一 snapshot 的 CPU/HTP prefill 使用相同新输入，保存原始 logits 对照。
-
-当前模型 Qwen2.5-VL 没有 DeltaNet；本基线不宣称覆盖 Qwen3.5 的递归状态迁移。此前单轮 smoke、模拟 A2O 与 ViT 后端探索保留为历史证据，不能替代多轮验证。
-
-
-## 当前四路径入口
-
-- `configs/four-path-session.json`＋`scenarios/four-path-memory.json`：首轮GPU截图，随后历史追问，依次HH/HC/CH/CC；snapshot来自实际Decode后端。
-- `configs/path-grid.json`＋`scripts/profile_prefill.py --config configs/path-grid.json`：同一结构化合成历史，两种初始驻留位置，小P与短动作的四路径校准。
-- `scripts/analyze_paths.py results/NAME`：校验后导出成本与选路，单列完整动作和Decode计算前缀；Gap只是离线理想重叠。
-- `scripts/plot_paths.py results/NAME`：只画通过校验且样本足够的完整动作成本，导出PNG/PDF及布局检查。
-
-真实连续截图曾再次触发FastRPC停顿，尚未根治；完整记录见VALIDATION.md。四路径运行器与成本表不等于已完成在线成本调度。
-
-## 本次基础机制验证
-
-异步准备最小实现、串行短回放与验收边界见 [ASYNC.md](ASYNC.md)。本次手机存在并行竞争，耗时不用于性能结论；不运行长期实验。大型模型、状态和张量不纳入 Git，原始日志和检查记录保留。
+开发路线见 [roadmap](docs/design/roadmap.md)，目录与迁移规则见 [layout](docs/design/layout.md)，环境和旧回放入口见 [运行指南](docs/guides/run.md)。机制证据与边界见 [Tool 会话](docs/guides/tool-session.md) 和 [验证记录](docs/validation/results.md)。第三方代码许可见 [第三方声明](docs/reference/third-party-notices.md)。

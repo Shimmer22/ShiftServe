@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import unittest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from a2o.cost_model import path_cost
+from a2o.scheduling.cost_model import path_cost
 
 
 class PathCost(unittest.TestCase):
