@@ -3,6 +3,7 @@
 - 维护一个工程：代码放 src/，执行入口放 scripts/，配置放 configs/，场景放 scenarios/，每次结果放 results/ 的具名目录。历史实验保留在 archive/，不增加 EXP 编号目录。
 - src/a2o 按机制分包，原生代码放 native/ 并按 backend/state/scheduling/session/vision/profiling 划分。scripts 与 docs 的正文入口必须放二级目录；根目录只留 README.md 和 AGENTS.md，docs/README.md 作为文档索引。
 - 中文说明，复用 shared/ 下已有运行时、模型与工具链，不复制大资产。默认使用手机已有 Qwen2.5-VL-3B Q4_0 和 F16 mmproj。
+- 远端编译用 `ssh wins`（`10.29.243.183`）的缓存镜像 `ghcr.io/snapdragon-toolchain/arm64-android:v0.3`：SDK 6.4.0.2、Hexagon Clang 19.0.04；原源码/产物在 `/home/wins/ai-workspace/tools/llama.cpp-hexagon-build/`，探针另建私有目录。
 - CPU / HTP / hybrid 必须显式配置并记录，设备不可用时直接失败，不静默回退。模型设备实验串行执行，避免不同条件争抢手机资源。
 - 默认关闭 KV 整理和预搬移；先通过正常响应和状态迁移检查，再比较策略与延迟。
 - 同一条件的 prefill/decode 使用一个进程内的上下文；模型初始化、视觉初始化、观察处理、状态迁移和 decode 分别计时。

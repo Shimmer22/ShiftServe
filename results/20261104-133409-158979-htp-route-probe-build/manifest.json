@@ -1,0 +1,45 @@
+{
+  "remote_host": "wins",
+  "remote_directory": "/home/wins/ai-workspace/tools/llama.cpp-hexagon-probes/20261104-133409-158979",
+  "image": "ghcr.io/snapdragon-toolchain/arm64-android:v0.3",
+  "source_files_sha256": {
+    "ggml/src/ggml-hexagon/htp/htp-ctx.h": "37ae41dd9eeb183c028eca8a85d96cde8dbee977a2dbfc7dda12c88b9355104a",
+    "ggml/src/ggml-hexagon/htp/main.c": "20eeadb41720e2c0245d54e1fd001251b6a57694431e870a548e7d012f7e26fa",
+    "ggml/src/ggml-hexagon/htp/matmul-ops.c": "df0cfe65068041c5ab6a4d6b0808d75135de8177eda5b0c5e362fcb9c7094ae1"
+  },
+  "patch_sha256": "88054325ad1f8c6cb799e5e8a1aeb0b655eb828a6b4c7e7dcf16a59ba58a3a3c",
+  "command": [
+    "docker",
+    "run",
+    "--rm",
+    "--pull=never",
+    "--network=none",
+    "--read-only",
+    "--cpus=4",
+    "--user",
+    "1000:1000",
+    "--tmpfs",
+    "/tmp:rw,exec,size=1g",
+    "-v",
+    "/home/wins/ai-workspace/tools/llama.cpp-hexagon-build:/home/wins/ai-workspace/tools/llama.cpp-hexagon-build:ro",
+    "-v",
+    "/home/wins/ai-workspace/tools/llama.cpp-hexagon-probes/20261104-133409-158979:/probe:rw",
+    "--entrypoint",
+    "/bin/sh",
+    "ghcr.io/snapdragon-toolchain/arm64-android:v0.3",
+    "-c",
+    "set -eu\ncmake -S /probe/src/ggml/src/ggml-hexagon/htp -B /probe/build-v79 -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/probe/src/ggml/src/ggml-hexagon/htp/cmake-toolchain.cmake -DHEXAGON_SDK_ROOT=/opt/hexagon/6.4.0.2 -DHEXAGON_TOOLS_ROOT=/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04 -DDSP_VERSION=v79 -DPREBUILT_LIB_DIR=toolv19_v79 -DHEXAGON_HTP_DEBUG=OFF -DGGML_HEXAGON_FP32_QUANTIZE_GROUP_SIZE=128 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON\ncmake --build /probe/build-v79 -j 4"
+  ],
+  "probe_transport": "a2o-route-v1: eight profiling PMU slots carry route metadata, NOT hardware PMU values",
+  "wire_abi_changed": false,
+  "shared_source_or_install_modified": false,
+  "dsp_variant": "v79",
+  "binary": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/build/htp-route-probe/20261104-133409-158979/libggml-htp-v79.so",
+  "binary_sha256": "ff40c9c82e85c69b0dd92e080a3908126e71aba92b1fef75898674a92fce6383",
+  "verified_toolchain": {
+    "sdk": "6.4.0.2",
+    "hexagon_clang": "19.0.04",
+    "image_id": "sha256:e0c11123e0104737c5c11643ec64933a11431b5fb95aeb54f85eefa757172332"
+  },
+  "original_remote_sources_unchanged": true
+}

@@ -3,9 +3,9 @@
 | 阶段 | 具体改动 | 完成标准 | 当前状态 |
 |---|---|---|---|
 | A 多轮基线 | CPU/HTP 双 Context，真实历史状态复用 | 连续多轮正确，不重复 prefill 旧截图 | 首帧截图＋历史追问的HH/HC/CH/CC及全CPU对照通过；连续新截图仍有FastRPC问题；DeltaNet未覆盖 |
-| B 优势区间 | CPU/HTP prefill、双向交接与布局成本测量 | 得到给定 H/P 下的实际路径查表 | 四路径结构化组96次完成、60次数值通过；尚无合格的四路径全局最优/Gap翻转证据 |
-| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 跨轮回收、固定D成本Router、只读文本Tool完成最小验证；真实轨迹覆盖、Tool/Gap策略与性能未完成，见 docs/guides/tool-session.md |
-| D KV-aware 优化 | 压缩、Tile-aware 选择、部分准备 | 相比全量异步准备获得额外收益 | 未实现 |
+| B 优势区间 | CPU/HTP prefill、双向交接与布局成本测量 | 得到给定 H/P 下的实际路径查表 | 四路径结构化组96次中60次数值通过；真实 HTTP 的 CC/HC 交界扫描与 Oracle 已完成，尚无稳定 Gap 翻转证据 |
+| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 跨轮回收与固定 D Router 通过基础验证；真实 HTTP 的三种准备策略及严格/联合 Oracle 已实测，真实多模态轨迹与稳定收益待验证 |
+| D KV-aware 优化 | 压缩、Tile-aware 选择、部分准备 | 相比全量异步准备获得额外收益 | 历史 K/V tiles 提前准备与实际复用已通过，独立端到端增益未证实；压缩/增量准备暂缓 |
 
 手机多模态回归固定 GPU ViT；BFCL 文本轨迹不加载视觉编码器。已有成本校准包含 CC（CPU/CPU）、HH（HTP/HTP）、HC（HTP/CPU）、CH（CPU/HTP）。四路径是代价模型的支撑组件，不将四路径迟滞调度本身列为核心创新。此前固定 CPU Decode 的测量保留为历史证据。
 
@@ -21,7 +21,7 @@
 | 版本校验、取消、CPU 策略回退 | 基础通过 | 新常驻入口通过跨轮持有旧任务、结果发布和下一轮 CPU 推进；后端 API 仍不可抢占，关闭允许等待 |
 | BFCL Tool Trace | 已安排远端采集 | 仓库文档尚无正式数据结果；不能作为真实手机 Tool 等待的替代证据 |
 | 真实 Tool 驱动的调度 | 只读文本基础接入通过 | 实际 ADB 系统查询、固定D成本分支和普通模式通过；Browser/GUI/外网API与完整收益未验证 |
-| KV 压缩和独立 Tiling | 未实现 | 暂缓，待基础 Runtime 与调度成立 |
+| KV tiles 与压缩 | 预整理原型通过机制验收 | 历史 tiles 实际复用、生命周期与完整响应对照已完成；增益未稳定，压缩暂缓 |
 
 旧夹具仍有两个明确限制：`src/a2o/native/state/async_preparation.h::bind()` 只按就绪/版本/取消状态绑定，未比较成本；`src/a2o/native/session/replay_session.h` 轮末仍 `join()`。其旧验证只说明当前轮 CPU 计算可不提前等待。新 `src/a2o/native/session/tool_session.h` 使用会话级 lane 和独立成本 Router，已用屏障证明结果发布及下一轮 CPU 推进可先于旧任务退出；保留旧夹具作为回归，不把新结论套到旧入口。
 
@@ -141,3 +141,11 @@ D 在 C 通过后比较：无整理、全量异步准备、压缩后全量准备
 ## 当前四路径结果
 
 详见`results/20261103-213658-342299-four-path-structured-grid/README.md`和`results/four-path-memory-comparison.json`。真实截图首帧＋后三轮追问的四路径与全CPU输出、token、prefix完全一致；不等于连续新截图故障已解决。96次文本校准响应全通过、60次数值通过。有效CC/HC对照在H4K、G0、初始CPU时，P16为1.43/2.70秒，P64为3.93/1.92秒；支持保留小P不迁移的候选，未证明Tool Gap使最优路径翻转。HH数值仍待校准，当前不能宣布四路径全部可用。固定D在线成本分支与只读Tool已通过基础验证，见docs/guides/tool-session.md；预测D/Gap、多模态Tool和收益验证仍未完成。
+
+## 2026-11-04：选路、联合 Oracle 与历史 KV 预整理
+
+任务目标与最终结论见 [选路与准备实验总结](../validation/oracle-summary.md)。已建立真实 HTTP Gap、同一进程内双上下文、完整自由生成、独立数值准入、强制路径与 Router 串行重放，以及严格选路/联合 Oracle 的分析链路。交界扫描确认 H/P 共同影响 CC/HC 选择；直接 DSP 探针验证 attention 的 M=32 路由门槛。
+
+历史 K/V tiles 可在 Tool 等待期间准备，并被实际 HTP attention 复用；普通 KV 继续服务于交接和 CPU decode，临时表示按最后使用时机释放。现有文本短输出实验未证明稳定的 Gap 选路翻转或 tiles 独立端到端收益。下一步应在公平的生命周期与内存预算下，扩大完整输出长度和真实多轮 Tool 场景，分别比较后端选择、提前准备及表示转换的增量价值；默认继续关闭预整理，不进入压缩路线。
+
+运行入口见 [Oracle 指南](../guides/oracle.md) 和 [KV tiles 指南](../guides/kv-prepack.md)。原始失败、数值未准入条件、诊断对照与实现审计均作为证据保留，不作为主线任务的完成定义。

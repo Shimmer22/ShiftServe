@@ -1,0 +1,5 @@
+{
+  "ggml/src/ggml-hexagon/htp/htp-ctx.h": true,
+  "ggml/src/ggml-hexagon/htp/main.c": true,
+  "ggml/src/ggml-hexagon/htp/matmul-ops.c": true
+}

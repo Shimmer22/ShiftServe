@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 build/
+!scripts/build/
+!scripts/build/*.py
 .DS_Store
 # 大型状态、数值张量及模型留在本地，日志和检查结果保留版本记录。
 *.bin

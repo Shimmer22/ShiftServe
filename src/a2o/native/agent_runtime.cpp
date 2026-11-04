@@ -91,6 +91,7 @@ static std::map<std::string, long long> resource_sample() {
 #include "profiling/prefill.h"
 #include "profiling/paths.h"
 #include "session/tool_session.h"
+#include "profiling/oracle.h"
 
 int main(int argc, char ** argv) { try {
     std::map<std::string, std::string> a;
@@ -139,6 +140,7 @@ int main(int argc, char ** argv) { try {
             ggml_free(ctx);
         }
     } else { unsetenv("MTMD_BACKEND_DEVICE"); }
+    if(get("--oracle-profile")=="1") return run_oracle(a);
     if(get("--tool-session")=="1") return run_tool_session(a);
     if(get("--path-profile")=="1") return run_paths(a);
     if(!get("--profile-history").empty()) return run_profile(a);

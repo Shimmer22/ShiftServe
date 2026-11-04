@@ -1,0 +1,40 @@
+{
+  "mode": "hybrid",
+  "history_tokens": 4096,
+  "new_tokens": [
+    32
+  ],
+  "gap_ms": [
+    0,
+    1500
+  ],
+  "strategies": [
+    "after_return",
+    "always",
+    "cost_aware"
+  ],
+  "routes": [
+    "CC",
+    "HC"
+  ],
+  "repetitions": 3,
+  "context_size": 5120,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "timeout_s": 600,
+  "seed": 20261104,
+  "numeric_acceptance": {
+    "min_cosine": 0.99,
+    "max_nrmse": null
+  },
+  "input_fixture": "neutral_padding_v1",
+  "htp_profile": 0,
+  "calibration_only": false,
+  "htp_kv_prepack_dir": "build/kv-prepack/20261104-154535-747425",
+  "prepack_comparison": true,
+  "diagnostic_only": true
+}

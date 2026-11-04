@@ -1,0 +1,604 @@
+{
+  "acceptance": "用户于 2026-11-04 认可探索阶段当前 HC 数值可用；响应、完整生成 ID、EOG 与状态核验仍须全部通过",
+  "original_numeric_flags_preserved": true,
+  "D_including_eog": 6,
+  "conditions": [
+    {
+      "P": 16,
+      "G_target_ms": 0,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            76,
+            148,
+            219
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1442.498489,
+          "total_ms": 1481.397187,
+          "actual_gap_ms": 60.671354
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            71,
+            92,
+            222
+          ],
+          "ready_count": 0,
+          "after_return_ms": 2578.380937,
+          "total_ms": 2732.484061,
+          "actual_gap_ms": 46.01177
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            25,
+            113,
+            218
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1395.393281,
+          "total_ms": 1510.201301,
+          "actual_gap_ms": 80.060625
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            40,
+            143,
+            200
+          ],
+          "ready_count": 1,
+          "after_return_ms": 2596.880937,
+          "total_ms": 2633.688905,
+          "actual_gap_ms": 36.807968
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "CC",
+        "trial_ids": [
+          76,
+          148,
+          219
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1442.498489,
+        "total_ms": 1481.397187,
+        "actual_gap_ms": 60.671354
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": -78.74409967579521,
+      "early_vs_late_HC_total_gain_ms": 98.79515600000013,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 16,
+      "G_target_ms": 50,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            75,
+            107,
+            209
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1427.324426,
+          "total_ms": 1515.462551,
+          "actual_gap_ms": 107.460312
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            67,
+            142,
+            186
+          ],
+          "ready_count": 0,
+          "after_return_ms": 2759.025155,
+          "total_ms": 2868.863071,
+          "actual_gap_ms": 94.560782
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            27,
+            88,
+            196
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1362.385624,
+          "total_ms": 1503.767343,
+          "actual_gap_ms": 135.783541
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            57,
+            154,
+            166
+          ],
+          "ready_count": 3,
+          "after_return_ms": 2556.337656,
+          "total_ms": 2683.455103,
+          "actual_gap_ms": 136.476093
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "always",
+        "route": "CC",
+        "trial_ids": [
+          27,
+          88,
+          196
+        ],
+        "ready_count": 3,
+        "after_return_ms": 1362.385624,
+        "total_ms": 1503.767343,
+        "actual_gap_ms": 135.783541
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": -79.0999726084699,
+      "early_vs_late_HC_total_gain_ms": 185.40796800000044,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 16,
+      "G_target_ms": 200,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            60,
+            128,
+            202
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1446.005729,
+          "total_ms": 1718.369166,
+          "actual_gap_ms": 269.554531
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            39,
+            137,
+            162
+          ],
+          "ready_count": 0,
+          "after_return_ms": 2603.894426,
+          "total_ms": 2859.606301,
+          "actual_gap_ms": 326.746927
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            37,
+            105,
+            223
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1456.918906,
+          "total_ms": 1922.840781,
+          "actual_gap_ms": 328.1425
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            23,
+            96,
+            195
+          ],
+          "ready_count": 3,
+          "after_return_ms": 2638.893697,
+          "total_ms": 2962.530468,
+          "actual_gap_ms": 300.915625
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "CC",
+        "trial_ids": [
+          60,
+          128,
+          202
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1446.005729,
+        "total_ms": 1718.369166,
+        "actual_gap_ms": 269.554531
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": -80.07497299479924,
+      "early_vs_late_HC_total_gain_ms": -102.92416700000012,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 16,
+      "G_target_ms": 500,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            21,
+            94,
+            176
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1440.325156,
+          "total_ms": 2061.144218,
+          "actual_gap_ms": 620.819062
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            70,
+            132,
+            215
+          ],
+          "ready_count": 0,
+          "after_return_ms": 2571.89703,
+          "total_ms": 3265.247863,
+          "actual_gap_ms": 660.747395
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            65,
+            112,
+            210
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1452.799478,
+          "total_ms": 2141.179374,
+          "actual_gap_ms": 688.379896
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            51,
+            87,
+            181
+          ],
+          "ready_count": 3,
+          "after_return_ms": 2600.007707,
+          "total_ms": 3201.090415,
+          "actual_gap_ms": 644.974166
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "CC",
+        "trial_ids": [
+          21,
+          94,
+          176
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1440.325156,
+        "total_ms": 2061.144218,
+        "actual_gap_ms": 620.819062
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": -78.56364025068794,
+      "early_vs_late_HC_total_gain_ms": 64.15744799999993,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 64,
+      "G_target_ms": 0,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            17,
+            114,
+            183
+          ],
+          "ready_count": 0,
+          "after_return_ms": 3791.43677,
+          "total_ms": 3891.63552,
+          "actual_gap_ms": 57.245729
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            19,
+            121,
+            225
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1971.808905,
+          "total_ms": 2020.838437,
+          "actual_gap_ms": 47.412448
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            49,
+            146,
+            224
+          ],
+          "ready_count": 2,
+          "after_return_ms": 3687.978593,
+          "total_ms": 3731.002863,
+          "actual_gap_ms": 43.679895
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            29,
+            136,
+            194
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1996.484999,
+          "total_ms": 2038.776718,
+          "actual_gap_ms": 44.025261
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "HC",
+        "trial_ids": [
+          19,
+          121,
+          225
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1971.808905,
+        "total_ms": 2020.838437,
+        "actual_gap_ms": 47.412448
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": 47.99309537212723,
+      "early_vs_late_HC_total_gain_ms": -17.93828099999996,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 64,
+      "G_target_ms": 50,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            64,
+            116,
+            208
+          ],
+          "ready_count": 0,
+          "after_return_ms": 3738.590624,
+          "total_ms": 3844.418228,
+          "actual_gap_ms": 99.000573
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            14,
+            99,
+            197
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1971.501301,
+          "total_ms": 2116.945988,
+          "actual_gap_ms": 93.356042
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            58,
+            133,
+            156
+          ],
+          "ready_count": 3,
+          "after_return_ms": 3854.537655,
+          "total_ms": 3946.880102,
+          "actual_gap_ms": 112.916719
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            77,
+            106,
+            182
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1999.343854,
+          "total_ms": 2136.47927,
+          "actual_gap_ms": 137.135416
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "HC",
+        "trial_ids": [
+          14,
+          99,
+          197
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1971.501301,
+        "total_ms": 2116.945988,
+        "actual_gap_ms": 93.356042
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": 47.26618934033896,
+      "early_vs_late_HC_total_gain_ms": -19.533281999999872,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 64,
+      "G_target_ms": 200,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            53,
+            110,
+            185
+          ],
+          "ready_count": 0,
+          "after_return_ms": 3864.018905,
+          "total_ms": 4150.662238,
+          "actual_gap_ms": 286.643333
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            69,
+            150,
+            213
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1906.215155,
+          "total_ms": 2239.35802,
+          "actual_gap_ms": 303.790365
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            34,
+            123,
+            159
+          ],
+          "ready_count": 3,
+          "after_return_ms": 3878.576977,
+          "total_ms": 4169.318852,
+          "actual_gap_ms": 290.741875
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            46,
+            145,
+            192
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1979.530625,
+          "total_ms": 2305.946458,
+          "actual_gap_ms": 325.014532
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "after_return",
+        "route": "HC",
+        "trial_ids": [
+          69,
+          150,
+          213
+        ],
+        "ready_count": 0,
+        "after_return_ms": 1906.215155,
+        "total_ms": 2239.35802,
+        "actual_gap_ms": 303.790365
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": 50.66755101706729,
+      "early_vs_late_HC_total_gain_ms": -66.58843799999977,
+      "online_relaxed_router_measured": false
+    },
+    {
+      "P": 64,
+      "G_target_ms": 500,
+      "paths": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "trial_ids": [
+            80,
+            120,
+            188
+          ],
+          "ready_count": 0,
+          "after_return_ms": 3986.330571,
+          "total_ms": 4660.287863,
+          "actual_gap_ms": 615.450208
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "trial_ids": [
+            31,
+            153,
+            174
+          ],
+          "ready_count": 0,
+          "after_return_ms": 1934.935989,
+          "total_ms": 2557.309531,
+          "actual_gap_ms": 587.339843
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "trial_ids": [
+            74,
+            90,
+            198
+          ],
+          "ready_count": 3,
+          "after_return_ms": 3706.961144,
+          "total_ms": 4370.557654,
+          "actual_gap_ms": 671.645103
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "trial_ids": [
+            15,
+            127,
+            172
+          ],
+          "ready_count": 3,
+          "after_return_ms": 1901.722707,
+          "total_ms": 2510.396666,
+          "actual_gap_ms": 631.954479
+        }
+      ],
+      "joint_oracle_allow_explicit_preparation_or_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "trial_ids": [
+          15,
+          127,
+          172
+        ],
+        "ready_count": 3,
+        "after_return_ms": 1901.722707,
+        "total_ms": 2510.396666,
+        "actual_gap_ms": 631.954479
+      },
+      "CC_vs_best_HC_after_return_reduction_pct": 52.293903550428865,
+      "early_vs_late_HC_total_gain_ms": 46.91286499999978,
+      "online_relaxed_router_measured": false
+    }
+  ],
+  "limitations": [
+    "原在线 Router 因旧门槛禁用 HC，cost_aware 分支未提前准备且全部选 CC；不能把离线改资格当成在线放宽门槛后的实测",
+    "此处 Oracle 是完整实测路径重放的经验最小值，允许显式返回后准备或等待；不同于旧 Router 仅接纳 ready 的选路 Oracle",
+    "三次重复、无线 HTTP 实际 Gap 波动；几十毫秒差异不足以证明提前准备的稳定收益"
+  ]
+}

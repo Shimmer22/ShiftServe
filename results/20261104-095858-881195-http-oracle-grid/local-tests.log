@@ -1,0 +1,28 @@
+......{
+  "conditions": 0,
+  "semantic_passed": 0,
+  "original_strict_format_passed": 0,
+  "hybrid_transfer_passed": 0,
+  "connection_check": {
+    "type": "one_of",
+    "values": [
+      "WIFI",
+      "WI-FI"
+    ],
+    "strict_value": "WIFI"
+  }
+}
+results/multi complete passed= True
+  0 cpu cached= 0 image_encodes= 1 cosine= not compared
+  1 cpu cached= 715 image_encodes= 1 cosine= not compared
+  2 cpu cached= 1355 image_encodes= 1 cosine= not compared
+  3 cpu cached= 1995 image_encodes= 0 cosine= not compared
+......................
+----------------------------------------------------------------------
+Ran 28 tests in 2.408s
+
+OK
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp7kp10klq", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpsvmzs8a4", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp7h6tca2t", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmprx8u41vh", "passed": true, "trials": 228, "D": 2}

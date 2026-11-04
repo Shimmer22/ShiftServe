@@ -1,0 +1,965 @@
+  PID ARGS                       
+    1 init second_stage
+    2 [kthreadd]
+    3 [pool_workqueue_release]
+    4 [kworker/R-rcu_g]
+    5 [kworker/R-slub_]
+    6 [kworker/R-netns]
+   12 [kworker/R-mm_pe]
+   13 [rcu_tasks_kthread]
+   14 [rcu_tasks_trace_kthread]
+   15 [ksoftirqd/0]
+   16 [rcu_preempt]
+   17 [rcuog/0]
+   18 [rcuop/0]
+   19 [rcub/0]
+   20 [rcu_exp_gp_kthread_worker]
+   21 [rcu_exp_par_gp_kthread_worker]
+   22 [migration/0]
+   23 [idle_inject/0]
+   24 [cpuhp/0]
+   25 [cpuhp/1]
+   26 [idle_inject/1]
+   27 [migration/1]
+   28 [ksoftirqd/1]
+   31 [rcuop/1]
+   32 [cpuhp/2]
+   33 [idle_inject/2]
+   34 [migration/2]
+   35 [ksoftirqd/2]
+   38 [rcuop/2]
+   39 [cpuhp/3]
+   40 [idle_inject/3]
+   41 [migration/3]
+   42 [ksoftirqd/3]
+   45 [rcuop/3]
+   46 [cpuhp/4]
+   47 [idle_inject/4]
+   48 [migration/4]
+   49 [ksoftirqd/4]
+   52 [rcuog/4]
+   53 [rcuop/4]
+   54 [cpuhp/5]
+   55 [idle_inject/5]
+   56 [migration/5]
+   57 [ksoftirqd/5]
+   60 [rcuop/5]
+   61 [cpuhp/6]
+   62 [idle_inject/6]
+   63 [migration/6]
+   64 [ksoftirqd/6]
+   67 [rcuop/6]
+   68 [cpuhp/7]
+   69 [idle_inject/7]
+   70 [migration/7]
+   71 [ksoftirqd/7]
+   74 [rcuop/7]
+   77 [kworker/R-inet_]
+   79 [kauditd]
+   80 [khungtaskd]
+   81 [oom_reaper]
+   83 [kworker/R-write]
+   84 [kcompactd0]
+   85 [khugepaged]
+   86 [kworker/R-kbloc]
+   89 [kworker/R-edac-]
+   90 [kworker/R-devfr]
+   91 [watchdogd]
+   95 [kswapd0]
+   99 [erofs_worker/0]
+  100 [erofs_worker/1]
+  101 [erofs_worker/2]
+  102 [erofs_worker/3]
+  103 [erofs_worker/4]
+  104 [erofs_worker/5]
+  105 [erofs_worker/6]
+  106 [erofs_worker/7]
+  107 [kworker/R-kthro]
+  110 [dmabuf-deferred-free-worker]
+  111 [kworker/R-nvme-]
+  112 [kworker/R-nvme-]
+  113 [kworker/R-nvme-]
+  114 [kworker/R-uas]
+  115 [kworker/R-dm_bu]
+  116 [hwrng]
+  117 [irq/16-gunyah_rm_rx]
+  119 [kworker/R-mld]
+  120 [kworker/R-ipv6_]
+  121 [kworker/R-kstrp]
+  140 [kworker/R-miev_]
+  144 [kshrink_slabd]
+  149 [qcom,system-pool-refill-thread]
+  150 [reserve-refill]
+  153 [fboost_thread]
+  154 [halt_drain_rqs]
+  155 [core_ctl]
+  156 [msm_perf:events_notify]
+  166 [qrtr_ns]
+  168 [g_reclaim_thread]
+  171 [mi_send_thread]
+  174 [xswapd0]
+  175 [irq/52-c228000.tsens0]
+  176 [irq/53-c228000.tsens0]
+  182 [irq/58-c229000.tsens1]
+  183 [irq/59-c229000.tsens1]
+  184 [irq/64-c22a000.tsens2]
+  185 [irq/65-c22a000.tsens2]
+  186 [irq/66-c22b000.tsens3]
+  187 [irq/67-c22b000.tsens3]
+  196 [mem_buf_trusted_vm_rcvr]
+  197 [irq/68-qcom,qmp-tme]
+  198 [gh-watchdog]
+  199 [mem_buf_oem_vm_rcvr]
+  208 [irq/71-bcl-lvl0]
+  209 [irq/72-bcl-lvl1]
+  210 [irq/73-bcl-lvl2]
+  214 [irq/187-bcl-lvl0]
+  215 [irq/188-bcl-lvl1]
+  216 [irq/189-bcl-lvl2]
+  225 [irq/75-arm-smmu-context-fault]
+  226 [irq/76-arm-smmu-context-fault]
+  234 [irq/78-arm-smmu-context-fault]
+  239 [scsi_eh_0]
+  240 [kworker/R-scsi_]
+  241 [kworker/R-qc_uf]
+  242 [kworker/R-ufs_e]
+  243 [kworker/R-ufs_c]
+  247 [f2fs_ckpt-259:1]
+  248 [f2fs_flush-259:1]
+  249 [f2fs_discard-259:1]
+  250 [f2fs_gc-259:1]
+  251 [kworker/R-kdmfl]
+  252 [kworker/R-kdmfl]
+  253 [kworker/R-kdmfl]
+  254 [kworker/R-kdmfl]
+  255 [kworker/R-kdmfl]
+  256 [kworker/R-kdmfl]
+  257 [kworker/R-kdmfl]
+  258 [kworker/R-kdmfl]
+  259 [kworker/R-kdmfl]
+  260 [kworker/R-kdmfl]
+  261 [kworker/R-kdmfl]
+  262 [kworker/R-kveri]
+  263 [kworker/R-kdmfl]
+  264 [kworker/R-kveri]
+  265 [kworker/R-kdmfl]
+  266 [kworker/R-kveri]
+  267 [kworker/R-kdmfl]
+  268 [kworker/R-kveri]
+  269 [kworker/R-kdmfl]
+  270 [kworker/R-kveri]
+  271 [kworker/R-kdmfl]
+  272 [kworker/R-kveri]
+  273 [kworker/R-kdmfl]
+  274 [kworker/R-kveri]
+  275 [kworker/R-kdmfl]
+  276 [kworker/R-kveri]
+  281 init subcontext u:r:vendor_init:s0 17
+  282 ueventd
+  330 [kworker/R-kdmfl]
+  333 [kworker/R-kdmfl]
+  335 [kworker/R-kdmfl]
+  336 [kworker/R-kdmfl]
+  337 [kworker/R-kdmfl]
+  338 [kworker/R-kdmfl]
+  339 [kworker/R-kdmfl]
+  340 [kworker/R-kdmfl]
+  341 [kworker/R-kdmfl]
+  345 [kworker/R-kdmfl]
+  346 [kworker/R-kdmfl]
+  348 [kworker/R-kdmfl]
+  351 [kworker/R-kdmfl]
+  354 [kworker/R-kdmfl]
+  355 [kworker/R-kdmfl]
+  358 [kworker/R-kdmfl]
+  359 [kworker/R-kdmfl]
+  360 [kworker/R-kdmfl]
+  361 [kworker/R-kdmfl]
+  362 [kworker/R-kdmfl]
+  365 [kworker/R-kdmfl]
+  366 [kworker/R-kdmfl]
+  372 [kworker/R-ext4-]
+  373 [kworker/R-ext4-]
+  374 [kworker/R-ext4-]
+  463 [kworker/R-tls-s]
+  464 [krfcommd]
+  468 prng_seeder
+  490 audioadsprpcd audiopd adsp
+  559 [irq/79-arm-smmu-context-fault]
+  583 [irq/80-arm-smmu-context-fault]
+  624 [lb:g_manager]
+  625 [cdsprm-wq]
+  626 [kworker/R-bwmon]
+  627 [kworker/R-cdspr]
+  628 [irq/239-240b3400.qcom,bwmon-llcc-gold]
+  629 [irq/239-240b7400.qcom,bwmon-llcc-prime]
+  630 [irq/240-smp2p_2]
+  631 [irq/241-smp2p_5]
+  632 [irq/242-smp2p_1]
+  633 [irq/243-smp2p_19]
+  646 [cpudmof/0]
+  647 [kthread_q2spi]
+  648 [irq/247-xiaomi_wifi_gpio]
+  649 [kworker/R-memla]
+  655 [spi0]
+  656 [spi1]
+  657 [khvcd]
+  658 [cpudmof/1]
+  659 [irq/253-regulator-ocp]
+  660 [cpudmof/2]
+  661 [cpudmof/3]
+  662 [cpudmof/4]
+  663 [cpudmof/5]
+  664 [cpudmof/6]
+  665 [irq/254-regulator-alarm]
+  737 [kworker/R-cpucp]
+  743 [kworker/R-scree]
+  744 [cpudmof/7]
+  762 [kworker/R-cifsi]
+  763 [kworker/R-smb3d]
+  764 [kworker/R-cifsf]
+  770 [kworker/R-cifso]
+  772 [kworker/R-mca_w]
+  779 [kworker/R-defer]
+  780 [kworker/R-serve]
+  810 [kworker/R-power]
+  835 [adci_thread]
+  836 [mi_mempool]
+  922 [migt_thread]
+  923 [kworker/R-mpcie]
+  924 [kthread_debug_intoD]
+  925 [kworker/R-cfg80]
+  926 [kworker/R-perfm]
+  927 [minet_thread]
+  928 [hang_detect]
+  929 [hang_detect1]
+  931 [irq/260-pmic_pwrkey]
+  932 [kworker/R-pmic_]
+  933 [kworker/R-pdr_n]
+  934 [irq/262-q6v5 wdog]
+  935 [kworker/R-pmic_]
+  936 [irq/269-generic-irq]
+  937 [irq/270-pmic_resin]
+  940 [irq/81-arm-smmu-context-fault]
+  941 [mitee_msgq_recv_task]
+  945 [kworker/R-tls-s]
+  946 [irq/275-int_global_int]
+  947 [irq/278-q6v5 wdog]
+  948 [irq/285-q6v5 wdog]
+  949 [irq/279-pm8010m-temp-alarm]
+  951 [irq/294-q6v5 wdog]
+  952 [irq/299-pmic_pwrkey_bark]
+  953 [mitee_worker/0]
+  954 [irq/300-pmic_pwrkey_resin_bark]
+  956 [minet_thread]
+  957 [adspsleepmon-worker]
+  960 [irq/293-pmr735d-temp-alarm]
+  961 [kworker/R-qcryp]
+  986 [irq/82-arm-smmu-context-fault]
+ 1003 [irq/302-wcd-usbss-sdam]
+ 1009 [irq/83-arm-smmu-context-fault]
+ 1011 [Surge kthread]
+ 1018 [kworker/R-scree]
+ 1064 [kworker/R-pm_wo]
+ 1065 [kworker/R-batch]
+ 1066 [irq/305-msm-vidc]
+ 1067 [kworker/R-cs35l]
+ 1069 [kworker/R-cs35l]
+ 1072 [irq/84-arm-smmu-context-fault]
+ 1073 [irq/85-arm-smmu-context-fault]
+ 1074 [irq/304-cs35l43]
+ 1075 [irq/86-arm-smmu-context-fault]
+ 1076 [irq/87-arm-smmu-context-fault]
+ 1077 [irq/88-arm-smmu-context-fault]
+ 1078 [irq/306-pwr_event_irq]
+ 1079 [irq/307-dp_hs_phy_irq]
+ 1080 [charger_event_thread]
+ 1081 [irq/308-dm_hs_phy_irq]
+ 1082 [irq/310-ss_phy_irq]
+ 1083 [kworker/R-cs35l]
+ 1084 [kworker/R-cs35l]
+ 1085 [irq/309-cs35l43]
+ 1086 [irq/312-pm8550vs-j-temp-alarm]
+ 1087 [irq/313-pmih010x-temp-alarm]
+ 1088 [irq/314-pmih010x-temp-alarm-lite]
+ 1089 [irq/315-pm8550-temp-alarm]
+ 1090 [irq/316-pm8550ve-d-temp-alarm]
+ 1091 [irq/317-pm8550ve-f-temp-alarm]
+ 1092 [irq/318-pm8550ve-g-temp-alarm]
+ 1093 [irq/319-pm8550ve-i-temp-alarm]
+ 1094 [irq/89-arm-smmu-context-fault]
+ 1095 [irq/90-arm-smmu-context-fault]
+ 1096 [irq/320-bhi]
+ 1098 logd
+ 1099 lmkd
+ 1100 servicemanager
+ 1102 vndservicemanager /dev/vndbinder
+ 1116 android.hardware.security.keymint-service-qti
+ 1117 qseecomd
+ 1119 vendor.qti.hardware.qseecom@1.0-service
+ 1121 vold --blkid_context=u:r:blkid:s0 --blkid_untrusted_context=u:r:blkid_untrusted:s0 --fsck_context=u:r:fsck:s0 --fsck_untrusted_context=u:r:fsck_untrusted:s0
+ 1126 [jbd2/sdf7-8]
+ 1127 [kworker/R-ext4-]
+ 1128 [jbd2/sde11-8]
+ 1129 [kworker/R-ext4-]
+ 1130 [jbd2/sda30-8]
+ 1131 [kworker/R-ext4-]
+ 1132 [jbd2/sda32-8]
+ 1133 [kworker/R-ext4-]
+ 1136 [kworker/R-kdmfl]
+ 1141 [psimon]
+ 1147 [kworker/R-ext4-]
+ 1151 hypsys_system
+ 1152 hypsys_vendor
+ 1154 android.system.suspend-service
+ 1155 keystore2 /data/misc/keystore
+ 1156 android.hardware.boot-service.qti
+ 1159 android.hardware.security.keymint-service.strongbox-thales
+ 1199 [irq/356-nuvolta_1652_chg_stat_irq]
+ 1200 [irq/357-nuvolta_1652_power_good_irq]
+ 1201 [irq/358-nuvolta_1652_hall_int_irq]
+ 1248 [kworker/R-k_ipa]
+ 1249 [irq/359-flash_all_ramp_up]
+ 1250 [irq/360-flash_all_ramp_down]
+ 1251 [irq/361-flash_fault]
+ 1252 [kworker/R-kgsl-]
+ 1253 [irq/363-msm_cvp]
+ 1254 [kworker/R-kgsl-]
+ 1255 [kworker/R-msm_c]
+ 1256 [kworker/R-pm_wo]
+ 1257 [irq/91-arm-smmu-context-fault]
+ 1258 [kworker/R-byte-]
+ 1259 [irq/92-arm-smmu-context-fault]
+ 1260 [irq/93-arm-smmu-context-fault]
+ 1261 [irq/94-arm-smmu-context-fault]
+ 1262 [kworker/R-ipa_p]
+ 1263 [kworker/R-trans]
+ 1264 [kworker/R-page_]
+ 1265 [kworker/R-ipa_p]
+ 1266 [kworker/R-ipa_u]
+ 1267 [irq/95-arm-smmu-context-fault]
+ 1268 [kworker/R-rmnet]
+ 1269 [kworker/R-rmnet]
+ 1270 [irq/77-arm-smmu-context-fault]
+ 1271 [irq/191-arm-smmu-context-fault]
+ 1272 [cvp-dsp-thread]
+ 1273 [irq/192-arm-smmu-context-fault]
+ 1274 [irq/96-arm-smmu-context-fault]
+ 1275 [irq/97-arm-smmu-context-fault]
+ 1276 [irq/98-arm-smmu-context-fault]
+ 1277 [irq/99-arm-smmu-context-fault]
+ 1278 [irq/193-arm-smmu-context-fault]
+ 1279 [irq/194-arm-smmu-context-fault]
+ 1280 [kgsl-events]
+ 1281 [kworker/R-kgsl_]
+ 1282 [kgsl_hwsched]
+ 1283 [irq/100-arm-smmu-context-fault]
+ 1284 [irq/101-arm-smmu-context-fault]
+ 1285 [irq/102-arm-smmu-context-fault]
+ 1286 [irq/103-arm-smmu-context-fault]
+ 1287 [irq/104-arm-smmu-context-fault]
+ 1288 [kworker/R-dsi_p]
+ 1289 [kworker/R-cam-c]
+ 1290 [kworker/R-qcom,]
+ 1291 [kworker/R-rt-cd]
+ 1292 [kworker/R-rt-cd]
+ 1293 [kworker/R-rt-cd]
+ 1294 [kworker/R-rt-cd]
+ 1295 [kworker/R-rt-cd]
+ 1296 [kworker/R-rt-cd]
+ 1297 [kworker/R-rt-cd]
+ 1298 [kworker/R-rt-cd]
+ 1299 [kworker/R-rt-cd]
+ 1300 [kworker/R-rt-cd]
+ 1301 [kworker/R-rt-cd]
+ 1302 [kworker/R-rt-cd]
+ 1303 [kworker/R-rt-cd]
+ 1304 [kworker/R-rt-cd]
+ 1305 [kworker/R-rt-cd]
+ 1306 [kworker/R-rt-cd]
+ 1307 [kworker/R-rt-cd]
+ 1308 [kworker/R-rt-cd]
+ 1309 [kworker/R-rt-cd]
+ 1311 [kworker/R-rt-cd]
+ 1315 [kworker/R-cds_r]
+ 1316 [wlan_logging_thread]
+ 1317 [irq/393-CCI0]
+ 1318 [kworker/R-cam_c]
+ 1319 [kworker/R-cam_c]
+ 1320 [irq/394-CCI1]
+ 1321 [kworker/R-cam_c]
+ 1322 [kworker/R-cam_c]
+ 1323 [irq/395-CCI2]
+ 1324 [kworker/R-cam_c]
+ 1325 [kworker/R-cam_c]
+ 1326 [kworker/R-drm_d]
+ 1327 [disp_feature:0]
+ 1330 [irq/362-fifo-empty]
+ 1331 [irq/375-esd_err_irq]
+ 1332 [kworker/R-sdm_d]
+ 1333 [kworker/R-hdcp_]
+ 1334 [hdcp_2x]
+ 1335 [dp_hdcp2p2]
+ 1336 [crtc_commit:205]
+ 1337 [crtc_event:205]
+ 1338 [crtc_commit:270]
+ 1339 [crtc_event:270]
+ 1340 [crtc_commit:279]
+ 1341 [crtc_event:279]
+ 1342 [crtc_commit:288]
+ 1343 [crtc_event:288]
+ 1344 [crtc_commit:297]
+ 1345 [crtc_event:297]
+ 1346 [crtc_commit:306]
+ 1347 [crtc_event:306]
+ 1348 [crtc_commit:315]
+ 1349 [crtc_event:315]
+ 1350 [crtc_commit:324]
+ 1351 [crtc_event:324]
+ 1352 [pp_event]
+ 1353 [card0-crtc0]
+ 1354 [card0-crtc1]
+ 1355 [card0-crtc2]
+ 1356 [card0-crtc3]
+ 1357 [card0-crtc4]
+ 1358 [card0-crtc5]
+ 1359 [card0-crtc6]
+ 1360 [card0-crtc7]
+ 1367 [irq/374-xiaomi_tpsynaptics_tcm]
+ 1373 [kworker/R-ipa_i]
+ 1374 [kworker/R-ipawq]
+ 1375 [kworker/R-ipare]
+ 1376 [kworker/R-ipawq]
+ 1377 [kworker/R-ipare]
+ 1378 [kworker/R-ipafr]
+ 1379 [kworker/R-ipawq]
+ 1380 [kworker/R-ipare]
+ 1381 [kworker/R-ipa_u]
+ 1382 [kworker/R-clnt_]
+ 1429 [kworker/5:0-mm_percpu_wq]
+ 1450 [glink_cdsp]
+ 1451 [qrtr_rx]
+ 1452 [glink-IPCRTR]
+ 1453 [glink-LOOPBACK_CTL_CDSP]
+ 1454 [irq/105-arm-smmu-context-fault]
+ 1455 [irq/106-arm-smmu-context-fault]
+ 1456 [irq/107-arm-smmu-context-fault]
+ 1457 [irq/108-arm-smmu-context-fault]
+ 1458 [irq/109-arm-smmu-context-fault]
+ 1459 [irq/110-arm-smmu-context-fault]
+ 1460 [irq/111-arm-smmu-context-fault]
+ 1461 [irq/112-arm-smmu-context-fault]
+ 1462 [irq/113-arm-smmu-context-fault]
+ 1463 [irq/114-arm-smmu-context-fault]
+ 1464 [irq/115-arm-smmu-context-fault]
+ 1465 [irq/116-arm-smmu-context-fault]
+ 1466 [glink-fastrpcglink-apps-dsp]
+ 1467 [glink-cdsprmglink-apps-dsp]
+ 1468 [glink-cvp-glink-apps-dsp]
+ 1469 [kworker/R-syna_]
+ 1470 [kworker/R-synap]
+ 1471 [glink_adsp]
+ 1472 [glink-mhi_sat]
+ 1473 [glink-glink_ssr]
+ 1474 [qrtr_rx]
+ 1475 [glink-IPCRTR]
+ 1476 [glink-LOOPBACK_CTL_LPASS]
+ 1477 [irq/117-arm-smmu-context-fault]
+ 1478 [irq/118-arm-smmu-context-fault]
+ 1479 [irq/119-arm-smmu-context-fault]
+ 1480 [irq/120-arm-smmu-context-fault]
+ 1481 [irq/121-arm-smmu-context-fault]
+ 1482 [irq/122-arm-smmu-context-fault]
+ 1483 [kworker/R-pdr_n]
+ 1484 [kworker/R-pdr_n]
+ 1485 [kworker/R-pdr_n]
+ 1486 [glink-fastrpcglink-apps-dsp]
+ 1487 [kworker/R-pdr_n]
+ 1488 [glink-adsp_apps]
+ 1489 [glink-sleepmonglink-apps-adsp]
+ 1490 [glink-bt_cp_ctrl]
+ 1492 [glink-PMIC_RTR_ADSP_APPS]
+ 1493 [glink-PMIC_LOGS_ADSP_APPS]
+ 1496 [kworker/R-soc:q]
+ 1497 [irq/123-arm-smmu-context-fault]
+ 1539 [kworker/3:0H-kverityd]
+ 1549 [f2fs_ckpt-254:56]
+ 1550 [f2fs_flush-254:56]
+ 1551 [f2fs_discard-254:56]
+ 1552 [f2fs_gc-254:56]
+ 1571 tombstoned
+ 1616 [kworker/2:0-pm]
+ 1617 [kworker/R-kveri]
+ 1618 [kworker/R-ext4-]
+ 1619 [kworker/R-kveri]
+ 1620 [kworker/R-ext4-]
+ 1621 [kworker/R-ext4-]
+ 1622 [kworker/R-ext4-]
+ 1623 [kworker/R-ext4-]
+ 1624 [kworker/R-ext4-]
+ 1625 [kworker/R-ext4-]
+ 1626 [kworker/R-ext4-]
+ 1627 [kworker/R-ext4-]
+ 1628 [kworker/R-ext4-]
+ 1629 [kworker/R-ext4-]
+ 1630 [kworker/R-ext4-]
+ 1633 [kworker/R-ext4-]
+ 1634 [kworker/R-kveri]
+ 1635 [kworker/R-kveri]
+ 1636 [kworker/R-ext4-]
+ 1637 [kworker/R-ext4-]
+ 1638 [kworker/R-ext4-]
+ 1639 [kworker/R-kveri]
+ 1640 [kworker/R-kveri]
+ 1641 [kworker/R-kveri]
+ 1642 [kworker/R-kveri]
+ 1643 [kworker/R-kveri]
+ 1644 [kworker/R-kveri]
+ 1645 [kworker/R-kveri]
+ 1646 [kworker/R-kveri]
+ 1647 [kworker/R-kveri]
+ 1648 [kworker/R-kveri]
+ 1649 [kworker/R-kveri]
+ 1650 [kworker/R-kveri]
+ 1651 [kworker/R-kveri]
+ 1652 [kworker/R-kveri]
+ 1653 [kworker/R-kveri]
+ 1654 [kworker/R-kveri]
+ 1655 [kworker/R-kveri]
+ 1656 [kworker/R-kveri]
+ 1657 [kworker/R-ext4-]
+ 1658 [kworker/R-ext4-]
+ 1660 [kworker/R-ext4-]
+ 1661 [kworker/R-ext4-]
+ 1662 [kworker/R-ext4-]
+ 1663 [kworker/R-ext4-]
+ 1664 [kworker/R-ext4-]
+ 1665 [kworker/R-ext4-]
+ 1666 [kworker/R-ext4-]
+ 1667 [kworker/R-ext4-]
+ 1668 [kworker/R-ext4-]
+ 1670 [kworker/R-ext4-]
+ 1671 [kworker/R-ext4-]
+ 1672 [kworker/R-ext4-]
+ 1673 [kworker/R-ext4-]
+ 1674 [kworker/R-ext4-]
+ 1675 [kworker/R-ext4-]
+ 1676 [kworker/R-ext4-]
+ 1677 [kworker/R-ext4-]
+ 1678 [kworker/R-ext4-]
+ 1679 [kworker/R-ext4-]
+ 1708 time_daemon
+ 1711 vendor.xiaomi.hardware.mimd2-service
+ 1755 [kworker/R-kdmfl]
+ 1756 [kworker/R-kdmfl]
+ 1757 [kworker/R-kveri]
+ 1759 netd
+ 1761 statsd
+ 1762 zygote64
+ 1763 [kworker/R-at_us]
+ 1764 [kworker/R-at_us]
+ 1765 [kworker/R-at_us]
+ 1766 [kworker/R-qdss]
+ 1767 [kworker/R-qdss_]
+ 1768 [kworker/R-qdss_]
+ 1809 tee-supplicant
+ 1853 hlosminkdaemon
+ 1854 sscrpcd sensorspd adsp
+ 1855 ssgtzd
+ 1856 diag-router
+ 1860 qccsyshal_aidl-service
+ 1861 android.hardware.bluetooth@aidl-service-qti
+ 1862 android.hardware.drm-service.clearkey
+ 1863 android.hardware.health-service.qti
+ 1864 android.hardware.ir-service.example
+ 1866 android.hardware.media.c2-mi-service
+ 1867 android.hardware.power-service
+ 1868 android.hardware.secure_element-service.qti
+ 1871 android.hardware.sensors-service.multihal
+ 1872 android.hardware.thermal-service.qti
+ 1876 android.hardware.usb-service.qti
+ 1877 android.hardware.usb.gadget-service.qti
+ 1878 android.hardware.wifi-service
+ 1880 vendor.dolby.dms.service
+ 1881 [irq/416-gh_dbl_rx_5]
+ 1882 [irq/419-gh_dbl_rx_8]
+ 1883 [kworker/R-vm49_]
+ 1886 [qrtr_rx]
+ 1887 vendor.qti.hardware.memtrack-service
+ 1888 poweropt-service
+ 1889 qesdk-manager
+ 1890 qesdk-secmanager
+ 1891 snapdragon_services
+ 1892 vendor.dolby.media.c2-default-service-dax
+ 1893 vendor.qti.MemHal-service
+ 1894 vendor.qti.hardware.capabilityconfigstore-service
+ 1895 vendor.qti.hardware.display.allocator-service
+ 1897 vendor.qti.hardware.display.composer-service
+ 1898 dspservice
+ 1900 vendor.qti.hardware.perf2-hal-service
+ 1901 vendor.qti.hardware.secureprocessor
+ 1902 vendor.qti.hardware.sensorscalibrate-service
+ 1903 vendor.qti.hardware.servicetrackeraidl-service
+ 1904 vendor.qti.hardware.trustedui-aidl-service-qti
+ 1905 media.hwcodec /vendor.qti.media.c2@1.0-service
+ 1906 media.audio.qc.codec .qti.media.c2audio@1.0-service
+ 1908 vendor.qti.qspa-service
+ 1909 vendor.qti.qspmhal-service
+ 1910 vendor.qti.sla.service@2.0-service
+ 1911 vendor.qti.syshealthmon-service
+ 1912 vendor.xiaomi.aidl.minet@1.0-service
+ 1913 vendor.xiaomi.aidl.miwill@1.0-service
+ 1914 vendor.xiaomi.hardware.batteryantiaging-service
+ 1915 vendor.xiaomi.hardware.cld_aidl-service
+ 1916 vendor.xiaomi.hardware.displayfeature_aidl-service
+ 1917 vendor.xiaomi.hardware.fbo-service
+ 1918 vendor.xiaomi.hardware.micharge-service
+ 1919 vendor.xiaomi.hardware.miperf2-service
+ 1920 vendor.xiaomi.hardware.swap-service
+ 1921 vendor.xiaomi.hardware.videoservice-service
+ 1922 vendor.xiaomi.modem.qms@1.0-service
+ 1923 vppservice
+ 1924 android.hardware.gnss-aidl-service-qti
+ 1925 android.hardware.weaver-service.thales
+ 1926 mrmd
+ 1927 android.hardware.nfc-service-st
+ 1931 vendor.qti.camera.provider-service_64
+ 1932 vendor.qti.hardware.lights.service
+ 1933 mtd
+ 1934 tidad
+ 1938 fidoca
+ 1941 mlipayd
+ 1943 vendor.xiaomi.hardware.otrpagent@2.0-service
+ 1944 vendor.xiaomi.hardware.vibratorfeature.service
+ 1945 vsimd
+ 1953 vendor.xiaomi.hw.touchfeature-service
+ 1954 android.hardware.cas-service.example
+ 1978 android.hardware.drm-service.widevine
+ 1987 pd-mapper
+ 1992 pm-service
+ 2001 credstore /data/misc/credstore
+ 2007 gpuservice
+ 2054 surfaceflinger
+ 2087 [kworker/0:1-sock_diag_events]
+ 2088 qsap_sensors
+ 2095 rmt_storage
+ 2100 tftp_server
+ 2107 [irq/124-arm-smmu-context-fault]
+ 2109 [irq/420-swr_master_irq]
+ 2110 [irq/421-swr_master_irq]
+ 2111 [irq/422-swr_master_irq]
+ 2114 [irq/427-swr_master_irq]
+ 2129 [irq/435-swr_wake_irq]
+ 2130 mi_thermald
+ 2133 mi_ambient
+ 2181 [gmu_f2h]
+ 2203 [kworker/R-kdmfl]
+ 2218 qwesd
+ 2322 [f2fs_ckpt-254:59]
+ 2323 [f2fs_flush-254:59]
+ 2324 [f2fs_discard-254:59]
+ 2327 [f2fs_gc-254:59]
+ 2452 subsystem_ramdump 3
+ 2456 vendor.qti.qvirt-service_rs
+ 2460 pm-proxy
+ 2483 drmserver64
+ 2513 traced_probes
+ 2515 traced
+ 2532 gppservice
+ 2534 iorapd
+ 2553 tcmd
+ 2554 android.hardware.gatekeeper-service-qti
+ 2567 qcrilNrd
+ 2570 qcrilNrd -c 2
+ 2572 qmipriod
+ 2573 shsusrd 0x22819000 0x0A
+ 2575 vendor.dpmd
+ 2582 cameraserver
+ 2599 incidentd
+ 2600 installd
+ 2605 media.extractor aextractor
+ 2607 media.metrics diametrics
+ 2613 mediaserver64
+ 2622 storaged
+ 2634 wificond
+ 2641 misight
+ 2643 fdpp daemon
+ 2644 shelld
+ 2646 qadaemon
+ 2649 miuibooster
+ 2650 perfservice
+ 2657 cnd
+ 2658 wifidisplayhalservice
+ 2661 qsap_dcfd
+ 2662 dlsc
+ 2671 imsdaemon
+ 2672 ipacm-diag
+ 2677 ipacm
+ 2678 minetd
+ 2679 nicmd
+ 2681 port-bridge
+ 2719 qms
+ 2723 tlpd boot
+ 2730 qsap_qapeservice
+ 2733 adsprpcd rootpd adsp
+ 2737 cdsprpcd rootpd cdsp
+ 2742 wfdvndservice
+ 2744 [kworker/2:3H-kverityd]
+ 2745 vendor.xiaomi.hardware.mediaeventgatherservice-service
+ 2747 toucheventcheck
+ 2755 media.swcodec oid.media.swcodec/bin/mediaswcodec
+ 2775 tlpd 02000000
+ 2816 cnss-daemon -n -l --max_file_count 3 --max_file_size 20
+ 2821 ssgqmigd
+ 2825 mlid
+ 2826 loc_launcher
+ 2841 gatekeeperd /data/misc/gatekeeper
+ 2842 update_engine --logtostderr --logtofile --foreground
+ 2861 qsguard
+ 2863 C2PAInternetService
+ 2865 feature_enabler_client
+ 2871 qcc-vendor
+ 2880 lowi-server
+ 2881 xtra-daemon
+ 2882 qvrservice
+ 2886 sxrservice
+ 2889 trusteduilistener
+ 2890 usap64
+ 2892 vendor.qti.hardware.soter-service
+ 2895 displayfeature
+ 2898 mfp-daemon
+ 2900 vendor.xiaomi.sensor.citsensorservice.aidl
+ 2901 qti
+ 2914 adpl
+ 3075 adbd --root_seclabel=u:r:su:s0 --tim_seclabel=u:r:adbd_tradeinmode:s0
+ 3184 [irq/257-xiaomi_fp_irq]
+ 3293 [kworker/3:4H-kverityd]
+ 3335 [kworker/0:3H-kverityd]
+ 3348 [kworker/4:2H-kverityd]
+ 3376 [glink_modem]
+ 3417 [qrtr_rx]
+ 3418 [glink-IPCRTR]
+ 3484 system_server
+ 3509 [glink-LOOPBACK_CTL_MPSS]
+ 4005 [kworker/R-ipawq]
+ 4007 [kworker/R-ipare]
+ 4013 [kworker/R-ipawq]
+ 4014 [kworker/R-ipare]
+ 4025 [kworker/R-ipawq]
+ 4027 [kworker/R-ipare]
+ 4055 [kworker/R-ipawq]
+ 4056 [kworker/R-ipare]
+ 4057 [kworker/R-ipafr]
+ 4058 [glink-DS]
+ 4059 [glink-DATA1]
+ 4063 [glink-DATA4]
+ 4065 [glink-DATA11]
+ 4081 [kworker/R-ipawq]
+ 4082 [kworker/R-ipare]
+ 4083 [kworker/R-ipawq]
+ 4084 [kworker/R-ipare]
+ 4085 [kworker/R-ipafr]
+ 4086 [kworker/R-ipawq]
+ 4087 [kworker/R-ipare]
+ 4088 [kworker/R-ipafr]
+ 4105 [kworker/R-wda_w]
+ 4148 usap64
+ 4270 vendor.qti.hardware.minkipcbinder@1.0-service
+ 4556 qsap_qms_1 2 qms 1 8
+ 4692 millet_monitor BINDER
+ 4693 millet_monitor PKG
+ 4695 millet_monitor SIG
+ 4800 ims-dataservice-daemon
+ 4804 ims_rtp_daemon
+ 4987 com.miui.miwallpaper
+ 5159 webview_zygote
+ 5226 com.android.bluetooth
+ 5249 .dataservices
+ 5278 .cacertservice
+ 5310 com.qti.phone
+ 5332 .qms
+ 5355 com.android.networkstack.process
+ 5378 com.st.android.nfc_extensions_16
+ 5405 org.codeaurora.ims
+ 5432 com.xiaomi.hypercomm
+ 5450 com.android.se
+ 5481 vendor.qti.frameworks.utils
+ 5513 .qtidataservices
+ 5540 com.android.phone
+ 5562 vendor.qti.bluetooth.xpan
+ 6106 com.xiaomi.mirror
+ 6143 qsap_qms_0 4 qms 1 9
+ 6875 com.xiaomi.bluetooth
+ 6954 ip6tables-restore --noflush -w -v
+ 6968 vendor.qti.hardware.alarm-service
+ 7315 qsap_qms_2 3 qms 1 10
+ 7642 usap64
+ 7675 audioserver
+ 7679 audiohalservice.qti
+ 7815 qcrosvm --disk=/product/firmware/vm-system/system.img,label=10,rw=false --disk=/mnt/product/vm-persist/trustedvm/persist.img,label=11,rw=true --vm=trustedvm
+ 7867 batterysecret
+ 7901 mcd
+ 7914 qspmsvc
+ 7923 qlm-service
+ 7939 MI_RIC -r
+ 7949 mifaced
+ 7957 miteelog
+ 7959 vendor.rongcard.eid@1.0-service
+ 7962 vendor.xiaomi.hardware.mitrustedui-service
+ 8277 [kworker/u17:1-wmi_rx_event_work_queue]
+ 8340 [irq/440-gh_dbl_rx_4]
+ 8342 [irq/449-gh_dbl_rx_7]
+ 8343 [irq/450-gh_dbl_rx_9]
+ 8344 [irq/451-gh_dbl_rx_3]
+ 8348 [kworker/R-vm45_]
+ 8353 [qrtr_rx]
+ 8828 [kworker/4:0-events]
+ 8905 [kworker/u18:1-loop37]
+ 8932 [kworker/3:1H-kverityd]
+ 8944 com.android.providers.media.module
+ 9030 [kworker/u21:5-zgroup_read]
+ 9099 com.miui.daemon
+ 9136 dumpsys cpuinfo
+ 9141 com.android.nfc
+ 9166 com.xiaomi.touchservice
+ 9183 system
+ 9245 com.qualcomm.qti.services.systemhelper:systemhelper_service
+ 9263 [kworker/3:6H-kverityd]
+ 9268 [kworker/3:7H-kverityd]
+ 9282 [kworker/2:4H-kverityd]
+ 9286 org.ifaa.aidl.manager
+ 9312 [kworker/3:9H-kverityd]
+ 9330 com.xiaomi.xmsfkeeper
+ 9332 com.xiaomi.aicr:actionprovider
+ 9365 com.tencent.soter.soterserver
+ 9390 [kworker/2:9H-kverityd]
+ 9423 com.qualcomm.location
+ 9809 com.miui.misightservice
+ 9974 dumpsys cpuinfo
+ 9985 [kworker/3:10H-kverityd]
+ 9998 dumpsys cpuinfo
+10011 [kworker/7:0H-kverityd]
+10150 [kworker/u17:4-kgsl-lockless-work]
+10226 [kworker/6:1H]
+10253 [kworker/5:3H-kverityd]
+10701 [kworker/2:11H-kverityd]
+10707 com.miui.powerkeeper
+10899 [kworker/6:2]
+10905 [kworker/2:0H-kverityd]
+10906 [kworker/4:0H-kverityd]
+10909 [kworker/3:5H-kverityd]
+10914 [kworker/3:8H-kverityd]
+10917 [kworker/3:11H-kverityd]
+10924 [kworker/5:0H-kblockd]
+10952 [kworker/4:4H-kverityd]
+10977 [kworker/u19:1-hal_register_write_wq]
+10997 [kworker/u16:1-qc_ufs_qos_swq]
+11001 [kworker/1:3-mm_percpu_wq]
+11007 [kworker/u17:2-mi_sched]
+11021 com.miui.securitycenter.remote
+11057 com.xiaomi.metoknlp
+11125 com.xiaomi.location.fused
+11388 usap64
+11429 [kworker/4:2-mm_percpu_wq]
+11595 com.xiaomi.mi_connect_service
+11962 vendor.ozoaudio.notify@1.0-service
+12100 [kworker/7:1H-kverityd]
+12103 [kworker/1:2H-kblockd]
+12124 com.xiaomi.aicr
+12167 [kworker/4:5H-kverityd]
+12460 [ery:provideData]
+12518 [m.miui.weather2]
+12812 com.miui.tsmclient:daemon
+12967 [kworker/5:2-pm]
+12991 [kworker/0:2-events_power_efficient]
+13118 [kworker/0:1H]
+13137 com.miui.weather2
+13142 [kworker/u18:0-events_unbound]
+13201 [kworker/u17:3-loop34]
+13388 com.milink.service.persistent
+13477 [kworker/6:1-mm_percpu_wq]
+13541 [kworker/u16:3-memlat_wq]
+13701 [kworker/3:2H-kverityd]
+14001 [kworker/1:0-mm_percpu_wq]
+14162 [kworker/4:6H-kverityd]
+14188 com.qti.qcc
+14236 usap64
+14298 [kworker/4:7H-kverityd]
+14498 com.lbe.security.miui
+14511 com.android.quicksearchbox
+14559 com.mi.health:widgetProvider
+14721 [kworker/4:9H-kblockd]
+14738 [kworker/7:4-events]
+14744 [kworker/7:5-sock_diag_events]
+14745 [kworker/3:5-sock_diag_events]
+14747 [kworker/3:6-mm_percpu_wq]
+14774 [kworker/2:2-mm_percpu_wq]
+14784 com.xiaomi.mis
+14793 com.miui.analytics
+14969 com.xiaomi.gnss.polaris
+15006 com.android.htmlviewer:remote
+15046 com.android.htmlviewer
+15093 com.miui.misound
+15099 com.milink.crossdeviceservice
+15120 com.xiaomi.misettings:widgetProvider
+15155 com.xiaomi.misettings:remote
+15184 com.miui.tsmclient
+15222 com.xiaomi.account
+15266 com.xiaomi.finddevice
+15371 com.xiaomi.misettings
+15540 com.android.settings
+15625 usap64
+15683 com.android.camera
+15960 com.xiaomi.aicr:searchDataService
+16117 com.miui.systemAdSolution
+16241 com.google.android.gms.unstable
+16327 [kworker/3:3H-kverityd]
+16363 com.xiaomi.xmsf:kit7
+16447 [kworker/0:3-events]
+16455 com.miui.voiceassist
+16626 [kworker/u16:0-memlat_wq]
+16636 [kworker/u19:2-mhi_offload_wq]
+16637 [kworker/0:4-sock_diag_events]
+16638 ps -A -o PID,ARGS
+16662 com.xiaomi.xmsf
+17629 com.xiaomi.joyose
+18806 wfdhdcphalservice
+19235 com.mi.health:device
+19733 com.tencent.mm:push
+19823 com.xiaomi.vtcamera
+21942 com.mi.health
+22563 com.miui.voiceassist:core
+22576 DfcNativeService
+23768 [kworker/u20:5-zgroup_read]
+23769 [kworker/u20:6-zgroup_read]
+23847 [irq/311-dwc3]
+23950 com.xiaomi.mi_connect_service:idm
+23995 [kworker/6:2H-kblockd]
+24183 com.android.systemui
+24623 com.miui.wmsvc
+24683 iptables-restore --noflush -w -v
+24975 [kworker/u21:7-zgroup_read]
+25565 [kworker/1:0H-kverityd]
+26150 com.xiaomi.xmsf:services
+26542 com.sohu.inputmethod.sogou.xiaomi
+26928 [kworker/0:0-events]
+27007 com.xiaomi.aicr:cognitionService
+27801 [kworker/u19:0-hal_register_write_wq]
+28043 [kworker/u19:3-hal_register_write_wq]
+28064 [kworker/u16:4-memlat_wq]
+28681 com.miui.home
+28842 com.miui.personalassistant
+29980 com.tencent.mm
+30138 wpa_supplicant -O/data/vendor/wifi/wpa/sockets -puse_p2p_group_interface=1 -dd -g@android:wpa_wlan0
+30527 [qrtr_rx]
+30550 [scheduler_thread]
+30551 [dp_refill_thread]
+30552 [dp_rx_thread_0]
+30553 [dp_rx_thread_1]
+30554 [dp_rx_thread_2]
+30555 [dp_rx_thread_3]
+30556 [dp_rx_thread_4]
+30832 com.google.android.gms
+31403 mdnsd
+32504 [kworker/1:1-events]
+32703 com.milink.service:subSystemHealth

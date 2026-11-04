@@ -1,0 +1,2540 @@
+{
+  "passed": true,
+  "trials": 300,
+  "D_including_eog": 6,
+  "output": "{\"action\":\"wait\"}",
+  "H": 4096,
+  "numeric_acceptance": {
+    "min_cosine": 0.99,
+    "max_nrmse": null
+  },
+  "conditions": [
+    {
+      "P": 24,
+      "G_ms": 0,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 1828.367864,
+          "router_tool_to_response_ms": 1875.703906,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1828.367864,
+          "routing_oracle_tool_to_response_ms": 1875.703906,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 113,
+              "response_after_return_ms": 1852.134686,
+              "tool_to_response_ms": 1911.986093,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 172,
+              "response_after_return_ms": 1828.367864,
+              "tool_to_response_ms": 1875.703906,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 296,
+              "response_after_return_ms": 1768.248124,
+              "tool_to_response_ms": 1807.66328,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1799.764374,
+          "HC_after_return_ms": 3224.200988,
+          "HC_ready_count": 0,
+          "prepare_ms": 43.312656,
+          "actual_gap_ms": 47.336042,
+          "CC_drain_ms": 0.000105
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1759.904687,
+          "router_tool_to_response_ms": 1815.362604,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 41,
+              "response_after_return_ms": 1750.730468,
+              "tool_to_response_ms": 1799.917968,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 170,
+              "response_after_return_ms": 1759.904687,
+              "tool_to_response_ms": 1815.362604,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 239,
+              "response_after_return_ms": 1822.133593,
+              "tool_to_response_ms": 1867.156405,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1798.144322,
+          "HC_after_return_ms": 3225.015416,
+          "HC_ready_count": 1,
+          "prepare_ms": 45.245781,
+          "actual_gap_ms": 49.1875,
+          "CC_drain_ms": 0.0025
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 2,
+          "router_after_return_ms": 1854.653385,
+          "router_tool_to_response_ms": 1903.433437,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 43,
+              "response_after_return_ms": 1856.405416,
+              "tool_to_response_ms": 1903.433437,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 155,
+              "response_after_return_ms": 1834.46927,
+              "tool_to_response_ms": 1877.60802,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 273,
+              "response_after_return_ms": 1854.653385,
+              "tool_to_response_ms": 1911.279635,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1863.760312,
+          "HC_after_return_ms": 3192.514009,
+          "HC_ready_count": 2,
+          "prepare_ms": 44.94,
+          "actual_gap_ms": 47.028021,
+          "CC_drain_ms": 0.002709
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 1839.004583,
+          "after_return_ms": 1799.764374,
+          "trial_ids": [
+            110,
+            167,
+            263
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 3263.683592,
+          "after_return_ms": 3224.200988,
+          "trial_ids": [
+            45,
+            164,
+            259
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 1833.135416,
+          "after_return_ms": 1798.144322,
+          "trial_ids": [
+            104,
+            152,
+            265
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 3260.818489,
+          "after_return_ms": 3225.015416,
+          "trial_ids": [
+            34,
+            144,
+            218
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 1833.135416,
+        "after_return_ms": 1798.144322,
+        "trial_ids": [
+          104,
+          152,
+          265
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 1833.135416,
+        "after_return_ms": 1798.144322,
+        "trial_ids": [
+          104,
+          152,
+          265
+        ]
+      },
+      "router_vs_routing_oracle_ms": null,
+      "router_vs_joint_oracle_ms": 70.29802099999984,
+      "routing_vs_joint_oracle_ms": null
+    },
+    {
+      "P": 24,
+      "G_ms": 200,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 1723.427135,
+          "router_tool_to_response_ms": 2065.534635,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1723.427135,
+          "routing_oracle_tool_to_response_ms": 2065.534635,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 81,
+              "response_after_return_ms": 1723.427135,
+              "tool_to_response_ms": 1990.588385,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 196,
+              "response_after_return_ms": 1846.584322,
+              "tool_to_response_ms": 2116.457968,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 279,
+              "response_after_return_ms": 1715.279219,
+              "tool_to_response_ms": 2065.534635,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1775.889999,
+          "HC_after_return_ms": 3274.625623,
+          "HC_ready_count": 0,
+          "prepare_ms": 44.124062,
+          "actual_gap_ms": 269.873646,
+          "CC_drain_ms": 0.0
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1800.158697,
+          "router_tool_to_response_ms": 2081.199322,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1800.158697,
+          "routing_oracle_tool_to_response_ms": 2081.199322,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 98,
+              "response_after_return_ms": 1800.158697,
+              "tool_to_response_ms": 2081.199322,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 149,
+              "response_after_return_ms": 1770.475729,
+              "tool_to_response_ms": 2049.851093,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 236,
+              "response_after_return_ms": 1893.555884,
+              "tool_to_response_ms": 2180.516509,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1801.69703,
+          "HC_after_return_ms": 3291.399478,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.050469,
+          "actual_gap_ms": 281.040625,
+          "CC_drain_ms": 0.002708
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1805.758697,
+          "router_tool_to_response_ms": 2067.996041,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1805.758697,
+          "routing_oracle_tool_to_response_ms": 2067.996041,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 50,
+              "response_after_return_ms": 1730.853593,
+              "tool_to_response_ms": 2021.641666,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 154,
+              "response_after_return_ms": 3426.306666,
+              "tool_to_response_ms": 3791.161405,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": false
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 211,
+              "response_after_return_ms": 1805.758697,
+              "tool_to_response_ms": 2067.996041,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 1810.904999,
+          "HC_after_return_ms": 3210.586405,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.57302,
+          "actual_gap_ms": 290.788073,
+          "CC_drain_ms": 0.002969
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2084.351041,
+          "after_return_ms": 1775.889999,
+          "trial_ids": [
+            107,
+            137,
+            285
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 3604.940103,
+          "after_return_ms": 3274.625623,
+          "trial_ids": [
+            36,
+            209,
+            232
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2116.887291,
+          "after_return_ms": 1801.69703,
+          "trial_ids": [
+            61,
+            190,
+            293
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3647.367654,
+          "after_return_ms": 3291.399478,
+          "trial_ids": [
+            77,
+            200,
+            219
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "after_return",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2084.351041,
+        "after_return_ms": 1775.889999,
+        "trial_ids": [
+          107,
+          137,
+          285
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "after_return",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2084.351041,
+        "after_return_ms": 1775.889999,
+        "trial_ids": [
+          107,
+          137,
+          285
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": -16.355000000000018,
+      "routing_vs_joint_oracle_ms": -16.355000000000018
+    },
+    {
+      "P": 32,
+      "G_ms": 0,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2279.754999,
+          "router_tool_to_response_ms": 2319.939739,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2279.754999,
+          "routing_oracle_tool_to_response_ms": 2319.939739,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 102,
+              "response_after_return_ms": 2223.789113,
+              "tool_to_response_ms": 2269.884218,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 178,
+              "response_after_return_ms": 2279.754999,
+              "tool_to_response_ms": 2319.939739,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 256,
+              "response_after_return_ms": 2281.608749,
+              "tool_to_response_ms": 2323.804218,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2182.726405,
+          "HC_after_return_ms": 1742.054062,
+          "HC_ready_count": 0,
+          "prepare_ms": 42.225156,
+          "actual_gap_ms": 42.195469,
+          "CC_drain_ms": 0.000104
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "CC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 2,
+          "router_after_return_ms": 1695.671666,
+          "router_tool_to_response_ms": 1757.73026,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 37,
+              "response_after_return_ms": 2275.991093,
+              "tool_to_response_ms": 2313.91151,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 131,
+              "response_after_return_ms": 1695.671666,
+              "tool_to_response_ms": 1757.73026,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 244,
+              "response_after_return_ms": 1640.786249,
+              "tool_to_response_ms": 1683.451249,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2120.815052,
+          "HC_after_return_ms": 1693.190728,
+          "HC_ready_count": 1,
+          "prepare_ms": 42.98401,
+          "actual_gap_ms": 42.665,
+          "CC_drain_ms": 0.002864
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "CC",
+            "HC"
+          ],
+          "router_ready_count": 2,
+          "router_after_return_ms": 1689.337864,
+          "router_tool_to_response_ms": 1733.272655,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 118,
+              "response_after_return_ms": 1689.337864,
+              "tool_to_response_ms": 1733.272655,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 139,
+              "response_after_return_ms": 2290.902707,
+              "tool_to_response_ms": 2324.662499,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 286,
+              "response_after_return_ms": 1636.175104,
+              "tool_to_response_ms": 1683.279635,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2129.658645,
+          "HC_after_return_ms": 1630.168905,
+          "HC_ready_count": 2,
+          "prepare_ms": 42.997031,
+          "actual_gap_ms": 43.934791,
+          "CC_drain_ms": 0.002917
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2232.570156,
+          "after_return_ms": 2182.726405,
+          "trial_ids": [
+            35,
+            159,
+            254
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1782.947708,
+          "after_return_ms": 1742.054062,
+          "trial_ids": [
+            32,
+            165,
+            288
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2162.293645,
+          "after_return_ms": 2120.815052,
+          "trial_ids": [
+            58,
+            201,
+            283
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1738.397291,
+          "after_return_ms": 1693.190728,
+          "trial_ids": [
+            65,
+            143,
+            251
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2162.293645,
+        "after_return_ms": 2120.815052,
+        "trial_ids": [
+          58,
+          201,
+          283
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": false,
+        "tool_to_response_ms": 1738.397291,
+        "after_return_ms": 1693.190728,
+        "trial_ids": [
+          65,
+          143,
+          251
+        ]
+      },
+      "router_vs_routing_oracle_ms": null,
+      "router_vs_joint_oracle_ms": -429.0209900000002,
+      "routing_vs_joint_oracle_ms": null
+    },
+    {
+      "P": 32,
+      "G_ms": 200,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2238.396718,
+          "router_tool_to_response_ms": 2540.322656,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2238.396718,
+          "routing_oracle_tool_to_response_ms": 2540.322656,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 112,
+              "response_after_return_ms": 2111.693385,
+              "tool_to_response_ms": 2475.839635,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 175,
+              "response_after_return_ms": 2263.985104,
+              "tool_to_response_ms": 2540.322656,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 237,
+              "response_after_return_ms": 2238.396718,
+              "tool_to_response_ms": 2541.773436,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2284.570624,
+          "HC_after_return_ms": 1720.949635,
+          "HC_ready_count": 0,
+          "prepare_ms": 44.712031,
+          "actual_gap_ms": 303.376718,
+          "CC_drain_ms": 0.000104
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1676.518645,
+          "router_tool_to_response_ms": 1960.514113,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1676.518645,
+          "routing_oracle_tool_to_response_ms": 1960.514113,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 91,
+              "response_after_return_ms": 1676.518645,
+              "tool_to_response_ms": 1964.615625,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 189,
+              "response_after_return_ms": 1664.057499,
+              "tool_to_response_ms": 1960.514113,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 290,
+              "response_after_return_ms": 1697.636093,
+              "tool_to_response_ms": 1944.324739,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2204.137031,
+          "HC_after_return_ms": 1663.891875,
+          "HC_ready_count": 3,
+          "prepare_ms": 41.778333,
+          "actual_gap_ms": 288.09698,
+          "CC_drain_ms": 0.003229
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1701.449531,
+          "router_tool_to_response_ms": 2008.689426,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1701.449531,
+          "routing_oracle_tool_to_response_ms": 2008.689426,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 92,
+              "response_after_return_ms": 1712.376874,
+              "tool_to_response_ms": 2008.689426,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 174,
+              "response_after_return_ms": 1701.449531,
+              "tool_to_response_ms": 2038.337864,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 271,
+              "response_after_return_ms": 1695.704374,
+              "tool_to_response_ms": 2005.586145,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2232.323749,
+          "HC_after_return_ms": 1674.730208,
+          "HC_ready_count": 3,
+          "prepare_ms": 41.855,
+          "actual_gap_ms": 309.881771,
+          "CC_drain_ms": 0.002708
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2618.05802,
+          "after_return_ms": 2284.570624,
+          "trial_ids": [
+            95,
+            147,
+            217
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 2054.827343,
+          "after_return_ms": 1720.949635,
+          "trial_ids": [
+            83,
+            202,
+            242
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2488.027656,
+          "after_return_ms": 2204.137031,
+          "trial_ids": [
+            99,
+            204,
+            276
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 1986.575364,
+          "after_return_ms": 1663.891875,
+          "trial_ids": [
+            90,
+            163,
+            264
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 1986.575364,
+        "after_return_ms": 1663.891875,
+        "trial_ids": [
+          90,
+          163,
+          264
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 1986.575364,
+        "after_return_ms": 1663.891875,
+        "trial_ids": [
+          90,
+          163,
+          264
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": 22.114061999999876,
+      "routing_vs_joint_oracle_ms": 22.114061999999876
+    },
+    {
+      "P": 40,
+      "G_ms": 0,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2511.061718,
+          "router_tool_to_response_ms": 2543.546405,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2511.061718,
+          "routing_oracle_tool_to_response_ms": 2543.546405,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 75,
+              "response_after_return_ms": 2420.442031,
+              "tool_to_response_ms": 2472.478749,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 183,
+              "response_after_return_ms": 2511.061718,
+              "tool_to_response_ms": 2543.546405,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 228,
+              "response_after_return_ms": 2550.609583,
+              "tool_to_response_ms": 2623.963645,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2650.041561,
+          "HC_after_return_ms": 1742.253593,
+          "HC_ready_count": 0,
+          "prepare_ms": 44.396875,
+          "actual_gap_ms": 52.036718,
+          "CC_drain_ms": 5.3e-05
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "CC"
+          ],
+          "router_ready_count": 2,
+          "router_after_return_ms": 1728.160207,
+          "router_tool_to_response_ms": 1782.241562,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 117,
+              "response_after_return_ms": 1715.05453,
+              "tool_to_response_ms": 1782.241562,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 127,
+              "response_after_return_ms": 1728.160207,
+              "tool_to_response_ms": 1776.800676,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 297,
+              "response_after_return_ms": 2494.284009,
+              "tool_to_response_ms": 2533.601665,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2707.544061,
+          "HC_after_return_ms": 1716.665363,
+          "HC_ready_count": 0,
+          "prepare_ms": 42.757812,
+          "actual_gap_ms": 48.640469,
+          "CC_drain_ms": 0.002709
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "CC",
+            "HC",
+            "CC"
+          ],
+          "router_ready_count": 1,
+          "router_after_return_ms": 2692.993905,
+          "router_tool_to_response_ms": 2735.187187,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 51,
+              "response_after_return_ms": 2692.993905,
+              "tool_to_response_ms": 2736.17078,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 169,
+              "response_after_return_ms": 1743.070156,
+              "tool_to_response_ms": 1790.787552,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 268,
+              "response_after_return_ms": 2696.703697,
+              "tool_to_response_ms": 2735.187187,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2618.305728,
+          "HC_after_return_ms": 1828.317552,
+          "HC_ready_count": 0,
+          "prepare_ms": 46.437656,
+          "actual_gap_ms": 43.176875,
+          "CC_drain_ms": 0.002813
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2702.442967,
+          "after_return_ms": 2650.041561,
+          "trial_ids": [
+            97,
+            153,
+            240
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1802.068749,
+          "after_return_ms": 1742.253593,
+          "trial_ids": [
+            96,
+            199,
+            269
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2745.777968,
+          "after_return_ms": 2707.544061,
+          "trial_ids": [
+            64,
+            207,
+            246
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1753.618905,
+          "after_return_ms": 1716.665363,
+          "trial_ids": [
+            93,
+            171,
+            299
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "after_return",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2702.442967,
+        "after_return_ms": 2650.041561,
+        "trial_ids": [
+          97,
+          153,
+          240
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": false,
+        "tool_to_response_ms": 1753.618905,
+        "after_return_ms": 1716.665363,
+        "trial_ids": [
+          93,
+          171,
+          299
+        ]
+      },
+      "router_vs_routing_oracle_ms": null,
+      "router_vs_joint_oracle_ms": 32.74422000000004,
+      "routing_vs_joint_oracle_ms": null
+    },
+    {
+      "P": 40,
+      "G_ms": 200,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2550.762342,
+          "router_tool_to_response_ms": 2810.027394,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2550.762342,
+          "routing_oracle_tool_to_response_ms": 2810.027394,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 116,
+              "response_after_return_ms": 2706.818436,
+              "tool_to_response_ms": 3089.403019,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 208,
+              "response_after_return_ms": 2550.762342,
+              "tool_to_response_ms": 2810.027394,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 261,
+              "response_after_return_ms": 2517.358385,
+              "tool_to_response_ms": 2777.87401,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2685.733072,
+          "HC_after_return_ms": 1774.607968,
+          "HC_ready_count": 0,
+          "prepare_ms": 42.168438,
+          "actual_gap_ms": 260.515625,
+          "CC_drain_ms": 0.0
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1753.393437,
+          "router_tool_to_response_ms": 2076.454426,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1753.393437,
+          "routing_oracle_tool_to_response_ms": 2076.454426,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 78,
+              "response_after_return_ms": 1753.393437,
+              "tool_to_response_ms": 2076.454426,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 138,
+              "response_after_return_ms": 1774.082552,
+              "tool_to_response_ms": 2114.179218,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 249,
+              "response_after_return_ms": 1698.262916,
+              "tool_to_response_ms": 2050.552603,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2604.495624,
+          "HC_after_return_ms": 1716.548854,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.368021,
+          "actual_gap_ms": 340.096666,
+          "CC_drain_ms": 0.002865
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1763.201978,
+          "router_tool_to_response_ms": 2204.844114,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1763.201978,
+          "routing_oracle_tool_to_response_ms": 2204.844114,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 42,
+              "response_after_return_ms": 1763.863176,
+              "tool_to_response_ms": 2270.210937,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 133,
+              "response_after_return_ms": 1763.201978,
+              "tool_to_response_ms": 2106.986666,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 252,
+              "response_after_return_ms": 1713.701927,
+              "tool_to_response_ms": 2204.844114,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2543.016405,
+          "HC_after_return_ms": 1764.195156,
+          "HC_ready_count": 3,
+          "prepare_ms": 43.485208,
+          "actual_gap_ms": 491.142187,
+          "CC_drain_ms": 0.002917
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2934.558749,
+          "after_return_ms": 2685.733072,
+          "trial_ids": [
+            54,
+            158,
+            282
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 2096.188906,
+          "after_return_ms": 1774.607968,
+          "trial_ids": [
+            47,
+            177,
+            235
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2901.978958,
+          "after_return_ms": 2604.495624,
+          "trial_ids": [
+            105,
+            197,
+            250
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2035.574322,
+          "after_return_ms": 1716.548854,
+          "trial_ids": [
+            111,
+            191,
+            260
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2035.574322,
+        "after_return_ms": 1716.548854,
+        "trial_ids": [
+          111,
+          191,
+          260
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2035.574322,
+        "after_return_ms": 1716.548854,
+        "trial_ids": [
+          111,
+          191,
+          260
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": 169.26979200000005,
+      "routing_vs_joint_oracle_ms": 169.26979200000005
+    },
+    {
+      "P": 48,
+      "G_ms": 0,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2835.435936,
+          "router_tool_to_response_ms": 2881.557811,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2835.435936,
+          "routing_oracle_tool_to_response_ms": 2881.557811,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 69,
+              "response_after_return_ms": 3066.018853,
+              "tool_to_response_ms": 3117.17526,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 130,
+              "response_after_return_ms": 2704.084062,
+              "tool_to_response_ms": 2768.950468,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 281,
+              "response_after_return_ms": 2835.435936,
+              "tool_to_response_ms": 2881.557811,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3118.065936,
+          "HC_after_return_ms": 1825.022655,
+          "HC_ready_count": 0,
+          "prepare_ms": 43.895208,
+          "actual_gap_ms": 51.156407,
+          "CC_drain_ms": 5.2e-05
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1769.79328,
+          "router_tool_to_response_ms": 1826.610051,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 70,
+              "response_after_return_ms": 1769.79328,
+              "tool_to_response_ms": 1826.610051,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 156,
+              "response_after_return_ms": 1866.581561,
+              "tool_to_response_ms": 1951.487447,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 210,
+              "response_after_return_ms": 1758.528593,
+              "tool_to_response_ms": 1812.884531,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3109.007343,
+          "HC_after_return_ms": 1772.10375,
+          "HC_ready_count": 2,
+          "prepare_ms": 41.957656,
+          "actual_gap_ms": 56.816771,
+          "CC_drain_ms": 0.003073
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "HC",
+            "CC"
+          ],
+          "router_ready_count": 2,
+          "router_after_return_ms": 1773.884374,
+          "router_tool_to_response_ms": 1825.361405,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1773.884374,
+          "routing_oracle_tool_to_response_ms": 1825.361405,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 38,
+              "response_after_return_ms": 1773.884374,
+              "tool_to_response_ms": 1825.361405,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 129,
+              "response_after_return_ms": 1753.152499,
+              "tool_to_response_ms": 1817.053905,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 231,
+              "response_after_return_ms": 2961.483124,
+              "tool_to_response_ms": 2994.980207,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3120.535468,
+          "HC_after_return_ms": 1806.569687,
+          "HC_ready_count": 2,
+          "prepare_ms": 42.355573,
+          "actual_gap_ms": 51.477031,
+          "CC_drain_ms": 0.002865
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3162.661197,
+          "after_return_ms": 3118.065936,
+          "trial_ids": [
+            71,
+            146,
+            213
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1865.154582,
+          "after_return_ms": 1825.022655,
+          "trial_ids": [
+            63,
+            148,
+            241
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3143.461874,
+          "after_return_ms": 3109.007343,
+          "trial_ids": [
+            103,
+            203,
+            289
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1830.75625,
+          "after_return_ms": 1772.10375,
+          "trial_ids": [
+            106,
+            128,
+            226
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 3143.461874,
+        "after_return_ms": 3109.007343,
+        "trial_ids": [
+          103,
+          203,
+          289
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": false,
+        "tool_to_response_ms": 1830.75625,
+        "after_return_ms": 1772.10375,
+        "trial_ids": [
+          106,
+          128,
+          226
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": -1318.100469,
+      "routing_vs_joint_oracle_ms": -1318.100469
+    },
+    {
+      "P": 48,
+      "G_ms": 200,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 2969.929895,
+          "router_tool_to_response_ms": 3239.822551,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 2969.929895,
+          "routing_oracle_tool_to_response_ms": 3239.822551,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 62,
+              "response_after_return_ms": 2926.37703,
+              "tool_to_response_ms": 3200.68729,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 166,
+              "response_after_return_ms": 2979.133957,
+              "tool_to_response_ms": 3341.603072,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 243,
+              "response_after_return_ms": 2969.929895,
+              "tool_to_response_ms": 3239.822551,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3026.597551,
+          "HC_after_return_ms": 1790.203124,
+          "HC_ready_count": 0,
+          "prepare_ms": 48.964218,
+          "actual_gap_ms": 274.31026,
+          "CC_drain_ms": 0.000104
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1775.245573,
+          "router_tool_to_response_ms": 2066.864479,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1775.245573,
+          "routing_oracle_tool_to_response_ms": 2066.864479,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 94,
+              "response_after_return_ms": 1757.274687,
+              "tool_to_response_ms": 2034.97328,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 180,
+              "response_after_return_ms": 1776.226093,
+              "tool_to_response_ms": 2143.259895,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 234,
+              "response_after_return_ms": 1775.245573,
+              "tool_to_response_ms": 2066.864479,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2888.590104,
+          "HC_after_return_ms": 1787.000728,
+          "HC_ready_count": 3,
+          "prepare_ms": 41.74125,
+          "actual_gap_ms": 291.618906,
+          "CC_drain_ms": 0.002656
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1794.135781,
+          "router_tool_to_response_ms": 2163.519426,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1794.135781,
+          "routing_oracle_tool_to_response_ms": 2163.519426,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 86,
+              "response_after_return_ms": 1796.578489,
+              "tool_to_response_ms": 2137.173437,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 124,
+              "response_after_return_ms": 1769.119218,
+              "tool_to_response_ms": 2636.216874,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 230,
+              "response_after_return_ms": 1794.135781,
+              "tool_to_response_ms": 2163.519426,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 2974.641041,
+          "HC_after_return_ms": 1722.214791,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.85125,
+          "actual_gap_ms": 369.383645,
+          "CC_drain_ms": 0.002761
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3371.974738,
+          "after_return_ms": 3026.597551,
+          "trial_ids": [
+            115,
+            123,
+            215
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 2130.160364,
+          "after_return_ms": 1790.203124,
+          "trial_ids": [
+            74,
+            120,
+            253
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3217.859478,
+          "after_return_ms": 2888.590104,
+          "trial_ids": [
+            53,
+            160,
+            278
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2125.422812,
+          "after_return_ms": 1787.000728,
+          "trial_ids": [
+            57,
+            194,
+            216
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2125.422812,
+        "after_return_ms": 1787.000728,
+        "trial_ids": [
+          57,
+          194,
+          216
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2125.422812,
+        "after_return_ms": 1787.000728,
+        "trial_ids": [
+          57,
+          194,
+          216
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": 38.096614000000045,
+      "routing_vs_joint_oracle_ms": 38.096614000000045
+    },
+    {
+      "P": 56,
+      "G_ms": 0,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 3343.145364,
+          "router_tool_to_response_ms": 3381.00703,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 3343.145364,
+          "routing_oracle_tool_to_response_ms": 3381.00703,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 31,
+              "response_after_return_ms": 3320.013228,
+              "tool_to_response_ms": 3363.089738,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 135,
+              "response_after_return_ms": 3343.618644,
+              "tool_to_response_ms": 3408.274842,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 225,
+              "response_after_return_ms": 3343.145364,
+              "tool_to_response_ms": 3381.00703,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3336.264894,
+          "HC_after_return_ms": 1945.420937,
+          "HC_ready_count": 0,
+          "prepare_ms": 44.929375,
+          "actual_gap_ms": 43.07651,
+          "CC_drain_ms": 0.0
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 3378.841301,
+          "router_tool_to_response_ms": 3421.936614,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 3378.841301,
+          "routing_oracle_tool_to_response_ms": 3421.936614,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 76,
+              "response_after_return_ms": 3541.668176,
+              "tool_to_response_ms": 3583.838176,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 157,
+              "response_after_return_ms": 3378.841301,
+              "tool_to_response_ms": 3421.936614,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 220,
+              "response_after_return_ms": 3235.830884,
+              "tool_to_response_ms": 3277.641978,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3317.157655,
+          "HC_after_return_ms": 1803.353176,
+          "HC_ready_count": 1,
+          "prepare_ms": 42.648645,
+          "actual_gap_ms": 42.17,
+          "CC_drain_ms": 0.002864
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 1,
+          "router_after_return_ms": 3281.345571,
+          "router_tool_to_response_ms": 3313.094478,
+          "routing_oracle_comparisons_complete": false,
+          "routing_oracle_after_return_ms": null,
+          "routing_oracle_tool_to_response_ms": null,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 119,
+              "response_after_return_ms": 1807.664999,
+              "tool_to_response_ms": 1860.684686,
+              "HC_admissible": true,
+              "counterfactual_state_matched": false,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 206,
+              "response_after_return_ms": 3483.308905,
+              "tool_to_response_ms": 3522.695988,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 248,
+              "response_after_return_ms": 3281.345571,
+              "tool_to_response_ms": 3313.094478,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3426.10302,
+          "HC_after_return_ms": 1804.80026,
+          "HC_ready_count": 1,
+          "prepare_ms": 42.0475,
+          "actual_gap_ms": 39.387083,
+          "CC_drain_ms": 0.002916
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3374.640207,
+          "after_return_ms": 3336.264894,
+          "trial_ids": [
+            82,
+            142,
+            247
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1987.617396,
+          "after_return_ms": 1945.420937,
+          "trial_ids": [
+            59,
+            145,
+            223
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3352.387968,
+          "after_return_ms": 3317.157655,
+          "trial_ids": [
+            114,
+            195,
+            270
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 1844.373645,
+          "after_return_ms": 1803.353176,
+          "trial_ids": [
+            68,
+            162,
+            287
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "CC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 3352.387968,
+        "after_return_ms": 3317.157655,
+        "trial_ids": [
+          114,
+          195,
+          270
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": false,
+        "tool_to_response_ms": 1844.373645,
+        "after_return_ms": 1803.353176,
+        "trial_ids": [
+          68,
+          162,
+          287
+        ]
+      },
+      "router_vs_routing_oracle_ms": null,
+      "router_vs_joint_oracle_ms": -39.29349000000002,
+      "routing_vs_joint_oracle_ms": null
+    },
+    {
+      "P": 56,
+      "G_ms": 200,
+      "D": 6,
+      "policies": [
+        {
+          "strategy": "after_return",
+          "router_routes": [
+            "CC",
+            "CC",
+            "CC"
+          ],
+          "router_ready_count": 0,
+          "router_after_return_ms": 3210.509165,
+          "router_tool_to_response_ms": 3545.421145,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 3210.509165,
+          "routing_oracle_tool_to_response_ms": 3545.421145,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "CC",
+              "measured_trial_id": 72,
+              "response_after_return_ms": 3210.509165,
+              "tool_to_response_ms": 3467.432967,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "CC",
+              "measured_trial_id": 176,
+              "response_after_return_ms": 3203.182864,
+              "tool_to_response_ms": 3545.421145,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "CC",
+              "measured_trial_id": 272,
+              "response_after_return_ms": 3359.625416,
+              "tool_to_response_ms": 3639.805416,
+              "HC_admissible": false,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3531.780311,
+          "HC_after_return_ms": 1849.922187,
+          "HC_ready_count": 0,
+          "prepare_ms": 41.189739,
+          "actual_gap_ms": 280.18,
+          "CC_drain_ms": 5.2e-05
+        },
+        {
+          "strategy": "always",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1811.715416,
+          "router_tool_to_response_ms": 2095.681301,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1811.715416,
+          "routing_oracle_tool_to_response_ms": 2095.681301,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 80,
+              "response_after_return_ms": 1811.715416,
+              "tool_to_response_ms": 2142.136353,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 188,
+              "response_after_return_ms": 1785.540885,
+              "tool_to_response_ms": 2049.846354,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 229,
+              "response_after_return_ms": 1819.416562,
+              "tool_to_response_ms": 2095.681301,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3543.87927,
+          "HC_after_return_ms": 1824.778124,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.579688,
+          "actual_gap_ms": 276.264739,
+          "CC_drain_ms": 0.002813
+        },
+        {
+          "strategy": "cost_aware",
+          "router_routes": [
+            "HC",
+            "HC",
+            "HC"
+          ],
+          "router_ready_count": 3,
+          "router_after_return_ms": 1816.082864,
+          "router_tool_to_response_ms": 2159.698072,
+          "routing_oracle_comparisons_complete": true,
+          "routing_oracle_after_return_ms": 1816.082864,
+          "routing_oracle_tool_to_response_ms": 2159.698072,
+          "routing_oracle_replays": [
+            {
+              "repetition": 0,
+              "route": "HC",
+              "measured_trial_id": 67,
+              "response_after_return_ms": 1816.082864,
+              "tool_to_response_ms": 2167.184582,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 1,
+              "route": "HC",
+              "measured_trial_id": 168,
+              "response_after_return_ms": 1817.556509,
+              "tool_to_response_ms": 2159.698072,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            },
+            {
+              "repetition": 2,
+              "route": "HC",
+              "measured_trial_id": 298,
+              "response_after_return_ms": 1770.372707,
+              "tool_to_response_ms": 2078.796926,
+              "HC_admissible": true,
+              "counterfactual_state_matched": true,
+              "source_is_actual_router": true
+            }
+          ],
+          "CC_after_return_ms": 3400.950675,
+          "HC_after_return_ms": 1791.929478,
+          "HC_ready_count": 3,
+          "prepare_ms": 42.817968,
+          "actual_gap_ms": 342.141563,
+          "CC_drain_ms": 0.002656
+        }
+      ],
+      "inference_status": "two_qualified_paths",
+      "joint_candidates": [
+        {
+          "strategy": "after_return",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3814.035936,
+          "after_return_ms": 3531.780311,
+          "trial_ids": [
+            87,
+            125,
+            277
+          ]
+        },
+        {
+          "strategy": "after_return",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": false,
+          "tool_to_response_ms": 2148.337655,
+          "after_return_ms": 1849.922187,
+          "trial_ids": [
+            52,
+            198,
+            274
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "CC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 3835.528384,
+          "after_return_ms": 3543.87927,
+          "trial_ids": [
+            108,
+            184,
+            221
+          ]
+        },
+        {
+          "strategy": "always",
+          "route": "HC",
+          "qualified": true,
+          "strict_available": true,
+          "tool_to_response_ms": 2138.491457,
+          "after_return_ms": 1824.778124,
+          "trial_ids": [
+            48,
+            187,
+            292
+          ]
+        }
+      ],
+      "joint_oracle": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2138.491457,
+        "after_return_ms": 1824.778124,
+        "trial_ids": [
+          48,
+          187,
+          292
+        ]
+      },
+      "joint_oracle_allow_wait": {
+        "strategy": "always",
+        "route": "HC",
+        "qualified": true,
+        "strict_available": true,
+        "tool_to_response_ms": 2138.491457,
+        "after_return_ms": 1824.778124,
+        "trial_ids": [
+          48,
+          187,
+          292
+        ]
+      },
+      "router_vs_routing_oracle_ms": 0.0,
+      "router_vs_joint_oracle_ms": 21.206615000000056,
+      "routing_vs_joint_oracle_ms": 21.206615000000056
+    }
+  ],
+  "HC_numerically_qualified": {
+    "24": true,
+    "32": true,
+    "40": true,
+    "48": true,
+    "56": true
+  },
+  "response_publication_lifecycle_checked": true,
+  "response_and_state_passed": true,
+  "accepted_response_and_state_passed": true,
+  "diagnostic_failures": 0,
+  "oracle_gain_identifiable": true,
+  "HC_calibration_metrics": {
+    "24": {
+      "samples": 3,
+      "qualified": true,
+      "min_boundary_cosine": 0.999335,
+      "max_boundary_nrmse": 0.036545
+    },
+    "32": {
+      "samples": 3,
+      "qualified": true,
+      "min_boundary_cosine": 0.999237,
+      "max_boundary_nrmse": 0.039087
+    },
+    "40": {
+      "samples": 3,
+      "qualified": true,
+      "min_boundary_cosine": 0.999448,
+      "max_boundary_nrmse": 0.033293
+    },
+    "48": {
+      "samples": 3,
+      "qualified": true,
+      "min_boundary_cosine": 0.999516,
+      "max_boundary_nrmse": 0.031128
+    },
+    "56": {
+      "samples": 3,
+      "qualified": true,
+      "min_boundary_cosine": 0.999552,
+      "max_boundary_nrmse": 0.029962
+    }
+  },
+  "analysis_script_sha256": "4f802ee7a6cccf1b54c6e2dca8dce6f08cd1980ddb229a7334fb88e0808ff6ec",
+  "limitations": [
+    "三次串行反事实重放，不能获得同一轮未选路径的真实耗时；最小值存在选择偏差，差值可为负",
+    "HC 未准入时只有 CC，选路差距与联合收益记为 null；不能把退化的单路径 Oracle 解释为 Router 已达最优",
+    "HC 仅在同一 P 的三次完整校准全部过 manifest 中的数值门槛后准入；失败组原样保留，强制 HC 测量仍可作诊断",
+    "严格选路 Oracle 总包含实际已选路径；反事实重放的准备/ready 状态不匹配则该条件差距记 null，不将其伪装成可比较 Oracle；联合 Oracle 要求 HC 三次均 ready；另列允许等待的扩展值",
+    "联合 Oracle 选用三次中位数，不将不同阶段的最小值拼接；没有离线 overlap 模拟",
+    "G 是服务器延迟目标；实际 Gap 含 adb reverse 网络、线程调度及 HTTP 开销",
+    "固定文本微基准；无图像、无真实 GUI 操作、无能耗结论；每轮回收等待在响应计时之外并单独记录",
+    "返回后准备策略的 Router 遵循现有不等待 pending 的规则，因此选 CC；HC 强制重放单独测按需准备成本",
+    "共同 snapshot 构建/导出和 CPU 恢复在 Tool 前；提前准备包括 clear/import/字节核验，未压缩 KV",
+    "边界 logits 校验仅在独立校准执行；测量阶段检查真实 HTTP P、完整生成 ID、EOG 与状态迁移字节"
+  ]
+}

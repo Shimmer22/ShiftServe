@@ -1,0 +1,7 @@
+{
+  "android_build": "passed",
+  "tests_command": "conda run --no-capture-output -n visiontrim-qwen25vl python -m unittest discover -s tests",
+  "tests": 26,
+  "passed": true,
+  "system_python_attempt": "26 tests, 1 error: missing numpy; rerun in project conda environment passed"
+}

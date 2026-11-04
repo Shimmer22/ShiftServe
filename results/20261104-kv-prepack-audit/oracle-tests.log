@@ -1,0 +1,13 @@
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 0.052s
+
+OK
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpdt_t27yu", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp_523wovw", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp1089x_54", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp1089x_54", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpnzfo_bdr", "passed": true, "trials": 60, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpshknjwew", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpt58ug3dd", "passed": true, "trials": 228, "D": 2}
+{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpuz6hgb74", "passed": true, "trials": 228, "D": 2}

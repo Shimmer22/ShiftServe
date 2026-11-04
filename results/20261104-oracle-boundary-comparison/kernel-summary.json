@@ -1,0 +1,533 @@
+{
+  "runs": [
+    {
+      "directory": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261104-112135-863601-http-oracle-grid",
+      "config": {
+        "mode": "hybrid",
+        "history_tokens": 2048,
+        "new_tokens": [
+          31,
+          32,
+          33
+        ],
+        "gap_ms": [
+          0
+        ],
+        "strategies": [
+          "after_return",
+          "always",
+          "cost_aware"
+        ],
+        "routes": [
+          "CC",
+          "HC"
+        ],
+        "repetitions": 3,
+        "context_size": 5120,
+        "batch_size": 128,
+        "htp_queue": 1,
+        "htp_opbatch": 1,
+        "kv_policy": "none",
+        "pre_move": false,
+        "cpu_repack": false,
+        "timeout_s": 600,
+        "seed": 20261104,
+        "numeric_acceptance": {
+          "min_cosine": 0.99,
+          "max_nrmse": null
+        },
+        "input_fixture": "neutral_padding_v1",
+        "htp_profile": 1,
+        "calibration_only": true
+      },
+      "profile_op_records": 7488,
+      "by_P": [
+        {
+          "P": 31,
+          "prefill_ms": 1831.864739,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 508.55133333333333,
+            "f16": 854.1646666666666
+          }
+        },
+        {
+          "P": 32,
+          "prefill_ms": 1025.335052,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 549.023,
+            "f16": 36.489333333333335
+          }
+        },
+        {
+          "P": 33,
+          "prefill_ms": 1028.176093,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 563.5806666666667,
+            "f16": 39.866
+          }
+        }
+      ],
+      "matrix_shapes": [
+        {
+          "M": 31,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 17685.5,
+          "sum_usec": 1918188
+        },
+        {
+          "M": 31,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 5941.0,
+          "sum_usec": 644306
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 145.0,
+          "sum_usec": 31520
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 857.0,
+          "sum_usec": 185262
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4388.0,
+          "sum_usec": 924782
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 3638,
+          "sum_usec": 384090
+        },
+        {
+          "M": 32,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 413.0,
+          "sum_usec": 46008
+        },
+        {
+          "M": 32,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 588.0,
+          "sum_usec": 63460
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 156.0,
+          "sum_usec": 34012
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 906.0,
+          "sum_usec": 197801
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4422.0,
+          "sum_usec": 930788
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 4611,
+          "sum_usec": 484468
+        },
+        {
+          "M": 33,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 448.0,
+          "sum_usec": 52263
+        },
+        {
+          "M": 33,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 594.0,
+          "sum_usec": 67335
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 156.0,
+          "sum_usec": 33873
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 922.5,
+          "sum_usec": 202372
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4551.0,
+          "sum_usec": 959499
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 4714,
+          "sum_usec": 494998
+        }
+      ]
+    },
+    {
+      "directory": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261104-112350-776389-http-oracle-grid",
+      "config": {
+        "mode": "hybrid",
+        "history_tokens": 2048,
+        "new_tokens": [
+          31,
+          32,
+          33
+        ],
+        "gap_ms": [
+          0
+        ],
+        "strategies": [
+          "after_return",
+          "always",
+          "cost_aware"
+        ],
+        "routes": [
+          "CC",
+          "HC"
+        ],
+        "repetitions": 3,
+        "context_size": 5120,
+        "batch_size": 128,
+        "htp_queue": 1,
+        "htp_opbatch": 1,
+        "kv_policy": "none",
+        "pre_move": false,
+        "cpu_repack": false,
+        "timeout_s": 600,
+        "seed": 20261104,
+        "numeric_acceptance": {
+          "min_cosine": 0.99,
+          "max_nrmse": null
+        },
+        "input_fixture": "neutral_padding_v1",
+        "htp_profile": 1,
+        "calibration_only": true,
+        "htp_use_hmx": 0
+      },
+      "profile_op_records": 7488,
+      "by_P": [
+        {
+          "P": 31,
+          "prefill_ms": 1844.287552,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 507.929,
+            "f16": 855.88
+          }
+        },
+        {
+          "P": 32,
+          "prefill_ms": 1906.286093,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 521.239,
+            "f16": 916.6943333333334
+          }
+        },
+        {
+          "P": 33,
+          "prefill_ms": 1933.611406,
+          "D_values": [
+            6
+          ],
+          "responses_passed": true,
+          "matrix_kernel_device_ms_per_call_by_weight_type": {
+            "q4_0": 540.9993333333333,
+            "f16": 919.1253333333334
+          }
+        }
+      ],
+      "matrix_shapes": [
+        {
+          "M": 31,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 17692.0,
+          "sum_usec": 1918016
+        },
+        {
+          "M": 31,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 5944.5,
+          "sum_usec": 649624
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 145.0,
+          "sum_usec": 31531
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 856.0,
+          "sum_usec": 185973
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4389.0,
+          "sum_usec": 924098
+        },
+        {
+          "M": 31,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 3636,
+          "sum_usec": 382185
+        },
+        {
+          "M": 32,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 18157.0,
+          "sum_usec": 1966819
+        },
+        {
+          "M": 32,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 7193.0,
+          "sum_usec": 783264
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 147.0,
+          "sum_usec": 31963
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 877.0,
+          "sum_usec": 190047
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4499.0,
+          "sum_usec": 946238
+        },
+        {
+          "M": 32,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 3734,
+          "sum_usec": 395469
+        },
+        {
+          "M": 33,
+          "type": "f16",
+          "K": 128,
+          "N": 2304,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 18941.5,
+          "sum_usec": 2051898
+        },
+        {
+          "M": 33,
+          "type": "f16",
+          "K": 2304,
+          "N": 128,
+          "batched": true,
+          "op_records": 108,
+          "median_usec": 6495.0,
+          "sum_usec": 705478
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 256,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 153.0,
+          "sum_usec": 33610
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 2048,
+          "batched": false,
+          "op_records": 216,
+          "median_usec": 910.0,
+          "sum_usec": 197288
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 2048,
+          "N": 11008,
+          "batched": false,
+          "op_records": 210,
+          "median_usec": 4665.0,
+          "sum_usec": 982454
+        },
+        {
+          "M": 33,
+          "type": "q4_0",
+          "K": 11008,
+          "N": 2048,
+          "batched": false,
+          "op_records": 105,
+          "median_usec": 3868,
+          "sum_usec": 409646
+        }
+      ]
+    }
+  ],
+  "shared_parser_path": "/Users/hui/code/exp/shared/runtime/llama.cpp/scripts/snapdragon/ggml-hexagon-profile.py",
+  "shared_parser_sha256": "7555f63daf16f161e9a8e2d917e0e8a0d7f48f9449745530a2ecefee7c646f1f",
+  "scope": "PROFILE=1与HMX开关是诊断；逐op日志是通用算子名，不是直接kernel分支打印；总wall时间含探针开销",
+  "remote_compilation_performed": false
+}

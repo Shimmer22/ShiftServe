@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "checks": {
+    "analysis_passed": true,
+    "native_source_matches_launch": true,
+    "shared_libraries_unchanged": true,
+    "no_model_processes": true,
+    "no_reverse": true,
+    "private_run_directory_removed": true,
+    "oracle_tests_passed": true,
+    "kernel_tests_passed": true,
+    "prepack_tests_passed": true,
+    "process_guard_tests_passed": true
+  },
+  "shared_library_sha256": {
+    "libggml-hexagon.so": "ab20b0ff91ff76319e5f79903e5522e91cd1f7627791da4ea6c4ce9749a50eff",
+    "libggml-htp-v79.so": "02d953b433ca806d81422b46a5129dc470b905acca014ba28a4f42a5330666bc"
+  },
+  "tests": {
+    "oracle_analysis": 9,
+    "kernel_probe": 3,
+    "prepack_including_native_asan_ubsan": 8,
+    "android_process_guard": 2
+  },
+  "scope": "native source hash matches final device binary launch; runner process guard was improved after that run; all timing is diagnostic"
+}
