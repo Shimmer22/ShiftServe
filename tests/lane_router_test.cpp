@@ -46,6 +46,8 @@ int main(int argc, char ** argv) {
     for(auto unavailable:{"pending","busy","stale","cancelled","absent"})
         assert(router.choose(1024,64,4,unavailable).backend=="cpu");
     assert(router.choose(1024,17,4,"ready").reason=="coverage_missing");
+    assert(!router.choose(1024,17,4,"pending").cost_covered);
+    assert(router.choose(1024,17,4,"absent").reason=="coverage_missing");
     assert(router.choose(1024,64,5,"ready").reason=="coverage_missing");
     assert(router.should_prepare(1024,4) && !router.should_prepare(2048,4));
     if(argc==2) {

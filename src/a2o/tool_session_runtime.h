@@ -53,6 +53,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
     std::string line, full, suffix, mode;
     std::vector<llama_token> input;
     int round=0; bool started=false, observed=false;
+    double observation_processing_ms=0;
     auto poll=[&] {
         auto old=lane.reaped(); lane.poll();
         if(lane.reaped()!=old) events->emit("lane_reaped",round,"\"reaped\":"+std::to_string(lane.reaped()));
@@ -105,6 +106,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                     try {
                     if(!valid()) return false;
                     events->emit("prepare_started",task_turn);
+                    double prepare_begin=now_ms();
                     llama_synchronize(htp.ctx);
                     if(!valid()) return false;
                     llama_memory_clear(llama_get_memory(htp.ctx),true);
@@ -113,7 +115,8 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                             "tool preparation import failed");
                     if(!valid()) return false;
                     require(export_seq(htp.ctx)==immutable->state,"tool preparation state/position mismatch");
-                    events->emit("prepare_import_verified",task_turn,"\"bytes\":"+std::to_string(immutable->state.size()));
+                    events->emit("prepare_import_verified",task_turn,"\"bytes\":"+std::to_string(immutable->state.size())
+                                 +",\"prepare_checked_ms\":"+std::to_string(now_ms()-prepare_begin));
                     if(barrier) { events->emit("barrier_entered",task_turn); barrier->enter(); }
                     bool complete=valid();
                     events->emit(complete?"prepare_work_ready":"prepare_work_cancelled",task_turn);
@@ -131,6 +134,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             lane.wait_for_test(); events->emit("candidate_waited",round);
         } else if(fields[0]=="OBS") {
             require(fields.size()==3 && started && !observed,"invalid OBS transition");
+            double observation_begin=now_ms();
             // 只有真实 Tool 返回后，host 才创建并传入此文件。
             conversation.push_back({"user",read(fields[2])});
             std::vector<llama_chat_message> messages;
@@ -141,6 +145,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             require(snapshot.evaluated_tokens+int(input.size())+max_tokens<=context_size,"tool session context capacity exceeded");
             std::ofstream(get("--out")+".turn-"+std::to_string(round)+".prompt.txt") << full;
             observed=true;
+            observation_processing_ms=now_ms()-observation_begin;
             events->emit("observation_ready",round,"\"H\":"+std::to_string(snapshot.evaluated_tokens)
                          +",\"P\":"+std::to_string(input.size())+",\"D\":"+std::to_string(d));
         } else if(fields[0]=="RUN") {
@@ -157,14 +162,21 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             events->emit("route_selected",round,"\"backend\":"+json(decision.backend)+",\"reason\":"+json(decision.reason)
                          +",\"availability\":"+json(availability)+",\"source\":"+json(current_router.source)
                          +",\"progress\":"+json(lane.progress())+",\"candidate_version\":"+std::to_string(lane.version())
+                         +",\"cost_covered\":"+(decision.cost_covered?"true":"false")
                          +",\"cpu_ms\":"+optional_number(decision.cpu_ms)+",\"htp_ms\":"+optional_number(decision.htp_ms));
             llama_context * pre=cpu.ctx;
+            double restore_begin=now_ms();
             if(decision.backend=="htp") { lane.claim(snapshot.version); pre=htp.ctx; }
             else { lane.retire(); restore_session(cpu.ctx,snapshot); }
+            double restore_checked_ms=now_ms()-restore_begin;
             events->emit("prefill_started",round,"\"backend\":"+json(decision.backend));
             auto pos=snapshot.next_pos; double begin=now_ms(); evaluate(pre,input,pos); double prefill_ms=now_ms()-begin;
             auto first=greedy(pre,nv); size_t handoff_bytes=0;
-            if(pre!=cpu.ctx) {SessionSnapshot updated;updated.state=export_seq(pre);handoff_bytes=restore_session(cpu.ctx,updated);}
+            double handoff_ms=0;
+            if(pre!=cpu.ctx) {
+                begin=now_ms();SessionSnapshot updated;updated.state=export_seq(pre);handoff_bytes=restore_session(cpu.ctx,updated);
+                handoff_ms=now_ms()-begin;
+            }
             std::vector<llama_token> ids; std::string output,closing; bool eog=false;
             begin=now_ms();
             for(int i=0;i<max_tokens;++i) {
@@ -190,13 +202,16 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                 << ",\"decode_backend\":\"cpu\",\"route_reason\":" << json(decision.reason)
                 << ",\"availability\":" << json(availability) << ",\"cost_source\":" << json(current_router.source)
                 << ",\"cpu_cost_ms\":" << optional_number(decision.cpu_ms) << ",\"htp_cost_ms\":" << optional_number(decision.htp_ms)
+                << ",\"cost_covered\":" << (decision.cost_covered?"true":"false")
                 << ",\"cached_tokens\":" << old_tokens << ",\"new_tokens\":" << input.size() << ",\"router_D\":" << d
                 << ",\"snapshot_version\":" << old_version << ",\"committed_version\":" << snapshot.version
                 << ",\"authority_checked\":true,\"prefix_match\":true,\"restore_checked\":true,\"eog_committed\":true,\"compared\":false"
                 << ",\"image_encode_calls\":0,\"handoff_bytes\":" << handoff_bytes << ",\"next_position\":" << pos
                 << ",\"evaluated_tokens\":" << snapshot.evaluated_tokens << ",\"output\":" << json(output) << ",\"generated_ids\":[";
             for(size_t i=0;i<ids.size();++i) response << (i?",":"") << ids[i];
-            response << "],\"timing_ms\":{\"prefill_ms\":" << prefill_ms << ",\"decode_ms\":" << decode_ms
+            response << "],\"timing_ms\":{\"observation_processing_ms\":" << observation_processing_ms
+                     << ",\"restore_checked_ms\":" << restore_checked_ms << ",\"handoff_checked_ms\":" << handoff_ms
+                     << ",\"vision_init_ms\":0,\"prefill_ms\":" << prefill_ms << ",\"decode_ms\":" << decode_ms
                      << "},\"background_occupied_at_publish\":" << (lane.occupied()?"true":"false") << "}";
             results.push_back(response.str());
             // 在任何回收/下一轮等待之前真正 flush 到消费者。

@@ -14,6 +14,7 @@ struct RouteCost {
 };
 struct RouteDecision {
     std::string backend="cpu", reason="coverage_missing", availability;
+    bool cost_covered=false;
     double cpu_ms=std::numeric_limits<double>::quiet_NaN();
     double htp_ms=std::numeric_limits<double>::quiet_NaN();
 };
@@ -57,9 +58,10 @@ public:
             if(r.path=="CC") cc=&r; else if(r.path=="HC") hc=&r;
         }
         if (cc) result.cpu_ms=cc->future_ms;
+        result.cost_covered=cc && hc;
+        if (!result.cost_covered) return result;
         // 不可抢占 API 没有可靠剩余时间；首版不等待未就绪候选。
         if (availability!="ready") { result.reason="candidate_"+availability; return result; }
-        if (!cc || !hc) return result;
         result.htp_ms=hc->future_ms; // 历史准备已完成，不能重复计费。
         if (result.htp_ms < result.cpu_ms) { result.backend="htp"; result.reason="htp_lower_cost"; }
         else result.reason="cpu_lower_cost";
