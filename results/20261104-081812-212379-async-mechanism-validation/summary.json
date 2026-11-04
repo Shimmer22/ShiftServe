@@ -1,0 +1,196 @@
+{
+  "scope": "基础机制验证；手机有并行竞争，所有耗时不用于性能结论；无真实 Tool、无图像输入",
+  "timing_valid_for_performance": false,
+  "device": "10.29.11.213:35675",
+  "git_commit": "faddf08b834610089f951ae4aa04906b7a1d2185",
+  "passed": true,
+  "runs": [
+    {
+      "label": "cpu-control",
+      "response_check": {
+        "passed": true,
+        "outputs_passed": true,
+        "state_passed": true,
+        "single_encode_passed": true,
+        "numerical_passed": null,
+        "numerical_compared_turns": 0,
+        "turns": [
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 1
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 2
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 3
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 4
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          }
+        ]
+      },
+      "result_directory": "results/20261104-081813-944270-async-cpu-control",
+      "mechanism_check": null
+    },
+    {
+      "label": "async",
+      "response_check": {
+        "passed": true,
+        "outputs_passed": true,
+        "state_passed": true,
+        "single_encode_passed": true,
+        "numerical_passed": null,
+        "numerical_compared_turns": 0,
+        "turns": [
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 1
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 2
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 3
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          },
+          {
+            "passed": true,
+            "json_action_passed": true,
+            "parsed": {
+              "action": "wait",
+              "memo": "PINE-47",
+              "step": 4
+            },
+            "response_format": "json",
+            "strict_format_passed": true
+          }
+        ]
+      },
+      "result_directory": "results/20261104-082020-323813-async-async",
+      "mechanism_check": {
+        "passed": true,
+        "turns": [
+          {
+            "turn": 0,
+            "case": "none",
+            "passed": true
+          },
+          {
+            "turn": 1,
+            "case": "ready",
+            "passed": true
+          },
+          {
+            "turn": 2,
+            "case": "early",
+            "passed": true
+          },
+          {
+            "turn": 3,
+            "case": "cancel",
+            "passed": true
+          }
+        ]
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "turn": 0,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "next_position_equal": true,
+      "evaluated_tokens_equal": true,
+      "committed_prefix_equal": true
+    },
+    {
+      "turn": 1,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "next_position_equal": true,
+      "evaluated_tokens_equal": true,
+      "committed_prefix_equal": true
+    },
+    {
+      "turn": 2,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "next_position_equal": true,
+      "evaluated_tokens_equal": true,
+      "committed_prefix_equal": true
+    },
+    {
+      "turn": 3,
+      "generated_ids_equal": true,
+      "output_equal": true,
+      "next_position_equal": true,
+      "evaluated_tokens_equal": true,
+      "committed_prefix_equal": true
+    }
+  ],
+  "matched_runtime": {
+    "source_sha256": "b9e31dfa67c3668a4459543426156d1546c7ae727fb8794da441866b386c48b3",
+    "binary_sha256": "37c85a140a385c248b896b18b5d02623c37fc1f3b90df299b631e8e4ebf44464",
+    "source_equal": true,
+    "binary_equal": true
+  },
+  "host_validation": {
+    "unittest_count": 17,
+    "passed": true,
+    "android_build_passed": true
+  }
+}

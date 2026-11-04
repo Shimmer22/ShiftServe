@@ -193,3 +193,9 @@ H=8192的12次两路径均立即结束、空输出，生成ID一致；其中仅P
 独立真实截图记忆测试`results/20261103-214617-564245-four-path-memory`：HH→HC→CH→CC，首轮截图GPU编码一次，后三轮无新截图。页面、PINE-47记忆及step1–4均通过；snapshot来自实际Decode后端。全CPU对照`results/20261103-214834-584625-four-path-memory-cpu-control`采用同一native二进制与场景，四轮完整生成ID、输出、提交prefix字节全部一致，见`results/four-path-memory-comparison.json`。轮前缓存0/715/800/885，最终970个token；该2.5模型无DeltaNet。两条件输出均有完整JSON代码围栏，strict_format_passed=false。此对照未逐步比较原始logits，不把任务一致性写成数值阈值通过。
 
 首帧＋历史追问通过不替代连续多张新截图回放；之前FastRPC停顿仍未根治。本轮设备测试已结束，无残留agent进程；10项host检查通过。后续Tool Gap基线必须允许在GPU ViT期间准备状态，以免把现有公共窗口可以隐藏的准备成本归功于Tool Gap。
+
+## 2026-11-04：最小异步准备机制
+
+详见 [ASYNC.md](ASYNC.md) 与 `results/20261104-081812-212379-async-mechanism-validation/summary.json`。全 CPU 对照和异步条件各四轮通过；native 源码与二进制 hash 相同。后台状态准备、就绪选 HTP、未就绪选 CPU、旧版本拒绝及执行前取消通过；两条件输出、生成 ID、提交 prefix、计数和下一位置逐轮一致。CPU 权威快照、HTP 导入字节及 HTP→CPU 交接均检查。
+
+本地17项测试和 Android 构建通过。没有真实 Tool、图像输入或逐步 logits 对照；事件中的动作完成仅为进程内部生成完成，完整结果文件仍在 drain 后写出。手机存在用户并行竞争，全部耗时不用于性能结论，本轮未跑长期实验。

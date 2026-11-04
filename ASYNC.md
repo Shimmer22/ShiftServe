@@ -24,6 +24,20 @@ conda run --no-capture-output -n visiontrim-qwen25vl python scripts/validate_asy
 
 `results/具名目录/summary.json` 记录套件判定和两个原始运行目录；原始日志、失败输出保留，不自动重试。事件时间以候选创建为原点；Tool 开始是夹具事件，动作完整可用在 EOG 采样时记录，CPU 状态提交及 drain 单独记录。
 
+`action_complete` 只表示进程内部动作生成完成；本轮完整结果文件在 drain 后写出，没有流式交付或外部动作消费者。因此这里只验证 CPU 计算路径不提前 join，不能宣称外部动作交付已经消除了等待。
+
+## 2026-11-04 基础验证结果
+
+套件：`results/20261104-081812-212379-async-mechanism-validation/summary.json`，`passed=true`。两个条件的 native 源码 hash 和二进制 hash 相同。全 CPU 对照与异步条件各四轮，JSON/action、PINE-47 记忆、step1–4、EOG、迁移检查均通过，完整生成 token、输出、提交 prefix、token 计数和下一位置逐轮相同。最终299个已评估 token，无图像输入。
+
+| 条件 | 绑定结果 | 基础机制检查 |
+|---|---|---|
+| 已就绪 | HTP prefill / CPU decode | 后台导入/字节核验通过，CPU 权威状态未变 |
+| 提前返回 | CPU prefill / CPU decode | 绑定时后台尚未开始；随后导入与 CPU 计算并行发起，版本推进后旧候选被拒绝 |
+| 取消 | CPU prefill / CPU decode | 工作线程未进入导入，取消状态被识别 |
+
+本地17项测试通过，包含同一 C++ 状态机的 pending、ready、过期、执行前/执行中/完成后取消，以及后台异常在 wait/bind/join 中传播；Android 交叉编译通过。手机只跑上述两个条件，没有扩展性能矩阵或长期测试。耗时不可信，全部标记不用于性能结论；未做逐步 logits 数值阈值验证。
+
 ## 尚未实现
 
 按 H/Tool/G 决定是否启动、实际 P/D 的成本选路、真实 Tool/图像流水线、生产式跨轮取消回收、增量 KV 导入、独立 tiling、压缩与性能评估均未实现。当前只验证 readiness binding，不是完整两阶段调度器。共享 llama.cpp/Hexagon 后端没有修改。

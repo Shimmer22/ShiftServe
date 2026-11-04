@@ -1,6 +1,6 @@
 # 面向端侧 Agent 的工具等待感知异构推理状态准备与动态调度
 
-论文主线：**Slack-Aware Speculative State Preparation for Heterogeneous On-Device Agents**。Tool 开始时根据 H、工具类型和预计 G 决定是否投机准备；结果返回后，根据真实 P、预计 D 和准备进度延迟绑定 Prefill 后端，同时保留 CPU 可执行状态。KV 压缩为可选扩展。已有四路径用于成本校准与正确性验证，尚未实现真实异步准备或证明端到端加速。远端 BFCL 轨迹采集见 [BFCL.md](BFCL.md)，手机状态链路见 [MULTITURN.md](MULTITURN.md)。默认仍关闭 KV 整理、预搬移和模拟等待，暂停 QNN/NPU ViT 工作。
+论文主线：**Slack-Aware Speculative State Preparation for Heterogeneous On-Device Agents**。Tool 开始时根据 H、工具类型和预计 G 决定是否投机准备；结果返回后，根据真实 P、预计 D 和准备进度延迟绑定 Prefill 后端，同时保留 CPU 可执行状态。KV 压缩为可选扩展。已有四路径用于成本校准与正确性验证；最小异步准备夹具见 [ASYNC.md](ASYNC.md)，真实 Tool 成本策略与端到端收益尚未验证。远端 BFCL 轨迹采集见 [BFCL.md](BFCL.md)，手机状态链路见 [MULTITURN.md](MULTITURN.md)。默认仍关闭 KV 整理、预搬移和模拟等待，暂停 QNN/NPU ViT 工作。
 
 当前工程用同一 Android 运行器提供 CPU、HTP、混合三条路径。默认关闭 KV 整理与预搬移，先验证模板、模型响应和状态迁移。观察回放输入支持文本历史和真实截图，输出由 host 校验；不会执行模型给出的设备动作。
 
@@ -52,7 +52,8 @@ NPU 配置特指 LLM 的 HTP0；图像编码使用 OpenCL。CPU 配置的图像�
 - `scripts/analyze_paths.py results/NAME`：校验后导出成本与选路，单列完整动作和Decode计算前缀；Gap只是离线理想重叠。
 - `scripts/plot_paths.py results/NAME`：只画通过校验且样本足够的完整动作成本，导出PNG/PDF及布局检查。
 
-真实连续截图曾再次触发FastRPC停顿，尚未根治；完整记录见VALIDATION.md。四路径运行器与成本表不等于已完成迟滞调度或异步准备。
+真实连续截图曾再次触发FastRPC停顿，尚未根治；完整记录见VALIDATION.md。四路径运行器与成本表不等于已完成在线成本调度。
+
 ## 本次基础机制验证
 
 异步准备最小实现、串行短回放与验收边界见 [ASYNC.md](ASYNC.md)。本次手机存在并行竞争，耗时不用于性能结论；不运行长期实验。大型模型、状态和张量不纳入 Git，原始日志和检查记录保留。

@@ -4,7 +4,7 @@
 |---|---|---|---|
 | A 多轮基线 | CPU/HTP 双 Context，真实历史状态复用 | 连续多轮正确，不重复 prefill 旧截图 | 首帧截图＋历史追问的HH/HC/CH/CC及全CPU对照通过；连续新截图仍有FastRPC问题；DeltaNet未覆盖 |
 | B 优势区间 | CPU/HTP prefill、双向交接与布局成本测量 | 得到给定 H/P 下的实际路径查表 | 四路径结构化组96次完成、60次数值通过；尚无合格的四路径全局最优/Gap翻转证据 |
-| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 已接入最小异步准备/就绪绑定夹具，待基础设备验证；成本策略与真实 Tool 未实现，见 ASYNC.md |
+| C 两阶段调度 | Tool 执行与 State Preparation 异步重叠 | 开始时决定是否准备；返回后按真实 P 和准备进度绑定后端；保留 CPU 权威状态 | 最小异步准备/就绪绑定夹具通过基础设备验证；成本策略与真实 Tool 未实现，见 ASYNC.md |
 | D KV-aware 优化 | 压缩、Tile-aware 选择、部分准备 | 相比全量异步准备获得额外收益 | 未实现 |
 
 手机多模态回归固定 GPU ViT；BFCL 文本轨迹不加载视觉编码器。已有成本校准包含 CC（CPU/CPU）、HH（HTP/HTP）、HC（HTP/CPU）、CH（CPU/HTP）。四路径是代价模型的支撑组件，不将四路径迟滞调度本身列为核心创新。此前固定 CPU Decode 的测量保留为历史证据。
@@ -92,4 +92,4 @@ D 在 C 通过后比较：无整理、全量异步准备、压缩后全量准备
 
 ## 当前四路径结果
 
-详见`results/20261103-213658-342299-four-path-structured-grid/README.md`和`results/four-path-memory-comparison.json`。真实截图首帧＋后三轮追问的四路径与全CPU输出、token、prefix完全一致；不等于连续新截图故障已解决。96次文本校准响应全通过、60次数值通过。有效CC/HC对照在H4K、G0、初始CPU时，P16为1.43/2.70秒，P64为3.93/1.92秒；支持保留小P不迁移的候选，未证明Tool Gap使最优路径翻转。HH数值仍待校准，当前不能宣布四路径全部可用。在线迟滞、预测D/Gap和真实异步准备尚未实现。
+详见`results/20261103-213658-342299-four-path-structured-grid/README.md`和`results/four-path-memory-comparison.json`。真实截图首帧＋后三轮追问的四路径与全CPU输出、token、prefix完全一致；不等于连续新截图故障已解决。96次文本校准响应全通过、60次数值通过。有效CC/HC对照在H4K、G0、初始CPU时，P16为1.43/2.70秒，P64为3.93/1.92秒；支持保留小P不迁移的候选，未证明Tool Gap使最优路径翻转。HH数值仍待校准，当前不能宣布四路径全部可用。在线成本选路、预测D/Gap和真实Tool集成尚未实现；最小异步准备夹具的基础验证见ASYNC.md。
