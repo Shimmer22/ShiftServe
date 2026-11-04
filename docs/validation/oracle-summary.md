@@ -54,6 +54,8 @@ G目标1500ms时两侧均3/3 ready，完整响应差异仅约8ms，且配对差�
 
 早期大矩阵存在严重 CPU decode 换页长尾，不能用其损失概括方法本身。生命周期规范应共同适用于 tile 与非 tile：校准副本在测量前释放，临时 tiles 在最后使用后释放，普通 KV 保留到会话不再需要该历史为止。实现审计、失败路径与诊断回归作为[补充证据](../../results/20261104-kv-prepack-audit/README.md)，不构成新增的 Router/联合 Oracle 收益。
 
+后续 [DMA/HVX 优化对照](../../results/20261104-kv-dma-hvx/README.md)将72次准备RPC合并，使用临时VTCM中的DMA收集、HVX整理和DMA写回，并恢复多N块时的提前加载。H4096/P32、64，G目标0/200/1500ms，每条件5次，共132条校准/测量记录；整理中位数127.4ms，旧标量轮528.2ms仅作跨轮参考。长Gap下，P32完整响应增量收益-8.6ms、P64为+16.2ms，各组配对bootstrap区间均跨零，仍未观察到稳定端到端增益。另6条独立profile中，attention由65.2ms降到52.0–52.7ms；实测8MiB VTCM，K/V各只有一个N块，因此缺失双缓冲不是本场景此前变慢的原因。
+
 ## 复现与后续路线
 
 - [Oracle 指南](../guides/oracle.md)：真实 HTTP、粗扫/细扫、Oracle 重分析与候选定义。

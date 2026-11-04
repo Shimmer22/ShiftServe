@@ -1,0 +1,54 @@
+{
+  "diagnostic_only": true,
+  "timing_valid_for_formal_comparison": false,
+  "HC_qualified": {
+    "32": true
+  },
+  "trials": 6,
+  "config": {
+    "mode": "hybrid",
+    "history_tokens": 2048,
+    "new_tokens": [
+      32
+    ],
+    "gap_ms": [
+      0
+    ],
+    "strategies": [
+      "after_return",
+      "always",
+      "cost_aware"
+    ],
+    "routes": [
+      "CC",
+      "HC"
+    ],
+    "repetitions": 3,
+    "context_size": 5120,
+    "batch_size": 128,
+    "htp_queue": 1,
+    "htp_opbatch": 1,
+    "kv_policy": "none",
+    "pre_move": false,
+    "cpu_repack": false,
+    "timeout_s": 600,
+    "seed": 20261104,
+    "numeric_acceptance": {
+      "min_cosine": 0.99,
+      "max_nrmse": null
+    },
+    "input_fixture": "neutral_padding_v1",
+    "htp_profile": 0,
+    "calibration_only": true,
+    "htp_kv_prepack_dir": "build/kv-prepack/20261104-164744-178763",
+    "htp_kv_release_before_decode": true,
+    "release_calibration_state": true
+  },
+  "costs": {
+    "32": [
+      1300.859062,
+      1307.0269790000002
+    ]
+  },
+  "response_and_state_passed": true
+}

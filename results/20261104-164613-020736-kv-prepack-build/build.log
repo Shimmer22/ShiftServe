@@ -1,0 +1,72 @@
+-- The C compiler identification is Clang 19.0.0
+-- The CXX compiler identification is Clang 19.0.0
+-- The ASM compiler identification is unknown
+-- Found assembler: /opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang++
+System is unknown to cmake, create:
+Platform/QURT to use this system, please post your config file on discourse.cmake.org so it can be added to cmake
+-- Detecting C compiler ABI info
+System is unknown to cmake, create:
+Platform/QURT to use this system, please post your config file on discourse.cmake.org so it can be added to cmake
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+System is unknown to cmake, create:
+Platform/QURT to use this system, please post your config file on discourse.cmake.org so it can be added to cmake
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Warning: Did not find file Compiler/-ASM
+-- Warning: Did not find file Compiler/-ASM
+-- Configuring done (1.2s)
+-- Generating done (0.0s)
+-- Build files have been written to: /probe/build-v79
+[1/27] Generating htp_iface_skel.c, htp_iface_stub.c, htp_iface.h
+[2/27] Building C object CMakeFiles/ggml-htp-v79.dir/hex-dma.c.obj
+[3/27] Building C object CMakeFiles/ggml-htp-v79.dir/htp_iface_skel.c.obj
+[4/27] Building C object CMakeFiles/ggml-htp-v79.dir/main.c.obj
+FAILED: CMakeFiles/ggml-htp-v79.dir/main.c.obj 
+/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -MD -MT CMakeFiles/ggml-htp-v79.dir/main.c.obj -MF CMakeFiles/ggml-htp-v79.dir/main.c.obj.d -o CMakeFiles/ggml-htp-v79.dir/main.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/main.c
+In file included from /probe/src/ggml/src/ggml-hexagon/htp/main.c:139:
+In file included from /probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-main.inc:3:
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:12:5: error: use of undeclared identifier 'HAP_compute_res_attr_t'; did you mean 'HAP_compute_res_attr_init'?
+   12 |     HAP_compute_res_attr_t attr;
+      |     ^~~~~~~~~~~~~~~~~~~~~~
+      |     HAP_compute_res_attr_init
+/opt/hexagon/6.4.0.2/incs/HAP_compute_res.h:402:19: note: 'HAP_compute_res_attr_init' declared here
+  402 | static inline int HAP_compute_res_attr_init(compute_res_attr_t* attr)
+      |                   ^
+In file included from /probe/src/ggml/src/ggml-hexagon/htp/main.c:139:
+In file included from /probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-main.inc:3:
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:12:27: error: expected ';' after expression
+   12 |     HAP_compute_res_attr_t attr;
+      |                           ^
+      |                           ;
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:12:28: error: use of undeclared identifier 'attr'
+   12 |     HAP_compute_res_attr_t attr;
+      |                            ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:13:32: error: use of undeclared identifier 'attr'
+   13 |     HAP_compute_res_attr_init(&attr);
+      |                                ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:14:41: error: use of undeclared identifier 'attr'
+   14 |     HAP_compute_res_attr_set_serialize(&attr,0);
+      |                                         ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:15:45: error: use of undeclared identifier 'attr'
+   15 |     HAP_compute_res_attr_set_vtcm_param_v2(&attr,256*1024,256*1024,256*1024);
+      |                                             ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:16:38: error: use of undeclared identifier 'attr'
+   16 |     w->rctx=HAP_compute_res_acquire(&attr,1000000u);
+      |                                      ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:19:46: error: use of undeclared identifier 'attr'
+   19 |     if(HAP_compute_res_attr_get_vtcm_ptr_v2(&attr,&base,&size)!=0 || !base || size<3*A2O_PACK_BLOCK_BYTES+128) {
+      |                                              ^
+/probe/src/ggml/src/ggml-hexagon/htp/a2o-kv-prepack-workspace.inc:12:5: error: expression result unused [-Werror,-Wunused-value]
+   12 |     HAP_compute_res_attr_t attr;
+      |     ^~~~~~~~~~~~~~~~~~~~~~
+9 errors generated.
+[5/27] Building C object CMakeFiles/ggml-htp-v79.dir/worker-pool.c.obj
+[6/27] Building C object CMakeFiles/ggml-htp-v79.dir/matmul-ops.c.obj
+[7/27] Building C object CMakeFiles/ggml-htp-v79.dir/binary-ops.c.obj
+ninja: build stopped: subcommand failed.

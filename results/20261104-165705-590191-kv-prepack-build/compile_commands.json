@@ -1,0 +1,152 @@
+[
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/main.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/main.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/main.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/main.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/htp_iface_skel.c.obj -c /probe/build-v79/htp_iface_skel.c",
+  "file": "/probe/build-v79/htp_iface_skel.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/htp_iface_skel.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/worker-pool.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/worker-pool.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/worker-pool.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/worker-pool.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/hex-dma.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/hex-dma.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/hex-dma.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/hex-dma.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/matmul-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/matmul-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/matmul-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/matmul-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/binary-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/binary-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/binary-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/binary-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/unary-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/unary-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/unary-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/unary-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/sum-rows-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/sum-rows-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/sum-rows-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/sum-rows-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/softmax-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/softmax-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/softmax-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/softmax-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/act-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/act-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/act-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/act-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/rope-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/rope-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/rope-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/rope-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/flash-attn-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/flash-attn-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/flash-attn-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/flash-attn-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/set-rows-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/set-rows-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/set-rows-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/set-rows-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/get-rows-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/get-rows-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/get-rows-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/get-rows-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/cpy-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/cpy-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/cpy-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/cpy-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/repeat-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/repeat-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/repeat-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/repeat-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/argsort-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/argsort-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/argsort-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/argsort-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/ssm-conv.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/ssm-conv.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/ssm-conv.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/ssm-conv.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/cumsum-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/cumsum-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/cumsum-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/cumsum-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/fill-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/fill-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/fill-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/fill-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/diag-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/diag-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/diag-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/diag-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/solve-tri-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/solve-tri-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/solve-tri-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/solve-tri-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -o CMakeFiles/ggml-htp-v79.dir/hmx-queue.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/hmx-queue.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/hmx-queue.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/hmx-queue.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -mhmx -o CMakeFiles/ggml-htp-v79.dir/hmx-matmul-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/hmx-matmul-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/hmx-matmul-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/hmx-matmul-ops.c.obj"
+},
+{
+  "directory": "/probe/build-v79",
+  "command": "/opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin/hexagon-clang -DFP32_QUANTIZE_GROUP_SIZE=128 -DHTP_HAS_HMX=1 -DNDEBUG=1 -Dggml_htp_v79_EXPORTS -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/qurt -I/opt/hexagon/6.4.0.2/rtos/qurt/computev79/include/posix -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rtld/ship/toolv19_v79 -I/opt/hexagon/6.4.0.2/ipc/fastrpc/rpcmem/inc -I/probe/src/ggml/src/ggml-hexagon/htp/../../../include -I/probe/src/ggml/src/ggml-hexagon/htp/../.. -I/probe/src/ggml/src/ggml-hexagon/htp/.. -I/probe/src/ggml/src/ggml-hexagon/htp -I/probe/build-v79 -isystem /opt/hexagon/6.4.0.2/incs -isystem /opt/hexagon/6.4.0.2/incs/stddef -isystem /opt/hexagon/6.4.0.2/ipc/fastrpc/incs -mcpu=hexagonv79 -mv79 -mhvx=v79 -fvectorize -flto -Wall -Werror -fno-zero-initialized-in-bss -G0 -fdata-sections -fpic -mllvm -enable-xqf-gen=true -O2 -fPIC -mhmx -o CMakeFiles/ggml-htp-v79.dir/hmx-flash-attn-ops.c.obj -c /probe/src/ggml/src/ggml-hexagon/htp/hmx-flash-attn-ops.c",
+  "file": "/probe/src/ggml/src/ggml-hexagon/htp/hmx-flash-attn-ops.c",
+  "output": "CMakeFiles/ggml-htp-v79.dir/hmx-flash-attn-ops.c.obj"
+}
+]

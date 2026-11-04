@@ -31,4 +31,4 @@ def build():
 def native_source_hashes():
     """递归记录全部原生机制，避免拆分目录后漏记源码。"""
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in sorted(NATIVE.rglob('*')) if p.suffix in {'.h', '.cpp'}}
+            for p in sorted(NATIVE.rglob('*')) if p.suffix in {'.h', '.cpp', '.inc'}}

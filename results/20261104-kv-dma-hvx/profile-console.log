@@ -1,0 +1,8 @@
+/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261104-170047-910898-http-oracle-grid
+0 calibration P=32 G=0 after_return/CC->CC ready=False gap=1629.9 response=2248.9
+1 calibration P=32 G=0 after_return/HC->HC ready=False gap=218.3 response=1833.3
+2 calibration P=32 G=0 after_return/CC->CC ready=False gap=464.9 response=2267.8
+3 calibration P=32 G=0 after_return/HC->HC ready=False gap=252.6 response=2902.8
+4 calibration P=32 G=0 after_return/CC->CC ready=False gap=105.3 response=2006.6
+5 calibration P=32 G=0 after_return/HC->HC ready=False gap=104.9 response=2410.3
+CALIBRATION P=32 HC_qualified=True costs=(2248.0204670000003, 1791.2707810000002)

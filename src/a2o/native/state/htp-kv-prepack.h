@@ -13,7 +13,23 @@ struct a2o_kv_cache {
     struct a2o_kv_entry entries[A2O_MAX_KV];
     uint32_t count;
     uint64_t hits[2], bytes[2], packed_bytes;
+    uint64_t trace_vtcm,trace_chunks[2],trace_ncols[2];
 };
+// 私有批处理共享缓冲：[count, validate, descriptors...]；固定 uint32 字段。
+struct a2o_kv_descriptor {
+    uint32_t fd, size, offset, kind, capacity, history;
+};
+struct a2o_kv_pending {
+    struct a2o_kv_entry *entry;
+    __fp16 *dst;
+    void *scratch;
+    size_t k, ncols, hist, reused;
+    unsigned requests;
+};
+bool a2o_enqueue_kv_tiles(struct htp_context *ctx, const __fp16 *weight,
+                         int k, int stride, size_t nc, size_t ncols,
+                         __fp16 *dst, void *scratch, struct a2o_kv_pending *pending);
+void a2o_finish_kv_tiles(struct htp_context *ctx, struct a2o_kv_pending *pending);
 // 返回 true 表示实际读取缓存；形状或地址不匹配返回 false，调用方须释放 HMX 锁。
 bool a2o_load_kv_tiles(struct htp_context *ctx, const __fp16 *weight,
                       int k, int stride, size_t nc, size_t ncols,

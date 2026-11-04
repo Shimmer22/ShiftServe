@@ -52,3 +52,21 @@ python3 scripts/analyze/kv_prepack.py results/<本轮目录>
 新增 CPU decode 进程级 CPU 用时、minor/major page faults 与调度切换计数，涵盖本进程所有工作线程。major page faults 支持存在换页/页面重新调入，不能单独确定被逐出的页属于模型权重还是其他映射。不同生命周期条件串行分轮，仍存在设备状态漂移，不能把跨轮差值直接归因于单个开关。
 
 原矩阵和失败日志全部保留；新的诊断结果不覆盖原始记录，也不把它当成 Router 或联合 Oracle 的收益测量。
+
+## DMA/HVX 准备与异步加载版本
+
+新增实现不再用标量循环整理测量数据：host 将 72 份 K/V 描述符合并为一次准备 RPC；DSP 一次申请独立 256KiB VTCM，不借用仍可能在轮询的算子上下文。K 按最多 `[256,128]`、V 按最多 `[32,1024]` 分块，先用二维 DMA 收集普通 KV 到 VTCM，再复用共享运行时的 `hmx_interleave_rows_to_tiles` HVX 实现，最后 DMA 写回 DDR。双输入缓冲允许下一块输入与当前整理重叠。HVX scatter 后显式执行 scatter release 和同地址依赖读取，再发起输出 DMA；所有输出完成后才释放临时 VTCM。
+
+历史 tiles 消费拆成 enqueue/finish，复用现有三份 VTCM 区域作为两份 tile buffer 和一份尾部 scratch。下一块历史/尾部 DMA 在当前块 HMX 计算前发起，下一轮等待完成后再整理尾部；每个 GQA 组重置缓冲指针。普通 KV 路径继续使用原来的 DMA 与在线整理。只有多个 N 分块时才会实际发生下一块加载重叠，不能把所有场景的变化归因于双缓冲。
+
+```bash
+python3 scripts/build/kv_prepack.py --load-mode pipeline
+# sync 仅作消费流水消融；准备阶段仍是同样的批处理 DMA/HVX。
+python3 scripts/build/kv_prepack.py --load-mode sync
+python3 scripts/profile/oracle.py --device <当前设备序列> --config configs/oracle-kv-dma-hvx-smoke.json
+python3 scripts/profile/oracle.py --device <当前设备序列> --config configs/oracle-kv-dma-hvx-4k.json
+```
+
+每次构建后在新配置中明确填写对应 `htp_kv_prepack_dir`；已有历史配置继续指向原二进制。`oracle-kv-dma-hvx-profile.json` 与 `oracle-kv-dma-hvx-sync-profile.json` 是独立 profile=1 数值/算子诊断，不并入正式耗时。普通提前准备和 tiles 提前准备都必须保留；不能只与“返回后才迁移”的较弱条件比较。额外 144MiB DDR 表示仍然存在，prefill 后释放与校准副本释放均保持启用。
+
+原生测试通过延迟 DMA mock 检查尚未完成的 source 不被覆盖、输入读取与输出写回的地址边界，以及流水缓冲复用；覆盖非整大块历史、两个 heads、尾部、批处理失败时清空部分缓存。mock 不验证真实 HVX/DMA 的时序；必须再通过真机完整 logits、最终状态和实际复用验收。[本次优化记录](../../results/20261104-kv-dma-hvx/README.md)保留构建、数值和性能结果。

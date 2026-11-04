@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """私有 host bridge + v79 DSP 历史 KV tiles 原型；shared 源码/库只读。"""
+import argparse
 import difflib
 import hashlib
 import json
@@ -15,6 +16,10 @@ sys.path.insert(0,str(ROOT/'scripts/build'))
 from kernel_probe import remote, BASE, IMAGE
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--load-mode',choices=('sync','pipeline'),default='pipeline')
+    parser.add_argument('--trace-layout',action='store_true',help='独立 profile 时记录真实 VTCM 与分块，禁止并入正式计时')
+    args=parser.parse_args()
     stamp=datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out=ROOT/'results'/(stamp+'-kv-prepack-build');out.mkdir()
     target=ROOT/'build/kv-prepack'/stamp;target.mkdir(parents=True)
@@ -35,25 +40,59 @@ def main():
     replace('ggml-hexagon.cpp','    if (tensor->view_src != NULL && tensor->view_offs == 0) {','    if (!tensor->view_src && (strncmp(tensor->name,"cache_k_l",9)==0 || strncmp(tensor->name,"cache_v_l",9)==0)) sess->a2o_kv_tensors.push_back(tensor);\n\n    if (tensor->view_src != NULL && tensor->view_offs == 0) {')
     replace('ggml-hexagon.cpp','static void * ggml_backend_hexagon_get_proc_address(', '#include "a2o-kv-prepack-host.inc"\n\nstatic void * ggml_backend_hexagon_get_proc_address(')
     replace('ggml-hexagon.cpp','    if (strcmp(name, "ggml_backend_dev_get_extra_bufts") == 0 && opt_hostbuf) {','    if (strcmp(name,"a2o_kv_control_v1")==0) return (void*)a2o_kv_control;\n    if (strcmp(name, "ggml_backend_dev_get_extra_bufts") == 0 && opt_hostbuf) {')
+    # 仅改变 GQA batched F16 路径；普通 KV 保留原来的 DMA 双缓冲。
     replace('htp/hmx-matmul-ops.c','#include "vtcm-utils.h"','#include "vtcm-utils.h"\n#include "a2o-kv-prepack-load.inc"')
-    # 仅改变 GQA batched F16 路径，其他算子保持原样。
-    replace('htp/hmx-matmul-ops.c','''                {
-                    const size_t n_cols_first = hex_smin((size_t) params->n, n_chunk_n_cols);''','''                bool a2o_cached = ctx->a2o_cache != NULL;
+    init = """                bool a2o_cached = ctx->a2o_cache != NULL;
+                __fp16 *a2o_weight=vtcm_weight;
+                struct a2o_kv_pending a2o_pending;
+                if (a2o_cached) {
+                    const size_t first = hex_smin((size_t) params->n, n_chunk_n_cols);
+                    if (!a2o_enqueue_kv_tiles(ctx,weight_group,params->k,params->weight_stride,0,first,vtcm_weight,buf_next,&a2o_pending)) {
+                        HAP_compute_res_hmx_unlock(ctx->vtcm_rctx);return -1;
+                    }
+                } else {
+                    const size_t n_cols_first = hex_smin((size_t) params->n, n_chunk_n_cols);"""
+    if args.load_mode=='sync':
+        init = """                bool a2o_cached = ctx->a2o_cache != NULL;
                 if (!a2o_cached) {
-                    const size_t n_cols_first = hex_smin((size_t) params->n, n_chunk_n_cols);''')
+                    const size_t n_cols_first = hex_smin((size_t) params->n, n_chunk_n_cols);"""
+    if args.trace_layout:
+        init=init.replace('                bool a2o_cached = ctx->a2o_cache != NULL;',
+            '                bool a2o_cached = ctx->a2o_cache != NULL;\n'
+            '                if (ctx->profiler && ctx->a2o_cache) {\n'
+            '                    struct a2o_kv_cache *c=ctx->a2o_cache;size_t kind=params->k==128?0:1;\n'
+            '                    c->trace_vtcm=ctx->vtcm_size;c->trace_ncols[kind]=n_chunk_n_cols;\n'
+            '                    size_t chunks=((size_t)params->n+n_chunk_n_cols-1)/n_chunk_n_cols;\n'
+            '                    if(chunks>c->trace_chunks[kind]) c->trace_chunks[kind]=chunks;\n'
+            '                }')
+    replace('htp/hmx-matmul-ops.c','''                {
+                    const size_t n_cols_first = hex_smin((size_t) params->n, n_chunk_n_cols);''',init)
+    cached = """                    if (a2o_cached) {
+                        if (nc) { void *old=a2o_weight; a2o_weight=(__fp16*)buf_curr; buf_curr=old; }
+                        a2o_finish_kv_tiles(ctx,&a2o_pending);
+                        const size_t next=nc+n_chunk_n_cols;
+                        if (next<(size_t)params->n && !a2o_enqueue_kv_tiles(ctx,weight_group,params->k,params->weight_stride,
+                                next,hex_smin((size_t)params->n-next,n_chunk_n_cols),buf_curr,buf_next,&a2o_pending)) {
+                            HAP_compute_res_hmx_unlock(ctx->vtcm_rctx);return -1;
+                        }
+                    } else {"""
+    if args.load_mode=='sync':
+        cached = """                    if (a2o_cached) {
+                        if (!a2o_load_kv_tiles(ctx,weight_group,params->k,params->weight_stride,nc,n_cols,vtcm_weight,buf_curr)) {
+                            HAP_compute_res_hmx_unlock(ctx->vtcm_rctx);return -1;
+                        }
+                    } else {"""
     replace('htp/hmx-matmul-ops.c','''                    TIMER_START(weight_load);
                     {
-                        dma_queue_pop(ctx->dma[0]);''','''                    TIMER_START(weight_load);
-                    if (a2o_cached) {
-                        if (!a2o_load_kv_tiles(ctx,weight_group,params->k,params->weight_stride,nc,n_cols,vtcm_weight,buf_curr)) {
-                            HAP_compute_res_hmx_unlock(ctx->vtcm_rctx);
-                            return -1;
-                        }
-                    } else {
-                        dma_queue_pop(ctx->dma[0]);''')
+                        dma_queue_pop(ctx->dma[0]);''',
+            '                    TIMER_START(weight_load);\n'+cached+'\n                        dma_queue_pop(ctx->dma[0]);')
+    if args.load_mode=='pipeline':
+        replace('htp/hmx-matmul-ops.c',
+            'core_dot_chunk_fp16(vtcm_output, vtcm_act_g, vtcm_weight, vtcm_scales,',
+            'core_dot_chunk_fp16(vtcm_output, vtcm_act_g, a2o_cached ? a2o_weight : vtcm_weight, vtcm_scales,')
     patch=''.join(''.join(difflib.unified_diff(originals[p].splitlines(True),changed[p].splitlines(True),fromfile='a/'+p,tofile='b/'+p)) for p in originals)
     (out/'prototype.patch').write_text(patch)
-    assets={prefix+'htp/'+n:(ROOT/'src/a2o/native/state'/n).read_bytes() for n in ['htp-kv-prepack.h','htp-kv-prepack-main.inc','htp-kv-prepack-load.inc']}
+    assets={prefix+'htp/'+n:(ROOT/'src/a2o/native/state'/n).read_bytes() for n in ['htp-kv-prepack.h','htp-kv-prepack-main.inc','htp-kv-prepack-load.inc','htp-kv-prepack-workspace.inc','htp-kv-prepack-pack.inc']}
     assets={p.replace('htp-kv-prepack','a2o-kv-prepack'):v for p,v in assets.items()}
     assets[prefix+'a2o-kv-prepack-host.inc']=(ROOT/'src/a2o/native/state/htp-kv-prepack-host.inc').read_bytes()
     expected={p:hashlib.sha256((source/p).read_bytes()).hexdigest() for p in originals}
@@ -86,15 +125,17 @@ subprocess.run([a[0],*[v for v in a if v.startswith(('--target=','--sysroot='))]
 '''
     (out/'host-build.py').write_text(host_script)
     subprocess.run(['scp','-q',str(out/'host-build.py'),'wins:'+scratch+'/host-build.py'],check=True)
-    configure=['cmake','-S','/probe/src/ggml/src/ggml-hexagon/htp','-B','/probe/build-v79','-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DCMAKE_TOOLCHAIN_FILE=/probe/src/ggml/src/ggml-hexagon/htp/cmake-toolchain.cmake','-DHEXAGON_SDK_ROOT='+sdk,'-DHEXAGON_TOOLS_ROOT='+htools,'-DDSP_VERSION=v79','-DPREBUILT_LIB_DIR=toolv19_v79','-DHEXAGON_HTP_DEBUG=OFF','-DGGML_HEXAGON_FP32_QUANTIZE_GROUP_SIZE=128']
+    configure=['cmake','-S','/probe/src/ggml/src/ggml-hexagon/htp','-B','/probe/build-v79','-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DCMAKE_EXPORT_COMPILE_COMMANDS=ON','-DCMAKE_TOOLCHAIN_FILE=/probe/src/ggml/src/ggml-hexagon/htp/cmake-toolchain.cmake','-DHEXAGON_SDK_ROOT='+sdk,'-DHEXAGON_TOOLS_ROOT='+htools,'-DDSP_VERSION=v79','-DPREBUILT_LIB_DIR=toolv19_v79','-DHEXAGON_HTP_DEBUG=OFF','-DGGML_HEXAGON_FP32_QUANTIZE_GROUP_SIZE=128']
     shell='set -eu\n'+shlex.join(configure)+'\ncmake --build /probe/build-v79 -j 4\npython3 /probe/host-build.py'
     command=['docker','run','--rm','--pull=never','--network=none','--read-only','--cpus=4','--user','1000:1000','--tmpfs','/tmp:rw,exec,size=1g','-v',BASE+':/base:ro','-v',BASE+':'+BASE+':ro','-v',scratch+':/probe:rw','--entrypoint','/bin/sh',IMAGE,'-c',shell]
-    manifest={'source_sha256':expected,'patch_sha256':hashlib.sha256(patch.encode()).hexdigest(),'assets_sha256':{p:hashlib.sha256(v).hexdigest() for p,v in assets.items()},'remote_directory':scratch,'command':command,'scope':'private v79 + host bridge; profiler reserved mode; no wire ABI change; Qwen 36 layers, 2 KV heads, d128 only','shared_modified':False}
+    manifest={'source_sha256':expected,'patch_sha256':hashlib.sha256(patch.encode()).hexdigest(),'assets_sha256':{p:hashlib.sha256(v).hexdigest() for p,v in assets.items()},'remote_directory':scratch,'command':command,'preparation':'batched RPC; private 256KiB VTCM; DMA gather + HVX interleave + DMA store','load_mode':args.load_mode,'trace_layout':args.trace_layout,'scope':'private v79 + host bridge; profiler reserved mode; no wire ABI change; Qwen 36 layers, 2 KV heads, d128 only','shared_modified':False}
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2));print(out,flush=True)
     try:
         with (out/'build.log').open('w') as log: remote(command,stdout=log,stderr=subprocess.STDOUT,timeout=600)
     except Exception as e:
         (out/'failure.json').write_text(json.dumps({'error':str(e)}));raise
+    for name in ('compile_commands.json','CMakeCache.txt'):
+        subprocess.run(['scp','-q','wins:'+scratch+'/build-v79/'+name,str(out/name)],check=True)
     manifest['binaries']={}
     for name,rel in [('libggml-hexagon.so','libggml-hexagon.so'),('libggml-htp-v79.so','build-v79/libggml-htp-v79.so')]:
         p=target/name;subprocess.run(['scp','-q','wins:'+scratch+'/'+rel,str(p)],check=True)
