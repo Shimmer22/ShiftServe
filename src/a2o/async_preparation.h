@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <exception>
 #include <functional>
+#include <future>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -23,6 +24,10 @@ public:
         : version(v), released_(!held), origin_(Clock::now()) {
         mark("tool_started");
         worker_ = std::thread([this, work = std::move(work)] {
+            struct AtExit {
+                std::promise<void> & signal;
+                ~AtExit() { signal.set_value_at_thread_exit(); }
+            } at_exit{exit_signal_};
             try {
                 {
                     std::unique_lock<std::mutex> lock(mutex_);
@@ -67,6 +72,12 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         if (error_) std::rethrow_exception(error_);
     }
+    // 只有线程真正退出才允许回收，不把 work 完成标记当作退出证明。
+    bool exited() const { return exit_future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
+    void check_error() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (error_) std::rethrow_exception(error_);
+    }
     Decision bind(uint64_t current_version) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (error_) std::rethrow_exception(error_); // 失败不伪装为策略回退。
@@ -93,6 +104,8 @@ private:
     std::exception_ptr error_;
     Clock::time_point origin_;
     std::vector<std::pair<std::string, double>> events_;
+    std::promise<void> exit_signal_;
+    std::future<void> exit_future_ = exit_signal_.get_future();
     std::thread worker_;
     bool checkpoint() const {
         std::lock_guard<std::mutex> lock(mutex_); return !cancelled_;

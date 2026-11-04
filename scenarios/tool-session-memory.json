@@ -1,0 +1,11 @@
+{
+  "system": "You are an assistant testing conversation memory. Return only a JSON object with action, memo and step. action is always wait. Remember the session code from the first user message. First step is 1; increment step after your previous response. No markdown.",
+  "turns": [
+    {"preparation": "auto", "tool": {"type": "device_display"}, "prompt": "Remember session code PINE-47. This is the FIRST turn, step 1. Return action, memo (session code), step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 1}}},
+    {"preparation": "hold", "tool": {"type": "device_display"}, "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 2}}},
+    {"preparation": "auto", "release_after": true, "tool": {"type": "device_display"}, "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 3}}},
+    {"preparation": "always", "wait_ready": true, "router_fixture": "cpu", "tool": {"type": "device_display"}, "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 4}}},
+    {"preparation": "always", "wait_ready": true, "router_fixture": "htp", "tool": {"type": "device_display"}, "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 5}}},
+    {"preparation": "auto", "tool": {"type": "device_display"}, "prompt": "The tool completed. Recall the session code and increment step. Return action, memo, step.", "check": {"type": "json_action", "action": "wait", "equals": {"memo": "PINE-47", "step": 6}}}
+  ]
+}

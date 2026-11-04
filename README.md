@@ -8,7 +8,7 @@
 
 ## 入口
 
-开发状态与验收见 [ROADMAP.md](ROADMAP.md)。多轮状态与最小异步准备已有基础验证，四路径代价仍部分合格。下一步先解决跨轮非阻塞资源回收，再接成本 Router 和真实 Tool；当前 `bind()` 仅按就绪状态绑定，轮末仍等待后台任务。预测特征、KV 压缩和独立 Tiling 暂缓。
+开发状态与验收见 [ROADMAP.md](ROADMAP.md)。多轮状态与最小异步准备已有基础验证，四路径代价仍部分合格。新常驻入口已接入会话级跨轮回收、独立成本 Router 与实际只读 Tool，见 [TOOL_SESSION.md](TOOL_SESSION.md)；旧 readiness 夹具保留回归。预测特征、KV 压缩和独立 Tiling 暂缓。
 
 历史固定CPU Decode的B矩阵16个H/P点各测3次：12点通过，当前均偏向HTP；8K历史的4点空响应，已排除选路。因此还没有证据说明 Gap 会改变最优路径，也不把这轮文本微基准当作GUI端到端加速。
 

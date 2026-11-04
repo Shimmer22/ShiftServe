@@ -12,3 +12,4 @@ build/
 *.onnx
 *.dlc
 *.so
+results/**/device/agent

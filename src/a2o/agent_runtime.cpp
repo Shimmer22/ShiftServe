@@ -170,6 +170,7 @@ static std::string piece(const llama_vocab * v, llama_token tok) {
 #include "session_runtime.h"
 #include "profile_runtime.h"
 #include "path_runtime.h"
+#include "tool_session_runtime.h"
 
 int main(int argc, char ** argv) { try {
     std::map<std::string, std::string> a;
@@ -218,6 +219,7 @@ int main(int argc, char ** argv) { try {
             ggml_free(ctx);
         }
     } else { unsetenv("MTMD_BACKEND_DEVICE"); }
+    if(get("--tool-session")=="1") return run_tool_session(a);
     if(get("--path-profile")=="1") return run_paths(a);
     if(!get("--profile-history").empty()) return run_profile(a);
     if(!get("--session").empty()) return run_session(a);
