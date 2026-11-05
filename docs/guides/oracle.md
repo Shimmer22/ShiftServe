@@ -6,7 +6,7 @@
 
 ```bash
 conda run --no-capture-output -n visiontrim-qwen25vl python scripts/profile/oracle.py \
-  --device 10.29.11.213:35509
+  --device 10.29.131.50:42369
 
 # 已有完整运行重新汇总
 python scripts/analyze/oracle.py results/<具名运行目录>
@@ -55,9 +55,9 @@ HC 数值未准入时，Oracle 只有 CC，选路差距与联合收益标记为�
 严格选路Oracle总包含实际已选轨迹；反事实重放若准备/ready状态与决策时不匹配，该条件差距标为null，不用相交可用集制造负的Oracle差距。联合Oracle仍是完整路径重放的经验最小值；允许等待的版本另报，不拼接阶段最小值模拟重叠。
 
 ```bash
-python scripts/profile/oracle.py --config configs/oracle-boundary-4k.json --device 10.29.11.213:41227
-python scripts/profile/oracle.py --config configs/oracle-boundary-4k-fine.json --device 10.29.11.213:41227
-python scripts/profile/oracle.py --config configs/oracle-boundary-2k.json --device 10.29.11.213:41227
+python scripts/profile/oracle.py --config configs/oracle-boundary-4k.json --device 10.29.131.50:42369
+python scripts/profile/oracle.py --config configs/oracle-boundary-4k-fine.json --device 10.29.131.50:42369
+python scripts/profile/oracle.py --config configs/oracle-boundary-2k.json --device 10.29.131.50:42369
 # 所有模型条件必须串行；比较脚本独立复核原始HTTP、状态与发布事件
 python scripts/analyze/oracle_boundary.py results/<粗扫> results/<4K细扫> results/<2K细扫>
 ```

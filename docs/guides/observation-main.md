@@ -38,9 +38,9 @@
 
 ```bash
 # 地址需使用手机当前 adb 端口；先检查 adb devices -l，无设备直接失败。
-python scripts/profile/oracle.py --device 10.29.11.213:44289 --config configs/observation-main-h2048.json
+python scripts/profile/oracle.py --device 10.29.131.50:42369 --config configs/observation-main-h2048.json
 # 第一批结束且无模型占用后才启动第二批
-python scripts/profile/oracle.py --device 10.29.11.213:44289 --config configs/observation-main-h4096.json
+python scripts/profile/oracle.py --device 10.29.131.50:42369 --config configs/observation-main-h4096.json
 python scripts/plot/observations.py results/<第一批> results/<第二批> --output results/<具名主图目录>
 ```
 

@@ -16,3 +16,5 @@
 当前待办：[未完成工作与交付边界](design/remaining-work.md)。
 
 最新设备机制记录：[自校准与执行计划准备：14 个短条件](validation/self-calibrating-device.md)。
+
+主实验平台切换：[SM8650 迁移验证](validation/platform-migration.md)。

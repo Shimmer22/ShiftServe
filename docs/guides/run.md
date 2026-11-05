@@ -18,7 +18,25 @@ conda run -n visiontrim-qwen25vl python scripts/plot/prefill.py results/NAME-pre
 - 运行时包：`../shared/runtime/llama.cpp-hexagon-pkg`，使用包内头文件与动态库构建，避免本地源码版本与二进制 ABI 不一致。
 - 手机：`/data/local/tmp/llama.cpp/lib`；模型 `/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf`；mmproj 同目录 `mmproj-model-f16.gguf`。
 - `adb devices -l` 查当前设备；所有命令可用 `--device SERIAL` 覆盖默认无线地址。
-- 默认地址读取 `configs/device.json`；`DEVICE` 可覆盖。当前为 `10.29.11.213:46533`。
+- 默认地址读取 `configs/device.json`；`DEVICE` 可覆盖。当前为 `10.29.131.50:42369`。
+
+## 主平台迁移验证
+
+主实验设备为小米 23116PN5BC（SM8650，Android 14）。无线调试端口改变后更新
+`configs/device.json`，或用 `--device` 显式指定。配对码不写入仓库。
+
+```bash
+# 从 shared 增量部署运行时和模型，并校验手机端 SHA256
+python3 scripts/run/deploy_platform.py
+
+# 串行检查 CPU READY、CPU/HTP 状态往返、混合迁移及三种路径的图像 JSON
+conda run --no-capture-output -n visiontrim-qwen25vl python scripts/validate/platform.py
+```
+
+部署和验证分别保存具名结果目录；失败立即停止并保留原始日志。基础验收固定 CPU
+视觉编码器以检查图像输入与 LLM 后端，关闭 KV 整理和预搬移。图像使用工程保存的
+真机截图，不读取当前屏幕或执行生成动作。旧设备 Router 表只可作为机制夹具；
+新平台通过基础验收后，应重新运行四路径成本标定与 Oracle，再做延迟比较。
 
 ## 默认基线
 
