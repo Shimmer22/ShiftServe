@@ -30,3 +30,15 @@ python3 scripts/validate/execution_preparation.py --device <当前IP:端口> \
 ```
 
 入口只在设备 Awake 且无其他模型进程时继续；需用户手动亮屏，不自动唤醒或修改设置。
+
+## 后续真实 Tool 三轮闭环尝试：在线修正未生效
+
+2026-11-05，在同一设备亮屏、无其他模型进程时运行 `tool-session-self-calibrating-dev.json` 与 `tool-session-real.json`。真实 Tool 为只读 `wm size`，模型连续三轮记住 PINE-47 并正确递增 step，响应、前缀、权威状态和退出生命周期均通过。
+
+但**自校准闭环未通过**：实际 H/P/D 为 0/113/4、141/48/4、217/48/4，全部 `coverage_missing`、`online_sampled=false`，没有 online_cost_updated，也没有 Router 使用在线修正。既有 result.json 的 passed 仅代表 Tool/响应/生命周期检查，不能代表自校准成功。
+
+原因是 native 在采样前要求离线表已有精确 H/P/D/路径；当前表只覆盖 H1024/4096、P16/64 的部分路径。真实会话因此在开始积累前就被排除。即使放开采样，H 随每轮增长，精确键也难以重复达到成熟门槛；这正是 host 桶内复用尚未接入 native 的实际缺口。默认三样本门槛还意味着要在后续轮次才能验证修正被使用，三轮本身不是完整的反馈观察窗口。
+
+下一步须分开“允许采集实际路径样本”和“允许按候选成本选路”：覆盖不足时仍记录已执行 CC，候选选路约束继续保留；再为 native 补跨形状成本复用与有明确适用域的离线基线查询。不能靠扩展少量精确表行覆盖不断增长的全部历史，也不以机制夹具伪造通过。
+
+本地记录：`results/20261105-155618-168731-tool-session-auto/`，包括原始 Tool 返回、模型响应、协议事件、导出的离线表，以及独立的 closed-loop-check.json。成功的 Tool 生命周期与失败的自校准闭环分别记录；没有残留模型进程。未继续扩大实验量。
