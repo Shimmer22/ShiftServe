@@ -14,3 +14,5 @@
 无手机开发入口：[Self-Calibrating Runtime：自预热、抽样计时与在线成本更新](guides/self-calibrating-runtime.md)。
 
 当前待办：[未完成工作与交付边界](design/remaining-work.md)。
+
+最新设备机制记录：[自校准与执行计划准备：14 个短条件](validation/self-calibrating-device.md)。
