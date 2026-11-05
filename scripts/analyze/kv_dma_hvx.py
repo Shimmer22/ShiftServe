@@ -6,6 +6,7 @@ import itertools
 import json
 from pathlib import Path
 import re
+import random
 from statistics import median
 
 from kv_prepack import analyze
@@ -23,12 +24,15 @@ def profile_calls(directory):
         if 'profile-op ' not in line:continue
         current.append(line)
         if '-> result_norm :' in line:calls.append(current);current=[]
-    assert not current and len(calls)==len(rows)
+    assert not current and len(calls)==sum((r['P']+cfg['batch_size']-1)//cfg['batch_size'] for r in rows)
     output=[]
-    for row,call in zip(rows,calls):
+    cursor=0
+    for row in rows:
+        batches=(row['P']+cfg['batch_size']-1)//cfg['batch_size']
+        call=[line for batch in calls[cursor:cursor+batches] for line in batch];cursor+=batches
         attention=[line for line in call if 'profile-op MUL_MAT:' in line and 'f16 x f32' in line]
-        assert len(attention)==72 and row['passed'] and row['numerical_passed']
-        output.append({'id':row['id'],'P':row['P'],'prepack':row['kv_prepack_enabled'],
+        assert len(attention)==72*batches and row['passed'] and row['numerical_passed']
+        output.append({'id':row['id'],'P':row['P'],'prepack':row['kv_prepack_enabled'],'batches':batches,'attention_ops':len(attention),
                        'attention_ms':sum(int(re.search(r'usec (\d+)',s)[1]) for s in attention)/1000})
     layouts=[]
     for match in re.finditer(r'a2o-kv-layout: vtcm=(\d+) K_chunks=(\d+) V_chunks=(\d+) K_nc=(\d+) V_nc=(\d+)',(directory/'runtime.log').read_text()):
@@ -51,11 +55,16 @@ def main():
         cells={pack:[r for r in measurement if (r['P'],r['gap_requested_ms'],r['strategy'],r['kv_prepack_enabled'])==(p,g,'always',pack)] for pack in (False,True)}
         reference={r['repetition']:r for r in cells[False]}
         diffs=[reference[r['repetition']]['response_after_return_ms']-r['response_after_return_ms'] for r in cells[True]]
-        # 小样本描述：按 repetition 配对的中位数 bootstrap，仅 n<=6 时精确枚举。
-        assert len(diffs)<=6
-        boot=sorted(median(sample) for sample in itertools.product(diffs,repeat=len(diffs)))
+        # 配对中位数 bootstrap；小样本精确枚举，较大样本固定种子重采样。
+        if len(diffs)<=6:
+            boot=sorted(median(sample) for sample in itertools.product(diffs,repeat=len(diffs)))
+            bootstrap_method='exact'
+        else:
+            rng=random.Random(20261104+p*10000+g)
+            boot=sorted(median(rng.choices(diffs,k=len(diffs))) for _ in range(20000))
+            bootstrap_method='seeded_20000'
         metrics=('prepare_ms','kv_prepack_ms','prefill_ms','handoff_checked_ms','decode_ms','kv_prepack_release_ms','response_after_return_ms','decode_major_faults')
-        groups.append({**comparison,'paired_differences_ms':diffs,
+        groups.append({**comparison,'paired_differences_ms':diffs,'bootstrap_method':bootstrap_method,
             'paired_median_bootstrap_95_interval_ms':[boot[int(.025*(len(boot)-1))],boot[int(.975*(len(boot)-1))]],
             'cells':[{'prepack':pack,'ids':[r['id'] for r in cells[pack]],'ready_count':sum(r['ready_at_return'] for r in cells[pack]),
                       'median':{key:median(r[key] for r in cells[pack]) for key in metrics}} for pack in (False,True)]})

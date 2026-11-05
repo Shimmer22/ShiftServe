@@ -40,13 +40,52 @@ class PrepackAnalysisTest(unittest.TestCase):
     def save(self,out,rows):
         write=lambda name,data:(out/name).write_text(''.join(json.dumps(r)+'\n' for r in data))
         write('checked-rows.jsonl',rows);write('device/trials.jsonl',rows)
-        write('http-server.jsonl',[{'id':r['id'],'P':32,'gap_requested_ms':0,'body_sha256':hashlib.sha256(b'fixture').hexdigest()} for r in rows])
+        write('http-server.jsonl',[{'id':r['id'],'P':r['P'],'gap_requested_ms':0,'body_sha256':hashlib.sha256(b'fixture').hexdigest()} for r in rows])
         write('native-events.jsonl',[{'event':'response_published','turn':r['id'],'monotonic_ms':301} for r in rows])
 
     def test_complete_mechanism_and_counterfactual(self):
         with tempfile.TemporaryDirectory() as d:
             out=Path(d);self.fixture(out);result=module.analyze(out)
             self.assertTrue(result['passed']);self.assertEqual(result['comparisons'][0]['incremental_prepack_gain_ms'],10)
+
+    def multi_batch_fixture(self,out):
+        rows=self.fixture(out)
+        (out/'P32.txt').rename(out/'P256.txt')
+        cfg=json.loads((out/'manifest.json').read_text());cfg['config'].update(new_tokens=[256],batch_size=128)
+        (out/'manifest.json').write_text(json.dumps(cfg));(out/'candidate-qualification.json').write_text('{"256":true}')
+        for row in rows:
+            row['P']=256
+            if row['kv_prepack_enabled']:
+                # K 两轮，V 因内部 M 分块四轮；不能强制两者同一次数。
+                row['kv_prepack_k_bytes']*=2;row['kv_prepack_k_hits']*=2
+                row['kv_prepack_v_bytes']*=4;row['kv_prepack_v_hits']*=4
+        self.save(out,rows);return rows
+
+    def test_accept_complete_reuse_across_batches_and_m_chunks(self):
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d);self.multi_batch_fixture(out);result=module.analyze(out)
+            self.assertTrue(result['passed'])
+            self.assertTrue(all(r['K']==2 and r['V']==4 for r in result['kv_reuse_passes']))
+
+    def test_reject_missing_batch_or_partial_pass(self):
+        for kind in ('k','v'):
+            for partial in (False,True):
+                with self.subTest(kind=kind,partial=partial),tempfile.TemporaryDirectory() as d:
+                    out=Path(d);rows=self.multi_batch_fixture(out);row=rows[-1]
+                    row[f'kv_prepack_{kind}_bytes']=row['kv_prepack_cache_bytes']//2*(2 if partial else 1)-(2048 if partial else 0)
+                    self.save(out,rows)
+                    with self.assertRaises(AssertionError):module.analyze(out)
+
+    def test_focused_ready_comparison_has_no_invented_after_return(self):
+        with tempfile.TemporaryDirectory() as d:
+            out=Path(d);rows=self.fixture(out)
+            cfg=json.loads((out/'manifest.json').read_text());cfg['config']['prepack_strategies']=['always']
+            (out/'manifest.json').write_text(json.dumps(cfg))
+            rows=[r for r in rows if r['phase']=='calibration' or r['strategy']=='always']
+            for i,r in enumerate(rows):r['id']=i
+            self.save(out,rows);result=module.analyze(out)
+            self.assertTrue(result['passed']);self.assertIsNone(result['comparisons'][0]['combined_gain_ms'])
+            self.assertIsNone(result['comparisons'][0]['prepack_after_return_penalty_ms'])
 
     def test_reject_missing_final_state_comparison(self):
         with tempfile.TemporaryDirectory() as d:

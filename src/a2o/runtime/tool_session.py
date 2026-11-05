@@ -20,6 +20,11 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
     config = json.loads(Path(config_path).read_text())
     scenario = json.loads(Path(scenario_path).read_text())
     validate_tool_config(config, scenario, mechanism or control)
+    private_runtime=None
+    if config.get('htp_execution_prepare',False):
+        private_runtime=(ROOT/config['execution_prepare_dir']).resolve()
+        for name in ('libllama.so','libggml-base.so','libggml-hexagon.so'):
+            if not (private_runtime/name).is_file():raise ValueError('private execution runtime missing: '+name)
     binary = build()
     stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out = ROOT / 'results' / f'{stamp}-tool-session-{"control" if control else "mechanism" if mechanism else "auto"}'
@@ -38,6 +43,10 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
                 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'source_files_sha256': sources,
                 'runtime_package': str(PKG), 'calibration': metadata, 'agent': 'read-only tools; no generated actions executed',
                 'timing_valid_for_performance': False}
+    if private_runtime:
+        manifest['execution_preparation']={'enabled':True,'development_unvalidated':True,
+            'predicted_microbatch':config.get('predicted_input_tokens',64),'prefault_bytes':config.get('prefault_bytes',0),
+            'libraries':{n:hashlib.sha256((private_runtime/n).read_bytes()).hexdigest() for n in ('libllama.so','libggml-base.so','libggml-hexagon.so')}}
     (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
     (out / 'system.txt').write_text(scenario['system'])
     (out / 'empty.txt').write_text('')
@@ -52,6 +61,11 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
         for p, name in [(binary, 'agent'), (table, 'router.tsv'), (out / 'system.txt', 'system.txt'), (out / 'empty.txt', 'empty.txt')]:
             call('push', str(p), remote + '/' + name)
         call('shell', 'chmod', '755', remote + '/agent')
+        if private_runtime:
+            for name in ('libllama.so','libggml-base.so','libggml-hexagon.so'):
+                destination=remote+'/'+name;call('push',str(private_runtime/name),destination)
+                actual=call('shell','sha256sum',destination).stdout.decode().split()[0]
+                if actual!=manifest['execution_preparation']['libraries'][name]:raise RuntimeError('private library hash mismatch')
         args = [remote + '/agent', '--tool-session', '1', '--mode', 'hybrid', '--policy', 'none', '--pre-move', '0',
                 '--model', '/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf', '--system', remote + '/system.txt',
                 '--history', remote + '/empty.txt', '--previous', remote + '/empty.txt', '--prompt', remote + '/empty.txt',
@@ -60,7 +74,11 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
                 '--htp-opbatch', str(config['htp_opbatch']), '--router-table', remote + '/router.tsv',
                 '--router-d', str(config['router_decode_evaluations']), '--max-tokens', str(config['max_tokens']),
                 '--mechanism-test', str(int(mechanism)), '--out', remote + '/result.json']
-        env = ('export LD_LIBRARY_PATH=/data/local/tmp/llama.cpp/lib ADSP_LIBRARY_PATH=/data/local/tmp/llama.cpp/lib '
+        if private_runtime:
+            args += ['--htp-execution-prepare','1','--htp-predict-input',str(config.get('predicted_input_tokens',64)),
+                     '--htp-prefault-bytes',str(config.get('prefault_bytes',0))]
+        library_path=(remote+':' if private_runtime else '')+'/data/local/tmp/llama.cpp/lib'
+        env = ('export LD_LIBRARY_PATH='+shlex.quote(library_path)+' ADSP_LIBRARY_PATH=/data/local/tmp/llama.cpp/lib '
                f'GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE={config["htp_queue"]} GGML_HEXAGON_OPBATCH={config["htp_opbatch"]}; ')
         # 此入口不加载视觉编码器；CPU/HTP 参数显式覆盖。
         shell = f'cd /data/local/tmp/llama.cpp; {env}echo $$ > {remote}/pid; exec ' + shlex.join(args)

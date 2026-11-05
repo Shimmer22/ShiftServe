@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <cerrno>
 
 // 仅访问 adb reverse 的本地只读 HTTP Tool；完整 body 才作为新增输入。
 static std::string oracle_http(int port,int p,int gap,int id) {
@@ -13,11 +14,26 @@ static std::string oracle_http(int port,int p,int gap,int id) {
     sockaddr_in addr{};addr.sin_family=AF_INET;addr.sin_port=htons(port);addr.sin_addr.s_addr=htonl(INADDR_LOOPBACK);
     require(connect(fd,reinterpret_cast<sockaddr*>(&addr),sizeof(addr))==0,"HTTP connect failed");
     std::string req="GET /tool?p="+std::to_string(p)+"&gap="+std::to_string(gap)+"&id="+std::to_string(id)+" HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n";
-    for(size_t n=0;n<req.size();) {auto sent=send(fd,req.data()+n,req.size()-n,0);require(sent>0,"HTTP send failed");n+=sent;}
-    std::string raw;char buffer[4096];ssize_t n;
-    while((n=recv(fd,buffer,sizeof(buffer),0))>0) {raw.append(buffer,n);require(raw.size()<65536,"HTTP response too large");}
-    require(n==0 && raw.find("HTTP/1.0 200 OK\r\n")==0,"HTTP read/status failed");
-    auto split=raw.find("\r\n\r\n");require(split!=std::string::npos,"HTTP headers invalid");return raw.substr(split+4);
+    for(size_t n=0;n<req.size();) {auto sent=send(fd,req.data()+n,req.size()-n,0);if(sent<0 && errno==EINTR)continue;require(sent>0,"HTTP send failed");n+=sent;}
+    std::string raw;char buffer[4096];ssize_t n=0;size_t total=std::string::npos,split=std::string::npos;
+    // 以 Content-Length 的完整正文为 Tool 返回点，不等待 adb reverse 的连接关闭。
+    for(;;) {
+        n=recv(fd,buffer,sizeof(buffer),0);
+        if(n<0 && errno==EINTR)continue;
+        if(n<=0)break;
+        raw.append(buffer,n);require(raw.size()<65536,"HTTP response too large");
+        if(total==std::string::npos && (split=raw.find("\r\n\r\n"))!=std::string::npos) {
+            require(raw.find("HTTP/1.0 200 OK\r\n")==0,"HTTP status failed");
+            auto length=raw.find("\r\nContent-Length: ");
+            require(length!=std::string::npos && length<split,"HTTP Content-Length missing");
+            auto begin=length+18,end=raw.find("\r\n",begin);std::string value=raw.substr(begin,end-begin);
+            require(!value.empty() && value.find_first_not_of("0123456789")==std::string::npos,"invalid HTTP Content-Length");
+            total=split+4+std::stoul(value);require(total<65536,"HTTP body too large");
+        }
+        if(total!=std::string::npos && raw.size()>=total)break;
+    }
+    require(total!=std::string::npos && raw.size()==total,"HTTP incomplete response bytes="+std::to_string(raw.size())+" expected="+std::to_string(total)+" recv="+std::to_string(n)+" errno="+std::to_string(errno));
+    return raw.substr(split+4);
 }
 
 static int run_oracle(const std::map<std::string,std::string> & args) {
@@ -31,7 +47,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
     const double max_nrmse=error_limit=="none"?std::numeric_limits<double>::infinity():std::stod(error_limit);
     require(h>0 && min_cosine>=0 && min_cosine<=1 && max_nrmse>=0,"invalid oracle history/thresholds");
     std::vector<int> input_lengths;std::istringstream lengths(args.count("--profile-inputs")?get("--profile-inputs"):"16,64");std::string length;
-    while(std::getline(lengths,length,',')) {int p=std::stoi(length);require(p>=16 && p<=128,"P must be within 16..128");require(std::find(input_lengths.begin(),input_lengths.end(),p)==input_lengths.end(),"duplicate P");input_lengths.push_back(p);}
+    while(std::getline(lengths,length,',')) {int p=std::stoi(length);require(p>=16 && p<=2048,"P must be within 16..2048");require(std::find(input_lengths.begin(),input_lengths.end(),p)==input_lengths.end(),"duplicate P");input_lengths.push_back(p);}
     require(!input_lengths.empty(),"missing P conditions");
     const bool prepack=args.count("--htp-kv-prepack") && get("--htp-kv-prepack")=="1";
     auto reg=ggml_backend_reg_by_name("HTP");
@@ -44,23 +60,43 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
     require(!release_tiles || prepack,"release requires private prepack bridge");
     const bool release_calibration=args.count("--oracle-release-calibration-state") && get("--oracle-release-calibration-state")=="1";
     int port=std::stoi(get("--http-port"));
+    double history_fixture_start=now_ms();
     auto prefix=tokens(vocab,"<|im_start|>system\nYou are a GUI agent. For every new request return only {\"action\":\"wait\"}. Do not repeat observation text. No markdown.<|im_end|>\n<|im_start|>user\nPast screen observations:\n",true);
     auto closing=tokens(vocab,"\nThe tool completed successfully. Continue waiting for the next request.<|im_end|>\n<|im_start|>assistant\n{\"action\":\"wait\"}<|im_end|>",false);
     // 复用四路径已验收历史夹具，固定内容以便比较 backend 数值准入。
     std::string records;
     const char * screens[]={"Settings shows battery level and network status.","Developer options shows logging, graphics and debugging controls.","The application displays a list of saved documents.","A confirmation dialog has been dismissed and the toolbar is visible."};
-    for(int i=0;i<h;++i)records+="Observation "+std::to_string(i)+": "+screens[i%4]+" Tool result: success.\n";
     require(size_t(h)>=prefix.size()+closing.size(),"H too small for structured history");
-    auto body_tokens=tokens(vocab,records,false);body_tokens.resize(h-prefix.size()-closing.size());
+    std::vector<llama_token> body_tokens;size_t needed=h-prefix.size()-closing.size();
+    for(int i=0;i<h;++i) {
+        records+="Observation "+std::to_string(i)+": "+screens[i%4]+" Tool result: success.\n";
+        if((i+1)%64==0 || i+1==h) {
+            body_tokens=tokens(vocab,records,false);
+            if(body_tokens.size()>=needed+64)break;
+        }
+    }
+    require(body_tokens.size()>=needed,"history fixture too short");body_tokens.resize(needed);
     prefix.insert(prefix.end(),body_tokens.begin(),body_tokens.end());prefix.insert(prefix.end(),closing.begin(),closing.end());
     require(prefix.size()==h,"H fixture mismatch");
-    llama_pos pos=0;start=now_ms();evaluate(cpu.ctx,prefix,pos);double history_ms=now_ms()-start;
+    double history_fixture_ms=now_ms()-history_fixture_start;
+    const bool history_htp=args.count("--oracle-history-backend") && get("--oracle-history-backend")=="htp";
+    llama_pos pos=0;start=now_ms();evaluate(history_htp?htp.ctx:cpu.ctx,prefix,pos);double history_ms=now_ms()-start;
+    double history_handoff_ms=0;
+    if(history_htp) {start=now_ms();transfer(htp.ctx,cpu.ctx);history_handoff_ms=now_ms()-start;}
     SessionSnapshot base;base.state=export_seq(cpu.ctx);base.next_pos=h;base.evaluated_tokens=h;
+    double http_fixture_start=now_ms();
     for(int p:input_lengths) {
         std::string text;
         if(args.count("--oracle-fixture") && get("--oracle-fixture")=="neutral_padding_v1") {
+            const std::string head="\n<|im_start|>user\n",tail="\nWait.<|im_end|>\n<|im_start|>assistant\n";
+            int guess=p-int(tokens(vocab,head+tail,false).size());
+            for(int n=std::max(0,guess-2);n<=guess+2;++n) {
+                std::string fill;for(int i=0;i<n;++i)fill+=" note";
+                std::string candidate=head+fill+tail;
+                if(tokens(vocab,candidate,false).size()==size_t(p)){text=candidate;break;}
+            }
             std::string fill;
-            for(int n=0;n<=256;++n) {
+            for(int n=0;text.empty() && n<=p;++n) {
                 std::string candidate="\n<|im_start|>user\n"+fill+"\nWait.<|im_end|>\n<|im_start|>assistant\n";
                 if(tokens(vocab,candidate,false).size()==size_t(p)){text=candidate;break;}
                 fill+=" note";
@@ -85,8 +121,16 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
     }
     std::ofstream prefix_file(get("--out")+".prefix.txt");for(auto tok:prefix)prefix_file<<piece(vocab,tok);prefix_file.close();
     ToolEvents events(get("--out")+".events.jsonl");
-    events.emit("session_ready",-1,"\"model_context_init_ms\":"+std::to_string(init)+",\"history_build_ms\":"+std::to_string(history_ms));
+    events.emit("session_ready",-1,"\"model_context_init_ms\":"+std::to_string(init)+",\"history_build_ms\":"+std::to_string(history_ms)+",\"history_backend\":"+json(history_htp?"htp":"cpu")+",\"history_handoff_ms\":"+std::to_string(history_handoff_ms)+",\"history_fixture_ms\":"+std::to_string(history_fixture_ms)+",\"http_fixture_ms\":"+std::to_string(now_ms()-http_fixture_start));
     std::vector<llama_token> reference_ids;std::string reference_output;
+    if(args.count("--oracle-reference-ids")) {
+        std::istringstream values(get("--oracle-reference-ids"));std::string value;
+        while(std::getline(values,value,',')) {int id=std::stoi(value);require(id>=0 && id<nv,"invalid reference token");reference_ids.push_back(id);}
+        require(!reference_ids.empty() && llama_vocab_is_eog(vocab,reference_ids.back()),"reference must end with EOG");
+        reference_output=get("--oracle-reference-output");std::string decoded;
+        for(size_t i=0;i+1<reference_ids.size();i++) decoded+=piece(vocab,reference_ids[i]);
+        require(decoded==reference_output,"reference text/token mismatch");
+    }
     std::map<int,std::vector<float>> reference_pre,reference_final,htp_reference_pre;
     std::map<int,std::vector<uint8_t>> htp_reference_state;
     std::ofstream output(get("--out"));require(bool(output),"oracle output unavailable");
@@ -121,9 +165,9 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
             if(pack_trial) {double t=now_ms();require(kv_control(reg,h,phase=="calibration",nullptr)==0,"KV tile preparation failed");pack_ms=now_ms()-t;}
             prepare_end=now_ms();
         };
-        double issued=now_ms();
+        double issued=now_ms(),active_issued=active_ms();
         if(early)worker=std::async(std::launch::async,prepare);
-        auto body=oracle_http(port,p,g,id);double returned=now_ms();
+        auto body=oracle_http(port,p,g,id);double returned=now_ms(),active_returned=active_ms();
         bool ready=worker.valid() && worker.wait_for(std::chrono::milliseconds(0))==std::future_status::ready;
         double obs_start=now_ms();auto suffix=tokens(vocab,body,false);require(suffix.size()==size_t(p),"real HTTP P mismatch");double obs_ms=now_ms()-obs_start;
         std::string selected=route;
@@ -131,7 +175,9 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
             CostRouter current;
             current.rows={{h,p,int(reference_ids.size()),3,"CC",cc,0}};
             if(qualified)current.rows.push_back({h,p,int(reference_ids.size()),3,"HC",hc,0});
-            auto decision=current.choose(h,p,reference_ids.size(),ready?"ready":early?"pending":"absent");
+            // 仅实验基线：Tool 返回后按包含准备成本的独立校准选路，允许按需准备。
+            bool post_tool=strategy=="after_return" && args.count("--oracle-post-tool-routing") && get("--oracle-post-tool-routing")=="1";
+            auto decision=current.choose(h,p,reference_ids.size(),post_tool?"ready":ready?"ready":early?"pending":"absent");
             selected=decision.backend=="htp"?"HC":"CC";
         }
         double wait_start=now_ms();
@@ -157,7 +203,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
         auto cpu_ms=[](const rusage &r) {return 1000.*(r.ru_utime.tv_sec+r.ru_stime.tv_sec)+(r.ru_utime.tv_usec+r.ru_stime.tv_usec)/1000.;};
         events.emit("response_published",id,"\"output\":"+json(text)+",\"eog\":"+(eog?"true":"false")
                     +",\"response_completed_ms\":"+std::to_string(completed));
-        double published=now_ms();
+        double published=now_ms(),active_published=active_ms();
         if(reference_ids.empty()) {require(phase=="calibration" && selected=="CC","CPU reference must run first");reference_ids=ids;reference_output=text;}
         bool same=ids==reference_ids && text==reference_output;
         double cosine=1,error=0,htp_cosine=1,htp_error=0;
@@ -177,7 +223,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
         if(pack_trial && selected=="HC") {
             if(!release_tiles) require(kv_control(reg,0,0,pack_stats)==0,"prepack stats failed");
             else {uint64_t released[6]={};require(kv_control(reg,0,0,released)==0 && released[4]==0 && released[5]==0,"prepack release not verified");}
-            if(p>=32) require(pack_stats[0]>0 && pack_stats[1]>0 && pack_stats[2]>=pack_stats[4]/2 && pack_stats[3]>=pack_stats[4]/2 && pack_stats[5]==72,"KV tiles not actually reused");
+            if(p>=32) require(pack_stats[0]>0 && pack_stats[1]>0 && pack_stats[2]>=pack_stats[4]/2 && pack_stats[3]>=pack_stats[4]/2 && pack_stats[5]==72,"KV tiles not actually reused: K_hits="+std::to_string(pack_stats[0])+", V_hits="+std::to_string(pack_stats[1])+", K_bytes="+std::to_string(pack_stats[2])+", V_bytes="+std::to_string(pack_stats[3])+", cache_bytes="+std::to_string(pack_stats[4])+", entries="+std::to_string(pack_stats[5]));
         }
         bool state_compared=false;
         if(prepack && selected=="HC" && phase=="calibration") {
@@ -192,6 +238,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
           <<",\"strategy\":"<<json(strategy)<<",\"requested_route\":"<<json(route)<<",\"route\":"<<json(selected)<<",\"prepared_early\":"<<(early?"true":"false")<<",\"ready_at_return\":"<<(ready?"true":"false")
           <<",\"http_issued_ms\":"<<std::fixed<<issued<<",\"http_returned_ms\":"<<returned<<",\"response_completed_ms\":"<<published<<",\"prepare_started_ms\":"<<prepare_start<<",\"prepare_completed_ms\":"<<prepare_end
           <<",\"actual_gap_ms\":"<<returned-issued<<",\"response_after_return_ms\":"<<published-returned<<",\"tool_to_response_ms\":"<<published-issued
+          <<",\"active_actual_gap_ms\":"<<active_returned-active_issued<<",\"active_tool_to_response_ms\":"<<active_published-active_issued<<",\"suspend_during_tool_to_response_ms\":"<<(published-issued)-(active_published-active_issued)
           <<",\"response_compute_completed_ms\":"<<completed<<",\"prepare_ms\":"<<(prepare_end-prepare_start)<<",\"wait_or_prepare_after_return_ms\":"<<wait_ms<<",\"observation_processing_ms\":"<<obs_ms<<",\"prefill_ms\":"<<pre_ms<<",\"handoff_checked_ms\":"<<handoff<<",\"decode_ms\":"<<decode<<",\"drain_after_response_ms\":"<<drain
           <<",\"handoff_bytes\":"<<bytes<<",\"state_bytes\":"<<base.state.size()<<",\"vision_init_ms\":0,\"image_encode_calls\":0,\"eog\":"<<(eog?"true":"false")<<",\"generated_ids_equal\":"<<(same?"true":"false")<<",\"boundary_min_cosine\":"<<cosine<<",\"boundary_max_nrmse\":"<<error
           <<",\"numerical_compared\":"<<(phase=="calibration"?"true":"false")<<",\"numerical_passed\":"<<(phase=="calibration"?(numerical?"true":"false"):"null")

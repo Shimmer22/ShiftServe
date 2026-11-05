@@ -6,6 +6,11 @@ def validate_tool_config(config, scenario, mechanism):
             or config.get('pre_move') is not False or config.get('cpu_repack') is not False
             or config.get('timing_valid_for_performance') is not False):
         raise ValueError('tool session requires explicit hybrid, no compression/premove/repack, diagnostic timing')
+    if config.get('htp_execution_prepare',False):
+        if not config.get('execution_prepare_dir') or not 1<=config.get('predicted_input_tokens',64)<=min(64,config['batch_size']):
+            raise ValueError('execution preparation requires private runtime and supported prediction shape')
+        if not 0<=config.get('prefault_bytes',0)<=64*1024*1024:
+            raise ValueError('execution prefault budget must be 0..64MiB')
     for t in scenario['turns']:
         if t['tool']['type'] not in {'device_display', 'http_get'}:
             raise ValueError('tool is not on the read-only allowlist')

@@ -1,5 +1,7 @@
 # 真实 Tool Gap 下的选路、联合 Oracle 与 KV 预整理
 
+**计时口径更新（2026-11-04晚间）：只读设备探针中 steady_clock 经过5.00秒，同机 CLOCK_BOOTTIME/实时时钟经过14.34秒。旧记录的 steady_clock 排除系统挂起，不能保证覆盖完整用户等待；旧数值保留为 active-clock 诊断。新主图统一使用包含挂起的 CLOCK_BOOTTIME，并保留双时钟对照，不改手机设置。探针见 results/20261104-observation-main/clock-check。**
+
 本任务要回答：CPU/HTP 的最优执行路径由什么决定；提前利用 Tool 等待准备历史状态能增加多少收益；把历史 KV 提前整理成 HMX tiles 后，能否进一步缩短完整响应。现有证据支持 H/P 和 kernel 路径影响选路、准备可真实重叠；尚未证明稳定的 Gap 选路翻转或 tiles 的独立端到端增益。
 
 ## 实验与候选

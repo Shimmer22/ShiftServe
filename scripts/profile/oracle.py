@@ -22,6 +22,7 @@ from a2o.environment import build, native_source_hashes, PKG
 from a2o.runtime.protocol import Protocol
 from a2o.validation.contracts import check_response
 from a2o.validation.oracle import active_model_processes
+from a2o.validation.observation import measurement_grid
 
 
 def main():
@@ -44,12 +45,24 @@ def main():
         raise ValueError('要求显式 hybrid、无压缩/通用预搬移/CPU repack')
     if config['history_tokens'] < 128 or config['history_tokens'] + max(config['new_tokens']) + 64 > config['context_size']:
         raise ValueError('历史长度或 context 容量不满足完整响应条件')
-    if not config['new_tokens'] or len(set(config['new_tokens'])) != len(config['new_tokens']) or any(not 16 <= p <= 128 for p in config['new_tokens']):
-        raise ValueError('P 必须是 16..128 的不重复整数')
+    if not config['new_tokens'] or len(set(config['new_tokens'])) != len(config['new_tokens']) or any(not 16 <= p <= 2048 for p in config['new_tokens']):
+        raise ValueError('P 必须是 16..2048 的不重复整数')
     if 0 not in config['gap_ms'] or len(set(config['gap_ms'])) != len(config['gap_ms']) or any(g < 0 for g in config['gap_ms']):
         raise ValueError('G 必须包含 0（用于校准），不能重复或为负')
     if config['strategies'] != ['after_return', 'always', 'cost_aware'] or config['routes'] != ['CC', 'HC']:
         raise ValueError('要求完整三策略、CC/HC 及 Router 重放')
+    grid = measurement_grid(config)
+    if config.get('observation_scan') and (config.get('prepack_comparison') or config.get('htp_kv_prepack_dir')
+            or config.get('calibration_only') or config.get('htp_profile', 0) or not config.get('post_tool_routing')):
+        raise ValueError('Observation 主图要求无 tiles/profile 的正式测量，并启用真实 Post-tool 对照')
+    pack_strategies=config.get('prepack_strategies',['after_return','always'])
+    measured_gaps=config.get('measurement_gap_ms',config['gap_ms'])
+    if pack_strategies not in (['after_return','always'],['always']):
+        raise ValueError('prepack_strategies must be after_return/always or always only')
+    if not measured_gaps or len(set(measured_gaps))!=len(measured_gaps) or any(g not in config['gap_ms'] for g in measured_gaps):
+        raise ValueError('measurement_gap_ms must be a nonempty unique subset of gap_ms')
+    if not config.get('prepack_comparison') and ('prepack_strategies' in config or 'measurement_gap_ms' in config):
+        raise ValueError('focused measurements require prepack_comparison')
     limits = config.setdefault('numeric_acceptance', {'min_cosine': 0.999, 'max_nrmse': 0.05})
     if not 0 <= limits['min_cosine'] <= 1 or (limits['max_nrmse'] is not None and limits['max_nrmse'] < 0):
         raise ValueError('数值阈值不合法')
@@ -66,6 +79,9 @@ def main():
             raise ValueError('KV basic profile 仅允许独立校准诊断，不混入正式计时')
         for n in ('libggml-hexagon.so','libggml-htp-v79.so'):
             if not (prepack_dir/n).is_file(): raise ValueError('私有 KV 原型库缺失')
+    skip_calibration=config.get('skip_calibration',False)
+    if skip_calibration and (not config.get('prepack_comparison') or pack_strategies!=['always'] or not config.get('response_reference')):
+        raise ValueError('skip_calibration requires forced HC early comparison and recorded response reference')
     binary = build()
     stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out = ROOT / 'results' / (stamp + '-http-oracle-grid'); out.mkdir()
@@ -99,7 +115,8 @@ def main():
         'source_files_sha256': native_source_hashes(), 'runtime_package': str(PKG),
         'python_files_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in (Path(__file__), ROOT / 'scripts/analyze/oracle.py')},
         'scope': '真实 HTTP Tool + 原生并发准备；文本固定 H/P、完整自由生成到 EOG；无图像、无能耗结论',
-        'clock': '设备 steady_clock 计量 HTTP/准备/完整响应；服务器 monotonic_ns 独立，不跨时钟相减',
+        'clock': '设备 CLOCK_BOOTTIME 统一计量 HTTP/准备/完整响应，包含系统挂起；steady_clock 仅作排除挂起的诊断；服务器 monotonic_ns 独立，不跨时钟相减',
+        'clock_id': 'CLOCK_BOOTTIME',
         'preparation': '从共同已存在 CPU sequence snapshot 导入 HTP，包含 clear/import/字节核验；不含共同快照首次导出',
         'decode': 'CPU 完整响应，含 EOG 前向评估；所有 P/策略/路径生成 ID 必须一致',
         'router': '独立完整 D 校准；发起时仅按所有 P 是否有潜在收益决定准备，返回后按实际 P 及 ready 决定 CC/HC；不等 pending',
@@ -108,6 +125,13 @@ def main():
         'vision_backend': 'none', 'decode_backend': 'cpu', 'kv_type': 'F16', 'flash_attention': False,
         'http_transport': 'Android loopback via adb reverse to host controlled HTTP server',
         'model': '/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf'}
+    manifest['numeric_calibration_performed']=not skip_calibration
+    manifest['history_backend']=config.get('history_backend','cpu')
+    if config.get('post_tool_routing'):
+        manifest['post_tool_routing'] = 'after_return/router 在 Tool 完整返回后按独立校准 CC 与 HC+准备成本选路，允许按需准备；不是 ready-only Router'
+    if config.get('observation_scan'):
+        manifest['measurement_grid'] = grid
+        manifest['expected_trials'] = 6 * len(config['new_tokens']) + len(grid) * config['repetitions']
     if probe_skel:
         manifest['route_probe'] = {'library': str(probe_skel), 'sha256': hashlib.sha256(probe_skel.read_bytes()).hexdigest(),
             'transport': 'a2o-route-v1', 'pmu_values_are_hardware_counters': False,
@@ -143,6 +167,12 @@ def main():
             '--profile-history', str(config['history_tokens']), '--profile-inputs', ','.join(map(str, config['new_tokens'])),
             '--oracle-min-cosine', str(limits['min_cosine']), '--oracle-max-nrmse', 'none' if limits['max_nrmse'] is None else str(limits['max_nrmse']),
             '--http-port', str(port), '--out', remote + '/trials.jsonl']
+        if config.get('history_backend')=='htp':args += ['--oracle-history-backend','htp']
+        if config.get('post_tool_routing'):
+            args += ['--oracle-post-tool-routing', '1']
+        if skip_calibration:
+            reference=config['response_reference']
+            args += ['--oracle-reference-ids',','.join(map(str,reference['generated_ids'])),'--oracle-reference-output',reference['output']]
         if prepack_dir: args += ['--htp-kv-prepack','1']
         if config.get('htp_kv_release_before_decode'):
             if not prepack_dir: raise ValueError('提前释放只适用于私有 KV 原型')
@@ -163,10 +193,19 @@ def main():
         protocol = Protocol(proc, out); protocol.wait('session_ready', timeout=config['timeout_s'])
         for p in config['new_tokens']:
             call('pull', remote + f'/trials.jsonl.P{p}.txt', str(out / f'P{p}.txt')); bodies[p] = (out / f'P{p}.txt').read_bytes()
+            if config.get('fixture_reference_run') and bodies[p] != (ROOT/config['fixture_reference_run']/f'P{p}.txt').read_bytes():
+                raise ValueError('快速构造的 HTTP 输入与原夹具不同')
+        if config.get('history_fixture_reference'):
+            call('pull', remote+'/trials.jsonl.prefix.txt', str(out/'history-prefix.txt'))
+            if (out/'history-prefix.txt').read_bytes() != (ROOT/config['history_fixture_reference']).read_bytes():
+                raise ValueError('快速构造的历史输入与原夹具不同')
         costs = {}; qualified = {}; counter = 0
         def trial(p, gap, strategy, route, phase, rep, pack=-1):
             nonlocal counter
             cc, hc = costs.get(p, (0, 0))
+            if config.get('post_tool_routing') and strategy == 'after_return' and route == 'router':
+                hc += statistics.median(r['prepare_ms'] for r in rows
+                    if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC')
             prepare = any(qualified.get(key, False) and h < c for key, (c, h) in costs.items())
             protocol.send('TRIAL', counter, p, gap, strategy, route, phase, cc, hc, int(prepare), int(qualified.get(p, False)), pack)
             row = protocol.wait('trial_completed', counter, config['timeout_s'])['result']
@@ -175,13 +214,13 @@ def main():
             rows.append(row)
             with (out / 'checked-rows.jsonl').open('a') as f:
                 f.write(json.dumps(row, ensure_ascii=False) + '\n')
-            diagnostic = row['route'] == 'HC' and (phase == 'calibration' or not qualified.get(p, False))
+            diagnostic = row['route'] == 'HC' and (phase == 'calibration' or (not skip_calibration and not qualified.get(p, False)))
             if (not row['passed'] or not row['response_check']['passed']) and not diagnostic:
                 raise RuntimeError(f'响应或状态检查失败 trial={counter}')
             print(f'{counter} {phase} P={p} G={gap} {strategy}/{route}->{row["route"]} ready={row["ready_at_return"]} gap={row["actual_gap_ms"]:.1f} response={row["response_after_return_ms"]:.1f}', flush=True)
             counter += 1
         # 每个 P 先 CPU 参考，再独立三组完整路径校准，不把校准混入 Oracle 测量。
-        for p in config['new_tokens']:
+        for p in ([] if skip_calibration else config['new_tokens']):
             for rep in range(3):
                 for route in ('CC', 'HC'):
                     trial(p, 0, 'after_return', route, 'calibration', rep)
@@ -194,20 +233,19 @@ def main():
         rng = random.Random(config['seed'])
         if config.get('prepack_comparison'):
             for rep in range(0 if config.get('calibration_only') else config['repetitions']):
-                conditions=[(p,g,s,pack) for p in config['new_tokens'] for g in config['gap_ms'] for s in ('after_return','always') for pack in (0,1)]
+                conditions=[(p,g,s,pack) for p in config['new_tokens'] for g in measured_gaps for s in pack_strategies for pack in (0,1)]
                 rng.shuffle(conditions)
                 for p,g,s,pack in conditions: trial(p,g,s,'HC','measurement',rep,pack)
 
         for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison')) else config['repetitions']):
-            conditions = [(p, g, s, r) for p in config['new_tokens'] for g in config['gap_ms']
-                for s in config['strategies'] for r in (*config['routes'], 'router')]
+            conditions = list(grid)
             rng.shuffle(conditions)
             for p, gap, strategy, route in conditions:
                 trial(p, gap, strategy, route, 'measurement', rep)
         protocol.send('CLOSE'); protocol.wait('session_closed', timeout=60); proc.stdin.close()
         if proc.wait(timeout=60):
             raise RuntimeError('native 退出失败')
-        (out / 'completion.json').write_text(json.dumps({'passed': True, 'trials': len(rows), 'measurement_trials': len(rows)-6*len(config['new_tokens']), 'all_HC_candidates_numerically_qualified': all(qualified.values())}, indent=2))
+        (out / 'completion.json').write_text(json.dumps({'passed': True, 'trials': len(rows), 'measurement_trials': sum(r['phase']=='measurement' for r in rows), 'numeric_calibration_performed':not skip_calibration,'all_HC_candidates_numerically_qualified': not skip_calibration and all(qualified.values())}, indent=2))
     except Exception as exc:
         (out / 'failure.json').write_text(json.dumps({'error': repr(exc)}, ensure_ascii=False, indent=2)); raise
     finally:
@@ -234,7 +272,7 @@ def main():
             'trials': len(rows), 'config': config, 'costs': costs,
             'response_and_state_passed': all(r['passed'] and r['response_check']['passed'] for r in rows)}
         (out / 'diagnostic-summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    elif not config.get('prepack_comparison'):
+    elif not config.get('prepack_comparison') and not config.get('observation_scan'):
         subprocess.run([sys.executable, str(ROOT / 'scripts/analyze/oracle.py'), str(out)], check=True)
 
 

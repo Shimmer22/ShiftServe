@@ -1,6 +1,7 @@
 #pragma once
 #include "state/preparation_lane.h"
 #include "scheduling/router.h"
+#include "scheduling/execution_preparation.h"
 
 // 协议输出与原始 JSONL 同时发布；worker 与主线程共用有锁的事件出口。
 class ToolEvents {
@@ -41,7 +42,13 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
     Engine cpu(get("--model"),false,false), htp(get("--model"),true,false);
     auto vocab=llama_model_get_vocab(cpu.model); int nv=llama_vocab_n_tokens(vocab);
     auto events=std::make_shared<ToolEvents>(get("--out")+".events.jsonl");
-    PreparationLane lane; // 必须先于 Engine 析构。
+    const bool prepare_execution=get("--htp-execution-prepare","0")=="1";
+    const int predicted_input=std::stoi(get("--htp-predict-input","64"));
+    const uint64_t prefault_bytes=std::stoull(get("--htp-prefault-bytes","0"));
+    require(!prepare_execution || (predicted_input>0 && predicted_input<=batch_size && predicted_input<=64),"predicted HTP microbatch must be 1..min(batch,64)");
+    require(!prepare_execution || prefault_bytes<=64ull*1024*1024,"prefault budget exceeds 64MiB");
+    ExecutionPreparation execution(htp.ctx,prepare_execution);
+    PreparationLane lane; // 先 join lane，再销毁 execution 和 Engine。
     std::vector<std::shared_ptr<PreparationBarrier>> barriers;
     struct ReleaseOnExit {
         std::vector<std::shared_ptr<PreparationBarrier>> & barriers;
@@ -68,7 +75,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             require(fields.size()==1 && !started,"cannot close unfinished tool turn");
             events->emit("shutdown_started",round);
             for(auto & barrier:barriers) barrier->release();
-            lane.close();
+            lane.close();execution.discard();
             std::ofstream out(get("--out")); require(bool(out),"tool summary unavailable");
             out << "{\"session\":true,\"tool_session\":true,\"timing_valid_for_performance\":false,\"turns\":[";
             for(size_t i=0;i<results.size();++i) out << (i?",":"") << results[i];
@@ -102,13 +109,14 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                 auto barrier=mode=="hold"?std::make_shared<PreparationBarrier>():nullptr;
                 if(barrier) barriers.push_back(barrier);
                 const int task_turn=round;
-                launch=lane.start(snapshot.version,[immutable,barrier,events,task_turn,&htp](const auto & valid) {
+                launch=lane.start(snapshot.version,[immutable,barrier,events,task_turn,&htp,&execution,predicted_input,prefault_bytes](const auto & valid) {
                     try {
                     if(!valid()) return false;
                     events->emit("prepare_started",task_turn);
                     double prepare_begin=now_ms();
                     llama_synchronize(htp.ctx);
                     if(!valid()) return false;
+                    execution.discard();
                     llama_memory_clear(llama_get_memory(htp.ctx),true);
                     if(!valid()) return false;
                     require(llama_state_seq_set_data(htp.ctx,immutable->state.data(),immutable->state.size(),0)==immutable->state.size(),
@@ -117,6 +125,18 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                     require(export_seq(htp.ctx)==immutable->state,"tool preparation state/position mismatch");
                     events->emit("prepare_import_verified",task_turn,"\"bytes\":"+std::to_string(immutable->state.size())
                                  +",\"prepare_checked_ms\":"+std::to_string(now_ms()-prepare_begin));
+                    if(execution.enabled()) {
+                        if(!valid()) return false;
+                        auto plan=execution.prepare(immutable->version,immutable->next_pos,predicted_input,prefault_bytes);
+                        events->emit("execution_plan_prepared",task_turn,
+                            "\"version\":"+std::to_string(immutable->version)+",\"predicted_microbatch\":"+std::to_string(predicted_input)
+                            +",\"graph_nodes\":"+std::to_string(plan.graph_nodes)+",\"htp_nodes\":"+std::to_string(plan.htp_nodes)
+                            +",\"cpu_nodes\":"+std::to_string(plan.cpu_nodes)+",\"descriptor_ops\":"+std::to_string(plan.descriptor_ops)+",\"descriptor_bytes\":"+std::to_string(plan.descriptor_bytes)
+                            +",\"mapped_buffers\":"+std::to_string(plan.mapped_buffers)+",\"mapped_bytes\":"+std::to_string(plan.mapped_bytes)
+                            +",\"prefault_bytes\":"+std::to_string(plan.prefault_bytes)
+                            +",\"graph_ms\":"+std::to_string(plan.graph_ms)+",\"allocate_ms\":"+std::to_string(plan.allocate_ms)
+                            +",\"backend_ms\":"+std::to_string(plan.backend_ms));
+                    }
                     if(barrier) { events->emit("barrier_entered",task_turn); barrier->enter(); }
                     bool complete=valid();
                     events->emit(complete?"prepare_work_ready":"prepare_work_cancelled",task_turn);
@@ -166,11 +186,24 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                          +",\"cpu_ms\":"+optional_number(decision.cpu_ms)+",\"htp_ms\":"+optional_number(decision.htp_ms));
             llama_context * pre=cpu.ctx;
             double restore_begin=now_ms();
-            if(decision.backend=="htp") { lane.claim(snapshot.version); pre=htp.ctx; }
+            if(decision.backend=="htp") {
+                lane.claim(snapshot.version);pre=htp.ctx;
+                if(execution.enabled()) {
+                    auto plan=execution.bind(snapshot.version,snapshot.next_pos,std::min(size_t(batch_size),input.size()));
+                    events->emit("execution_plan_bound",round,"\"status\":"+std::to_string(plan.status)+",\"reason\":"+json(plan.reason)
+                        +",\"bind_ms\":"+std::to_string(plan.bind_ms));
+                }
+            }
             else { lane.retire(); restore_session(cpu.ctx,snapshot); }
             double restore_checked_ms=now_ms()-restore_begin;
             events->emit("prefill_started",round,"\"backend\":"+json(decision.backend));
             auto pos=snapshot.next_pos; double begin=now_ms(); evaluate(pre,input,pos); double prefill_ms=now_ms()-begin;
+            if(pre==htp.ctx && execution.enabled()) {
+                auto plan=execution.query();
+                events->emit("execution_plan_consumed",round,"\"status\":"+std::to_string(plan.status)+",\"reason\":"+json(plan.reason)
+                    +",\"graph_hits\":"+std::to_string(plan.graph_hits)+",\"descriptor_hits\":"+std::to_string(plan.descriptor_hits)
+                    +",\"descriptor_misses\":"+std::to_string(plan.descriptor_misses));
+            }
             auto first=greedy(pre,nv); size_t handoff_bytes=0;
             double handoff_ms=0;
             if(pre!=cpu.ctx) {

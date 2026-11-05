@@ -18,6 +18,7 @@
 #include <thread>
 #include <vector>
 #include <sys/resource.h>
+#include <time.h>
 
 using Clock = std::chrono::steady_clock;
 static int batch_size = 512;
@@ -44,7 +45,13 @@ static bool trace_vision_node(ggml_tensor * tensor, bool ask, void *) {
     }
     return false;
 }
-static double now_ms() { return std::chrono::duration<double, std::milli>(Clock::now().time_since_epoch()).count(); }
+// Android CLOCK_MONOTONIC/steady_clock 排除系统挂起；完整用户等待必须计入。
+static double now_ms() {
+    timespec t{};
+    if(clock_gettime(CLOCK_BOOTTIME,&t))throw std::runtime_error("CLOCK_BOOTTIME unavailable");
+    return 1000.*t.tv_sec+1e-6*t.tv_nsec;
+}
+static double active_ms() { return std::chrono::duration<double, std::milli>(Clock::now().time_since_epoch()).count(); }
 static void require(bool ok, const std::string & msg) { if (!ok) throw std::runtime_error(msg); }
 static std::string read(const std::string & path) {
     std::ifstream f(path); require(bool(f), "cannot read " + path);
@@ -92,6 +99,7 @@ static std::map<std::string, long long> resource_sample() {
 #include "profiling/paths.h"
 #include "session/tool_session.h"
 #include "profiling/oracle.h"
+#include "profiling/execution_preparation.h"
 
 int main(int argc, char ** argv) { try {
     std::map<std::string, std::string> a;
@@ -140,6 +148,7 @@ int main(int argc, char ** argv) { try {
             ggml_free(ctx);
         }
     } else { unsetenv("MTMD_BACKEND_DEVICE"); }
+    if(get("--execution-prepare-probe")=="1") return run_execution_probe(a);
     if(get("--oracle-profile")=="1") return run_oracle(a);
     if(get("--tool-session")=="1") return run_tool_session(a);
     if(get("--path-profile")=="1") return run_paths(a);

@@ -12,7 +12,11 @@ def analyze(out):
     manifest=json.loads((out/'manifest.json').read_text());cfg=manifest['config']
     rows=read('checked-rows.jsonl');raw=read('device/trials.jsonl');http=read('http-server.jsonl');events=read('native-events.jsonl')
     calibration=[r for r in rows if r['phase']=='calibration'];measured=[r for r in rows if r['phase']=='measurement']
-    expected=6*len(cfg['new_tokens'])+4*len(cfg['new_tokens'])*len(cfg['gap_ms'])*cfg['repetitions']
+    strategies=cfg.get('prepack_strategies',['after_return','always'])
+    gaps=cfg.get('measurement_gap_ms',cfg['gap_ms'])
+    assert strategies in (['after_return','always'],['always'])
+    skip_calibration=cfg.get('skip_calibration',False)
+    expected=(0 if skip_calibration else 6*len(cfg['new_tokens']))+2*len(strategies)*len(cfg['new_tokens'])*len(gaps)*cfg['repetitions']
     by_http={r['id']:r for r in http};published={e['turn']:e for e in events if e['event']=='response_published'}
     packed=[r for r in rows if r['route']=='HC' and r['kv_prepack_enabled']]
     qualified=json.loads((out/'candidate-qualification.json').read_text())
@@ -26,21 +30,24 @@ def analyze(out):
         'one_output':len({(r['output'],tuple(r['generated_ids']),r['D']) for r in rows})==1,
         'qualified':all(qualified.values()) and all(r['numerical_passed'] for r in calibration),
         'exact_htp_logits_and_final_state':all(sum(r['P']==p and r['route']=='HC' and r['kv_prepack_enabled'] and r['htp_baseline_compared'] and r['htp_baseline_state_compared'] and r['htp_baseline_nrmse']==0 for r in calibration)==2 for p in cfg['new_tokens']),
-        'full_kv_reuse':bool(packed) and all(r['kv_prepack_entries']==72 and r['kv_prepack_cache_bytes']==cfg['history_tokens']*256*2*72 and r['kv_prepack_k_hits']==r['kv_prepack_v_hits']==72 and r['kv_prepack_k_bytes']==r['kv_prepack_cache_bytes']/2 and r['kv_prepack_v_bytes']==r['kv_prepack_cache_bytes']/2 for r in packed),
+        'full_kv_reuse':bool(packed) and all(r['kv_prepack_entries']==72 and r['kv_prepack_cache_bytes']==cfg['history_tokens']*256*2*72 and all(r[f'kv_prepack_{kind}_hits']>=72*((r['P']+cfg.get('batch_size',128)-1)//cfg.get('batch_size',128)) and r[f'kv_prepack_{kind}_bytes']>=r['kv_prepack_cache_bytes']//2*((r['P']+cfg.get('batch_size',128)-1)//cfg.get('batch_size',128)) and r[f'kv_prepack_{kind}_bytes']%(r['kv_prepack_cache_bytes']//2)==0 for kind in ('k','v')) for r in packed),
         'requested_release_applied':not cfg.get('htp_kv_release_before_decode',False) or all(r.get('kv_prepack_released_before_decode',False) for r in packed),
         'uncached_path_no_reuse':all(r['kv_prepack_k_hits']==r['kv_prepack_v_hits']==0 for r in rows if not r['kv_prepack_enabled']),
         'response_publication':all(r['id'] in published and r['response_compute_completed_ms']<=published[r['id']]['monotonic_ms']<=r['response_completed_ms'] for r in rows),
         'source_binary_recorded':hashlib.sha256((out/'device/agent').read_bytes()).hexdigest()==manifest['binary_sha256'],
     }
+    if skip_calibration:
+        del checks['qualified'];del checks['exact_htp_logits_and_final_state']
+        checks['explicit_numeric_skip']=not calibration and manifest.get('numeric_calibration_performed') is False and bool(cfg.get('response_reference'))
     releases=[e for e in events if e['event']=='calibration_buffers_released']
     checks['calibration_state_released_before_measurement']=not cfg.get('release_calibration_state',False) or (
-        len(releases)==1 and releases[0]['state_bytes']>0 and releases[0]['monotonic_ms']<=min(r['http_issued_ms'] for r in measured)
+        len(releases)==1 and (releases[0]['state_bytes']>=0 if skip_calibration else releases[0]['state_bytes']>0) and releases[0]['monotonic_ms']<=min(r['http_issued_ms'] for r in measured)
         and all(r.get('calibration_state_retained_bytes',-1)==0 for r in measured))
     groups=[];comparisons=[]
     for p in cfg['new_tokens']:
-        for g in cfg['gap_ms']:
+        for g in gaps:
             cells={}
-            for strategy in ('after_return','always'):
+            for strategy in strategies:
                 for pack in (False,True):
                     part=[r for r in measured if (r['P'],r['gap_requested_ms'],r['strategy'],r['kv_prepack_enabled'])==(p,g,strategy,pack)]
                     assert len(part)==cfg['repetitions'],(p,g,strategy,pack,len(part))
@@ -53,30 +60,31 @@ def analyze(out):
             diffs=[paired[r['repetition']]['response_after_return_ms']-r['response_after_return_ms'] for r in cells['always',True]]
             comparisons.append({'P':p,'G_target_ms':g,
                 'incremental_prepack_gain_ms':med('always',False)-med('always',True),
-                'combined_gain_ms':med('after_return',False)-med('always',True),
-                'prepack_after_return_penalty_ms':med('after_return',True)-med('after_return',False),
-                'prepack_gap_overlap_gain_ms':med('after_return',True)-med('always',True),
+                'combined_gain_ms':med('after_return',False)-med('always',True) if 'after_return' in strategies else None,
+                'prepack_after_return_penalty_ms':med('after_return',True)-med('after_return',False) if 'after_return' in strategies else None,
+                'prepack_gap_overlap_gain_ms':med('after_return',True)-med('always',True) if 'after_return' in strategies else None,
                 'paired_gain_median_ms':median(diffs),'paired_positive_count':sum(d>0 for d in diffs),
                 'paired_gain_range_ms':[min(diffs),max(diffs)],'n':len(diffs)})
     overlap=[r for r in measured if r['prepared_early'] and r['kv_prepack_enabled']]
-    checks['actual_prepack_http_overlap']=len(overlap)==len(cfg['new_tokens'])*len(cfg['gap_ms'])*cfg['repetitions'] and all(min(r['prepare_completed_ms'],r['http_returned_ms'])>max(r['prepare_started_ms'],r['http_issued_ms']) for r in overlap)
+    checks['actual_prepack_http_overlap']=len(overlap)==len(cfg['new_tokens'])*len(gaps)*cfg['repetitions'] and all(min(r['prepare_completed_ms'],r['http_returned_ms'])>max(r['prepare_started_ms'],r['http_issued_ms']) for r in overlap)
     timing_keys=('prepare_ms','kv_prepack_ms','prefill_ms','handoff_checked_ms','decode_ms')
     stages=[{'prepack':pack,'n':sum(r['kv_prepack_enabled']==pack for r in measured),
              'median':{k:median(r[k] for r in measured if r['kv_prepack_enabled']==pack) for k in timing_keys}}
             for pack in (False,True)]
     response_range=[min(r['response_after_return_ms'] for r in measured),max(r['response_after_return_ms'] for r in measured)]
-    result={'passed':all(checks.values()),'diagnostic_only':cfg.get('diagnostic_only',False),'timing_valid_for_formal_comparison':not cfg.get('diagnostic_only',False),'checks':checks,'trials':len(rows),'D':rows[0]['D'],
+    result={'passed':all(checks.values()),'numeric_calibration_performed':not skip_calibration,'diagnostic_only':cfg.get('diagnostic_only',False),'timing_valid_for_formal_comparison':not cfg.get('diagnostic_only',False),'checks':checks,'trials':len(rows),'D':rows[0]['D'],
             'measurement_response_range_ms':response_range,'stage_medians':stages,
-            'groups':groups,'comparisons':comparisons,'packed_early_trials':len(overlap),'packed_ready_trials':sum(r['ready_at_return'] for r in overlap),
+            'groups':groups,'comparisons':comparisons,
+            'kv_reuse_passes':[{'id':r['id'],'P':r['P'],'K':r['kv_prepack_k_bytes']/(r['kv_prepack_cache_bytes']/2),'V':r['kv_prepack_v_bytes']/(r['kv_prepack_cache_bytes']/2),'K_hits':r['kv_prepack_k_hits'],'V_hits':r['kv_prepack_v_hits']} for r in packed],'packed_early_trials':len(overlap),'packed_ready_trials':sum(r['ready_at_return'] for r in overlap),
             'analysis_script_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     (out/'prepack-summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
     assert result['passed'],checks
     lines=['# 历史 KV 的 HMX tiles 提前准备对照','',
-        f"H={cfg['history_tokens']}，P={cfg['new_tokens']}，完整自由生成 D={result['D']}（含 EOG）；共 {len(rows)} 条记录。每条件 {cfg['repetitions']} 次，随机执行顺序。",
+        f"H={cfg['history_tokens']}，P={cfg['new_tokens']}，测量Gap={gaps}，准备策略={strategies}，完整自由生成 D={result['D']}（含 EOG）；共 {len(rows)} 条记录。每条件 {cfg['repetitions']} 次，随机执行顺序。",
         '', '私有 host bridge + v79 DSP，明确 hybrid：HTP prefill、CPU decode；Q4_0 模型、F16 KV、无压缩、Flash Attention 关闭。默认行为不启用预整理。',
-        '', '本轮固定 HC 路径，比较预整理开/关 × 返回后/提前准备；CC 只用于独立校准。这不是新的 CC/HC Router 或联合 Oracle 选路收益测量。',
+        '', f'本轮固定 HC 路径，比较预整理开/关，测量准备策略为 {strategies}；CC 只用于独立校准，表中未测条件不外推。这不是新的 CC/HC Router 或联合 Oracle 选路收益测量。',
         '', '## 准入与机制', '',
-        '每个 P 先运行原 HC，再要求预整理 HC 的完整 prefill logits 数值完全相同、最终 CPU sequence 状态逐字节相同。独立 CPU/HC 数值门槛保持配置值，原始结果保留。所有输出均为同一完整 JSON、同一生成 ID 序列。',
+        ('按用户要求未运行新增数值校准；本轮不声明逐P logits与最终状态对照通过。每条记录仍核验JSON、完整生成ID/EOG、状态迁移及历史tiles读取。' if skip_calibration else '每个 P 先运行原 HC，再要求预整理 HC 的完整 prefill logits 数值完全相同、最终 CPU sequence 状态逐字节相同。独立 CPU/HC 数值门槛保持配置值，原始结果保留。所有输出均为同一完整 JSON、同一生成 ID 序列。'),
         '', f"K/V 共 72 份历史缓存，额外空间 {packed[0]['kv_prepack_cache_bytes']/2**20:.0f}MiB；K、V 历史 tiles 均在真实 attention 算子中读取。新增输入与填充尾部仍在返回后整理。缓存在每个 trial 前显式失效，跨轮更新、滑动窗口、多序列不在原型范围。",
         '', f"提前预整理 {len(overlap)} 次全部与真实 HTTP 区间重叠，其中 {result['packed_ready_trials']} 次在 Tool 返回时已 ready。以下 G 为服务端目标，实际手机 Gap 见分组数据，不将 adb reverse 往返视为零。",
         '', '## 返回后到完整响应', '', '单位 ms；中位数。增量收益＝仅状态提前准备 − 状态与 tiles 均提前准备；正值表示 tiles 有额外收益。', '',
@@ -91,7 +99,7 @@ def analyze(out):
     for c in comparisons:
         selected=[r for r in groups if r['P']==c['P'] and r['G_target_ms']==c['G_target_ms']]
         v={(r['strategy'],r['prepack']):r['median']['response_after_return_ms'] for r in selected}
-        lines.append(f"| {c['P']} | {c['G_target_ms']} | {v['after_return',False]:.1f} | {v['always',False]:.1f} | {v['after_return',True]:.1f} | {v['always',True]:.1f} | {c['incremental_prepack_gain_ms']:.1f} | {c['paired_positive_count']}/{c['n']} |")
+        lines.append(f"| {c['P']} | {c['G_target_ms']} | {format(v['after_return',False],'.1f') if ('after_return',False) in v else '未测'} | {v['always',False]:.1f} | {format(v['after_return',True],'.1f') if ('after_return',True) in v else '未测'} | {v['always',True]:.1f} | {c['incremental_prepack_gain_ms']:.1f} | {c['paired_positive_count']}/{c['n']} |")
     lines+=['','## 阶段与结论','',
         '准备工作成功提前并不等于完整响应更快；是否有额外收益须结合分组完整响应、配对结果和长尾判断，不能只看 prefill 或准备耗时。',
         '', f"全部测量的返回后响应范围为 {response_range[0]/1000:.2f}–{response_range[1]/1000:.2f}s，慢样本全部保留。下表合并 P/G/准备时机，仅用于描述阶段分布，各列中位数不能相加解释总耗时或因果收益。",

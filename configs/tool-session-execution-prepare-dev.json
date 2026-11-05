@@ -1,0 +1,20 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "context_size": 5120,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "router_decode_evaluations": 4,
+  "calibration_run": "results/20261103-213658-342299-four-path-structured-grid",
+  "max_tokens": 64,
+  "timeout_s": 180,
+  "timing_valid_for_performance": false,
+  "htp_execution_prepare": true,
+  "execution_prepare_dir": "build/execution-prepare/20261104-214303-241077",
+  "predicted_input_tokens": 64,
+  "prefault_bytes": 0,
+  "development_status": "私有运行时已编译；短历史11项真机机制验收通过。真实Tool会话收益尚未测量。"
+}
