@@ -1,0 +1,16 @@
+{
+  "execution": "synthetic",
+  "signature": "synthetic-only-qwen25vl3b-q4_0-f16-ctx2048-b128",
+  "mode": "hybrid",
+  "path": "HC",
+  "history_tokens": 256,
+  "new_tokens": 32,
+  "decode_tokens": 4,
+  "kv_policy": "none",
+  "pre_move": false,
+  "warmup": {"enabled": true},
+  "initialization_warmup": {"enabled": false, "max_steps": 8, "budget_ms": 50, "window": 3, "relative_spread": 0.05},
+  "profiling": {"enabled": true, "every": 8, "cold_samples": 3, "capacity": 64},
+  "online_cost": {"enabled": true, "alpha": 0.2, "min_samples": 3, "max_keys": 64, "ttl_s": 300,
+                  "shape_reuse": true, "h_bucket": 128, "p_bucket": 8, "d_bucket": 4}
+}

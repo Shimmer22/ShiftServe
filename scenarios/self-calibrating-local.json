@@ -1,0 +1,16 @@
+{
+  "warmup_ms": [9, 5, 3, 3, 3],
+  "requests": 24,
+  "shapes": [
+    {"history_tokens": 256, "new_tokens": 32, "decode_tokens": 4},
+    {"history_tokens": 272, "new_tokens": 34, "decode_tokens": 5},
+    {"history_tokens": 288, "new_tokens": 36, "decode_tokens": 6},
+    {"history_tokens": 304, "new_tokens": 38, "decode_tokens": 4},
+    {"history_tokens": 320, "new_tokens": 33, "decode_tokens": 5},
+    {"history_tokens": 336, "new_tokens": 35, "decode_tokens": 6}
+  ],
+  "drift_after": 12,
+  "drift_factor": 1.5,
+  "gap_ms": 40,
+  "phases_ms": {"model_init": 100, "vision_init": 30, "observation": 4, "entry": 40, "prefill": 20, "switch": 10, "decode": 8}
+}

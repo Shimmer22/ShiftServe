@@ -18,6 +18,9 @@
 # 本地测试，不使用手机
 conda run --no-capture-output -n visiontrim-qwen25vl python -m unittest discover -s tests
 
+# Self-Calibrating Runtime 无手机合成演示
+python3 scripts/run/self_calibrating.py
+
 # 实际只读 Tool 的常驻会话
 conda run --no-capture-output -n visiontrim-qwen25vl python scripts/run/tool_session.py --config configs/tool-session-smoke.json --scenario scenarios/tool-session-real.json
 
