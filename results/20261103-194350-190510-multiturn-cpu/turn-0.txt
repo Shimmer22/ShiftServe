@@ -1,1 +1,0 @@
-Remember session code PINE-47. Inspect this screenshot. This is the FIRST turn: set step to 1. Return only one JSON object with screen, action (wait), memo (the session code), and step.

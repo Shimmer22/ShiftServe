@@ -1,9 +1,0 @@
-{
-  "analysis": "results/20261103-201017-725874-prefill-grid/analysis.json",
-  "raw": [
-    "results/20261103-201017-725874-prefill-grid/H1024.jsonl",
-    "results/20261103-201017-725874-prefill-grid/H4096.jsonl",
-    "results/20261103-201017-725874-prefill-grid/H141.jsonl",
-    "results/20261103-201017-725874-prefill-grid/H8192.jsonl"
-  ]
-}

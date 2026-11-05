@@ -1,8 +1,0 @@
-sha256:e0c11123e0104737c5c11643ec64933a11431b5fb95aeb54f85eefa757172332
-QuIC LLVM Hexagon Clang version 19.0.04
-Target: hexagon
-Thread model: posix
-InstalledDir: /opt/hexagon/6.4.0.2/tools/HEXAGON_Tools/19.0.04/Tools/bin
-Build config: +assertions
-cmake version 3.28.3
-1.11.1

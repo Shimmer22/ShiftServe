@@ -1,1 +1,0 @@
-Inspect the new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.

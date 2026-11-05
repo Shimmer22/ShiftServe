@@ -1,3 +1,0 @@
-The tool completed. Recall the session code and increment step. Return action, memo, step.
-Tool result (device_display):
-Physical size: 1200x2670

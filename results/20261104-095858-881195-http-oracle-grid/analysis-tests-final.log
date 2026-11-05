@@ -1,9 +1,0 @@
-.....
-----------------------------------------------------------------------
-Ran 5 tests in 0.038s
-
-OK
-{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp3pm7zkg2", "passed": true, "trials": 228, "D": 2}
-{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpi4wr1ahv", "passed": true, "trials": 228, "D": 2}
-{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmpbdjo_xc_", "passed": true, "trials": 228, "D": 2}
-{"run": "/var/folders/p4/n0dyvyp938x6t6wk2tz59h9w0000gn/T/tmp9l7w0wk3", "passed": true, "trials": 228, "D": 2}

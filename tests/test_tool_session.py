@@ -11,25 +11,29 @@ sys.path.insert(0, str(ROOT / 'src'))
 from a2o.scheduling.router_table import export_table
 from a2o.tools.adapters import execute_tool
 from a2o.validation.tool_session import validate_tool_config, validate_lifecycle
+from fixture_data import router_calibration
 
 
 class ToolSessionTest(unittest.TestCase):
     def test_calibration_export_filters_failed_conditions(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / 'router.tsv'
-            metadata = export_table(ROOT / 'results/20261103-213658-342299-four-path-structured-grid', output)
+            calibration = router_calibration(Path(tmp) / 'calibration')
+            with self.assertRaises(ValueError):
+                export_table(calibration, output)
+            metadata = export_table(calibration, output, allow_fixture=True)
             self.assertGreater(metadata['rows'], 0)
             rows = [line.split('\t') for line in output.read_text().splitlines()[1:]]
             self.assertTrue(all(r[3] in {'CC', 'HC'} and int(r[-1]) == 3 for r in rows))
             # 导入后的表不包含已知未通过的 HH/CH，也不推断新 H/P。
             self.assertTrue(all(int(r[0]) in {1024, 4096} and int(r[1]) in {16, 64} for r in rows))
             bad = Path(tmp) / 'bad'; bad.mkdir()
-            manifest = json.loads((ROOT / 'results/20261103-213658-342299-four-path-structured-grid/manifest.json').read_text())
+            manifest = json.loads((calibration / 'manifest.json').read_text())
             (bad / 'manifest.json').write_text(json.dumps(manifest))
-            raw = json.loads((ROOT / 'results/20261103-213658-342299-four-path-structured-grid/H1024.jsonl').read_text().splitlines()[0])
+            raw = json.loads((calibration / 'H1024.jsonl').read_text().splitlines()[0])
             records = [{**raw, 'repetition': i, 'numerical_passed': i != 1} for i in range(3)]
             (bad / 'H1024.jsonl').write_text('\n'.join(json.dumps(r) for r in records))
-            rejected = export_table(bad, Path(tmp) / 'bad.tsv')
+            rejected = export_table(bad, Path(tmp) / 'bad.tsv', allow_fixture=True)
             self.assertEqual(rejected['rows'], 0)
             self.assertEqual(rejected['rejected'][0]['valid'], 2)
 

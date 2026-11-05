@@ -1,4 +1,0 @@
-
-<|im_start|>user
-The current screen remains unchanged. No action is needed. The current screen remains unchanged. No action is needed. The current screen remains unchanged. No action is needed. The currenWait.<|im_end|>
-<|im_start|>assistant

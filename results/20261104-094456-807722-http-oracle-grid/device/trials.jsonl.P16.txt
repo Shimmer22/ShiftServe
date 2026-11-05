@@ -1,4 +1,0 @@
-
-<|im_start|>user
-The current screen remains unchangedWait.<|im_end|>
-<|im_start|>assistant

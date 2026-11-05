@@ -1,5 +1,0 @@
-{
-  "reason": "Repeated hybrid vision stalled in fastrpc_dspsignal_wait for several minutes; stop to inspect phase log",
-  "time_utc": "2026-11-03T06:48:26.416571+00:00",
-  "pid": 15996
-}

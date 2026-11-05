@@ -1,5 +1,0 @@
-
-<|im_start|>user
- note note note note note note note note note note note note note note note note note note note note note note note note note note note note
-Wait.<|im_end|>
-<|im_start|>assistant

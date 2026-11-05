@@ -1,2 +1,0 @@
-ab20b0ff91ff76319e5f79903e5522e91cd1f7627791da4ea6c4ce9749a50eff  /data/local/tmp/llama.cpp/lib/libggml-hexagon.so
-02d953b433ca806d81422b46a5129dc470b905acca014ba28a4f42a5330666bc  /data/local/tmp/llama.cpp/lib/libggml-htp-v79.so

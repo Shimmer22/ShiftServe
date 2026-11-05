@@ -1,1 +1,0 @@
-Recall the screenshot from history; there is no new screenshot. Return screen, action, the remembered session code in memo, and the next step number based on your previous response.

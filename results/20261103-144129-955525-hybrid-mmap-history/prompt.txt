@@ -1,1 +1,0 @@
-Which wireless connection does the task ask us to enable? Respond with its name as four uppercase letters, no punctuation.

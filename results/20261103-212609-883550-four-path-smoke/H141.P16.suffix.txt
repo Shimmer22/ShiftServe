@@ -1,4 +1,0 @@
-
-<|im_start|>user
- note note note note noteWait.<|im_end|>
-<|im_start|>assistant

@@ -9,12 +9,15 @@ from statistics import median
 from ..validation.contracts import check_response
 
 
-def export_table(run, output, decode_evaluations=4):
+def export_table(run, output, decode_evaluations=4, *, allow_fixture=False):
     run, output = Path(run), Path(output)
     if decode_evaluations <= 0:
         raise ValueError('D must be positive')
     manifest_bytes = (run / 'manifest.json').read_bytes()
     manifest = json.loads(manifest_bytes)
+    synthetic = manifest.get('execution') == 'synthetic'
+    if synthetic and not allow_fixture:
+        raise ValueError('synthetic calibration requires explicit fixture permission')
     cfg = manifest['config']
     if (manifest.get('cpu_repack') is not False or manifest.get('kv_type') != 'F16'
             or manifest.get('llm_flash_attention') is not False):
@@ -47,7 +50,7 @@ def export_table(run, output, decode_evaluations=4):
             continue
         rows.append((h, p, decode_evaluations, route, median(v[0] for v in valid),
                      median(v[1] for v in valid), len(valid)))
-    source = digest.hexdigest()
+    source = 'mechanism-fixture' if synthetic else digest.hexdigest()
     header = '\t'.join(map(str, ['a2o-router-v1', source, cfg['context_size'], cfg['batch_size'],
                                  cfg['htp_queue'], cfg['htp_opbatch']]))
     output.write_text(header + '\n' + ''.join('\t'.join(map(str, r)) + '\n' for r in rows))

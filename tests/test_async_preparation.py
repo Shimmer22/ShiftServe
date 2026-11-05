@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.validation.contracts import check_async_preparation, validate
 from a2o.scheduling.router_table import export_table
+from fixture_data import router_calibration
 
 
 class AsyncPreparationTest(unittest.TestCase):
@@ -39,7 +40,7 @@ class AsyncPreparationTest(unittest.TestCase):
             subprocess.run([compiler, '-std=c++17', '-pthread', '-I' + str(ROOT / 'src/a2o/native'),
                             str(ROOT / 'tests/lane_router_test.cpp'), '-o', binary], check=True)
             table = Path(tmp) / 'measured.tsv'
-            export_table(ROOT / 'results/20261103-213658-342299-four-path-structured-grid', table)
+            export_table(router_calibration(Path(tmp) / 'calibration'), table, allow_fixture=True)
             subprocess.run([binary, str(table)], check=True, timeout=15)
 
     def test_event_contract_rejects_join_before_response_and_missing_checks(self):

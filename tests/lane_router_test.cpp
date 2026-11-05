@@ -51,7 +51,7 @@ int main(int argc, char ** argv) {
     assert(router.choose(1024,64,5,"ready").reason=="coverage_missing");
     assert(router.should_prepare(1024,4) && !router.should_prepare(2048,4));
     if(argc==2) {
-        auto measured=CostRouter::load(argv[1]);
+        auto measured=CostRouter::load(argv[1],true); // 输入由测试生成，显式允许合成夹具。
         assert(measured.choose(4096,16,4,"ready").reason=="cpu_lower_cost");
         assert(measured.choose(4096,64,4,"ready").reason=="htp_lower_cost");
         assert(measured.choose(1024,16,4,"ready").reason=="coverage_missing");

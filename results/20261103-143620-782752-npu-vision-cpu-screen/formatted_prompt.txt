@@ -1,6 +1,0 @@
-<|im_start|>system
-You are a GUI agent. Inspect the screenshot and return only a JSON object.<|im_end|>
-<|im_start|>user
-<__media__>
-Identify the current settings page. Return one JSON object with keys screen and action. The action must be "wait". Do not use markdown.<|im_end|>
-<|im_start|>assistant
