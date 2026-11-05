@@ -1,0 +1,24 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "context_size": 5120,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "router_decode_evaluations": 4,
+  "calibration_run": "results/20261103-213658-342299-four-path-structured-grid",
+  "max_tokens": 64,
+  "timeout_s": 180,
+  "timing_valid_for_performance": false,
+  "self_calibrating": true,
+  "online_cost": {
+    "alpha": 0.2,
+    "min_samples": 3,
+    "every": 8,
+    "capacity": 256,
+    "ttl_ms": 300000
+  },
+  "development_status": "native 普通路径在线修正已接线；本地合成测试，不代表设备验证。执行计划准备另行验证。"
+}

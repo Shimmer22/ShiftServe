@@ -8,11 +8,13 @@ struct SessionSnapshot {
     uint64_t version=0;
 };
 
-static size_t restore_session(llama_context * ctx, const SessionSnapshot & snapshot) {
+static size_t restore_session(llama_context * ctx, const SessionSnapshot & snapshot,double * work_ms=nullptr) {
     llama_synchronize(ctx);
+    const double begin=work_ms?now_ms():0;
     llama_memory_clear(llama_get_memory(ctx),true);
-    if(snapshot.state.empty()) return 0;
+    if(snapshot.state.empty()) {if(work_ms) *work_ms=now_ms()-begin;return 0;}
     require(llama_state_seq_set_data(ctx,snapshot.state.data(),snapshot.state.size(),0)==snapshot.state.size(),"session restore failed");
+    if(work_ms) *work_ms=now_ms()-begin; // 不含下面的调试核验。
     require(export_seq(ctx)==snapshot.state,"session restore changed KV/position state");
     return snapshot.state.size();
 }

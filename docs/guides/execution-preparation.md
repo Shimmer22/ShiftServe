@@ -20,6 +20,10 @@
 
 Tool 返回后，先等待 lane 的 ready 判定并 claim，再检查实际首 microbatch 的形状和版本。失配会释放描述符缓存并 reset 预测图，继续显式 HTP 上下文的普通构图，记录失配原因。这里不切换计算设备；CPU/HTP 选路仍由原有 Router 决定。缺失私有 API、预算超限或映射错误会直接失败。
 
+无手机生命周期补充：`prepare_cancellable()` 在调用前和返回后检查取消。API 运行中不抢占、不从前台 discard；取消后由原 worker 在 API 返回边界释放计划。调用失败时先尝试释放再向上传播错误。lane 真正退出并回收前，下一轮保持 busy；最后一次检查后到达的取消在已退出 lane 的回收点 discard。关闭允许等待，等待结束后才释放执行计划与上下文。
+
+这些客户端边界用可阻塞的 ABI 假后端做本地测试，包含 descriptor/map 预算错误；不分配模型、不调用 DSP，也不等价于真实后端取消和内存回收的验收。开启执行计划准备时，当前 native 在线成本修正保持 inactive，防止命中/失配数据进入普通路径 EMA。
+
 实际 `process_ubatch` 再检查位置、序列和 output mask，随后沿用运行时的 `can_reuse`。只有它真实复用了同一张图才增加 `graph_hits`；只有实际提交了缓存描述符才增加 `descriptor_hits`。准备完成和 bind 命中都不等价于实际复用。
 
 每次重新导入历史前失效旧计划；私有 `state_seq_read_data` 也加入失效处理。低层直接调用 `llama_memory_clear/seq_add/seq_rm` 的其它新调用方必须先 discard，不能绕过会话生命周期。候选持有 preview batch/memory context，至少活到输入上下文被重新绑定或旧图销毁。退出时先 join lane，再释放执行计划，最后销毁 HTP 上下文。映射跟随原缓冲区释放，不在丢弃计划时拆掉正常执行仍需的映射。

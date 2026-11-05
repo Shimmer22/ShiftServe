@@ -45,6 +45,16 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
     const bool prepare_execution=get("--htp-execution-prepare","0")=="1";
     const int predicted_input=std::stoi(get("--htp-predict-input","64"));
     const uint64_t prefault_bytes=std::stoull(get("--htp-prefault-bytes","0"));
+    OnlineCostConfig online_config;
+    online_config.enabled=get("--self-calibrating","0")=="1";
+    online_config.alpha=std::stod(get("--online-alpha","0.2"));
+    online_config.min_samples=std::stoul(get("--online-min-samples","3"));
+    online_config.every=std::stoul(get("--online-every","8"));
+    online_config.capacity=std::stoul(get("--online-capacity","256"));
+    online_config.ttl_ms=std::stod(get("--online-ttl-ms","300000"));
+    OnlineRouteCosts online(online_config);
+    // 首期 native 仅普通执行成本；准备计划命中/失配不混入其 EMA，机制夹具也不训练。
+    const OnlineRouteCosts * corrections=!prepare_execution && !mechanism && online.enabled()?&online:nullptr;
     require(!prepare_execution || (predicted_input>0 && predicted_input<=batch_size && predicted_input<=64),"predicted HTP microbatch must be 1..min(batch,64)");
     require(!prepare_execution || prefault_bytes<=64ull*1024*1024,"prefault budget exceeds 64MiB");
     ExecutionPreparation execution(htp.ctx,prepare_execution);
@@ -63,9 +73,14 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
     double observation_processing_ms=0;
     auto poll=[&] {
         auto old=lane.reaped(); lane.poll();
-        if(lane.reaped()!=old) events->emit("lane_reaped",round,"\"reaped\":"+std::to_string(lane.reaped()));
+        if(lane.reaped()!=old) {
+            execution.discard(); // worker 已退出，覆盖最后一个检查点之后到达的取消。
+            events->emit("lane_reaped",round,"\"reaped\":"+std::to_string(lane.reaped()));
+        }
     };
-    events->emit("session_ready",-1,"\"model_context_init_ms\":"+std::to_string(now_ms()-init_start));
+    events->emit("session_ready",-1,"\"model_context_init_ms\":"+std::to_string(now_ms()-init_start)
+                 +",\"self_calibrating\":"+(online.enabled()?"true":"false")
+                 +",\"online_scope\":"+json(corrections?"ordinary_exact":"inactive"));
     while(std::getline(std::cin,line)) {
         std::vector<std::string> fields; std::istringstream row(line); std::string field;
         while(std::getline(row,field,'\t')) fields.push_back(field);
@@ -94,7 +109,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
         }
         if(fields[0]=="DRAIN") {
             require(mechanism && fields.size()==1 && !started,"DRAIN is mechanism-test cleanup only");
-            lane.close(); events->emit("test_cleanup_drained",round); continue;
+            lane.close();execution.discard();events->emit("test_cleanup_drained",round); continue;
         }
         require(fields.size()>=2 && std::stoi(fields[1])==round,"tool command turn mismatch");
         if(fields[0]=="START") {
@@ -102,7 +117,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             mode=fields[2];
             require(mode=="auto" || mode=="none" || mode=="always" || (mechanism && mode=="hold"),"invalid preparation mode");
             bool want=!snapshot.state.empty() && mode!="none"
-                && (mode!="auto" || router.should_prepare(snapshot.evaluated_tokens,d));
+                && (mode!="auto" || router.should_prepare(snapshot.evaluated_tokens,d,corrections,now_ms()));
             bool launch=false; std::string skip;
             if(want && !lane.occupied()) {
                 auto immutable=std::make_shared<const SessionSnapshot>(snapshot);
@@ -127,7 +142,9 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                                  +",\"prepare_checked_ms\":"+std::to_string(now_ms()-prepare_begin));
                     if(execution.enabled()) {
                         if(!valid()) return false;
-                        auto plan=execution.prepare(immutable->version,immutable->next_pos,predicted_input,prefault_bytes);
+                        a2o_execution_stats plan{};
+                        if(!execution.prepare_cancellable(valid,immutable->version,immutable->next_pos,predicted_input,prefault_bytes,&plan))
+                            return false;
                         events->emit("execution_plan_prepared",task_turn,
                             "\"version\":"+std::to_string(immutable->version)+",\"predicted_microbatch\":"+std::to_string(predicted_input)
                             +",\"graph_nodes\":"+std::to_string(plan.graph_nodes)+",\"htp_nodes\":"+std::to_string(plan.htp_nodes)
@@ -139,6 +156,7 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                     }
                     if(barrier) { events->emit("barrier_entered",task_turn); barrier->enter(); }
                     bool complete=valid();
+                    if(!complete && execution.enabled()) execution.discard();
                     events->emit(complete?"prepare_work_ready":"prepare_work_cancelled",task_turn);
                     return complete;
                     } catch(...) { if(barrier) barrier->fail(std::current_exception()); throw; }
@@ -175,15 +193,22 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             require(current_router.context==context_size && current_router.batch==batch_size
                     && current_router.queue==router.queue && current_router.opbatch==router.opbatch,"router fixture configuration mismatch");
             auto availability=lane.availability(snapshot.version);
-            auto decision=current_router.choose(snapshot.evaluated_tokens,input.size(),d,availability);
+            const double cost_now=now_ms();
+            auto decision=current_router.choose(snapshot.evaluated_tokens,input.size(),d,availability,corrections,cost_now);
             if(mode=="none") {decision.backend="cpu";decision.reason="fixed_cpu";}
+            OnlineCostKey cost_key{current_router.source,"ordinary",decision.backend=="htp"?"HC":"CC",
+                                   snapshot.evaluated_tokens,int(input.size()),d};
+            bool sample_cost=corrections && mode!="none"
+                && current_router.find(cost_key.h,cost_key.p,cost_key.d,cost_key.path)
+                && online.sample(cost_key,cost_now);
             bool authority=snapshot.state.empty() || export_seq(cpu.ctx)==snapshot.state;
             require(authority,"background task changed CPU authority");
             events->emit("route_selected",round,"\"backend\":"+json(decision.backend)+",\"reason\":"+json(decision.reason)
                          +",\"availability\":"+json(availability)+",\"source\":"+json(current_router.source)
                          +",\"progress\":"+json(lane.progress())+",\"candidate_version\":"+std::to_string(lane.version())
                          +",\"cost_covered\":"+(decision.cost_covered?"true":"false")
-                         +",\"cpu_ms\":"+optional_number(decision.cpu_ms)+",\"htp_ms\":"+optional_number(decision.htp_ms));
+                         +",\"cpu_ms\":"+optional_number(decision.cpu_ms)+",\"htp_ms\":"+optional_number(decision.htp_ms)
+                         +",\"cpu_cost_source\":"+json(decision.cpu_source)+",\"htp_cost_source\":"+json(decision.htp_source));
             llama_context * pre=cpu.ctx;
             double restore_begin=now_ms();
             if(decision.backend=="htp") {
@@ -205,18 +230,22 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                     +",\"descriptor_misses\":"+std::to_string(plan.descriptor_misses));
             }
             auto first=greedy(pre,nv); size_t handoff_bytes=0;
-            double handoff_ms=0;
+            double handoff_ms=0,handoff_work_ms=0;
             if(pre!=cpu.ctx) {
-                begin=now_ms();SessionSnapshot updated;updated.state=export_seq(pre);handoff_bytes=restore_session(cpu.ctx,updated);
+                begin=now_ms();SessionSnapshot updated;updated.state=export_seq(pre);
+                double export_ms=sample_cost?now_ms()-begin:0,import_ms=0;
+                handoff_bytes=restore_session(cpu.ctx,updated,sample_cost?&import_ms:nullptr);
+                handoff_work_ms=export_ms+import_ms;
                 handoff_ms=now_ms()-begin;
             }
             std::vector<llama_token> ids; std::string output,closing; bool eog=false;
             begin=now_ms();
+            DecodeHorizon horizon(sample_cost,d,begin);
             for(int i=0;i<max_tokens;++i) {
                 auto tok=i==0?first:greedy(cpu.ctx,nv);
-                if(llama_vocab_is_eog(vocab,tok)) events->emit("action_complete",round);
                 evaluate(cpu.ctx,{tok},pos);
-                if(llama_vocab_is_eog(vocab,tok)) {eog=true;closing=piece(vocab,tok);break;}
+                horizon.evaluated(i+1,now_ms);
+                if(llama_vocab_is_eog(vocab,tok)) {events->emit("action_complete",round);eog=true;closing=piece(vocab,tok);break;}
                 ids.push_back(tok);output+=piece(vocab,tok);
             }
             double decode_ms=now_ms()-begin;
@@ -235,6 +264,8 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
                 << ",\"decode_backend\":\"cpu\",\"route_reason\":" << json(decision.reason)
                 << ",\"availability\":" << json(availability) << ",\"cost_source\":" << json(current_router.source)
                 << ",\"cpu_cost_ms\":" << optional_number(decision.cpu_ms) << ",\"htp_cost_ms\":" << optional_number(decision.htp_ms)
+                << ",\"cpu_cost_source\":" << json(decision.cpu_source) << ",\"htp_cost_source\":" << json(decision.htp_source)
+                << ",\"online_sampled\":" << (sample_cost?"true":"false")
                 << ",\"cost_covered\":" << (decision.cost_covered?"true":"false")
                 << ",\"cached_tokens\":" << old_tokens << ",\"new_tokens\":" << input.size() << ",\"router_D\":" << d
                 << ",\"snapshot_version\":" << old_version << ",\"committed_version\":" << snapshot.version
@@ -245,10 +276,22 @@ static int run_tool_session(const std::map<std::string,std::string> & args) {
             response << "],\"timing_ms\":{\"observation_processing_ms\":" << observation_processing_ms
                      << ",\"restore_checked_ms\":" << restore_checked_ms << ",\"handoff_checked_ms\":" << handoff_ms
                      << ",\"vision_init_ms\":0,\"prefill_ms\":" << prefill_ms << ",\"decode_ms\":" << decode_ms
+                     << ",\"decode_prefix_ms\":" << optional_number(horizon.prefix_ms())
+                     << ",\"handoff_work_ms\":" << (sample_cost?optional_number(handoff_work_ms):"null")
                      << "},\"background_occupied_at_publish\":" << (lane.occupied()?"true":"false") << "}";
             results.push_back(response.str());
             // 在任何回收/下一轮等待之前真正 flush 到消费者。
             events->emit("response_published",round,"\"result\":"+response.str());
+            // 已发布响应后更新，下一轮生效。短于 D 的输出没有固定 D 样本。
+            if(sample_cost) {
+                bool updated=std::isfinite(horizon.prefix_ms()) && online.update(
+                    cost_key,prefill_ms+handoff_work_ms+horizon.prefix_ms(),now_ms());
+                events->emit("online_cost_updated",round,"\"updated\":"+(updated?std::string("true"):"false")
+                    +",\"reason\":"+json(updated?"observed_path":"decode_horizon_incomplete")
+                    +",\"path\":"+json(cost_key.path)+",\"H\":"+std::to_string(cost_key.h)
+                    +",\"P\":"+std::to_string(cost_key.p)+",\"D\":"+std::to_string(cost_key.d)
+                    +",\"samples\":"+std::to_string(online.samples(cost_key,now_ms())));
+            }
             ++round; started=false; observed=false;
         } else throw std::runtime_error("unknown tool session command");
     }

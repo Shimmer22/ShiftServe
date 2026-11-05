@@ -47,6 +47,11 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
         manifest['execution_preparation']={'enabled':True,'development_unvalidated':True,
             'predicted_microbatch':config.get('predicted_input_tokens',64),'prefault_bytes':config.get('prefault_bytes',0),
             'libraries':{n:hashlib.sha256((private_runtime/n).read_bytes()).hexdigest() for n in ('libllama.so','libggml-base.so','libggml-hexagon.so')}}
+    online_defaults={'alpha':0.2,'min_samples':3,'every':8,'capacity':256,'ttl_ms':300000}
+    online_options={**online_defaults,**config.get('online_cost',{})}
+    manifest['self_calibration']={'enabled':config.get('self_calibrating',False),
+        'scope':'ordinary exact H/P/D; offline candidates; no execution-plan or mechanism-fixture updates',
+        'options':online_options,'device_validated':False}
     (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
     (out / 'system.txt').write_text(scenario['system'])
     (out / 'empty.txt').write_text('')
@@ -74,6 +79,10 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
                 '--htp-opbatch', str(config['htp_opbatch']), '--router-table', remote + '/router.tsv',
                 '--router-d', str(config['router_decode_evaluations']), '--max-tokens', str(config['max_tokens']),
                 '--mechanism-test', str(int(mechanism)), '--out', remote + '/result.json']
+        args += ['--self-calibrating',str(int(config.get('self_calibrating',False)))]
+        for name,value in online_options.items():
+            if name not in online_defaults:raise ValueError('unknown native online cost option: '+name)
+            args += ['--online-'+name.replace('_','-'),str(value)]
         if private_runtime:
             args += ['--htp-execution-prepare','1','--htp-predict-input',str(config.get('predicted_input_tokens',64)),
                      '--htp-prefault-bytes',str(config.get('prefault_bytes',0))]

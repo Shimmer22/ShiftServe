@@ -2,7 +2,7 @@
 
 整体机制是**离线 Cost Model 提供候选路径的初始成本，在线测量随正常请求持续修正**。第 1 轮开始记录实际执行的 H/P/D 和阶段成本，第 2～N 轮继续积累，数据充分的成本桶开始修正对应路径，后续持续更新。不额外运行模型，不等待整张成本表收齐。在线学习无法补出从未执行过的另一条路径的反事实成本，因此不取代离线模型。
 
-本阶段为独立 host 模块和合成演示，未接入手机 native 常驻会话，不改写原有精确成本表。所有演示耗时来自虚拟时钟，不代表设备性能。
+已有独立 host 模块、合成演示与 native 常驻会话接线；不改写原有精确成本表。native 接线仅经过本地合成测试和 Android 交叉编译，未做实际模型会话验证。所有合成演示耗时不代表设备性能。
 
 ## 三个独立模块
 
@@ -59,7 +59,23 @@
 
 `choose(key, availability)` 是 host 侧的 Router 适配：继续限定 CPU 权威状态、CC/HC、固定 D；候选未 ready 时仍使用 CPU 权威路径，ready 时比较两条路径的 future。entry 已在准备阶段完成，不能再次计入。返回结果包含两条路径的成本及来源。`source` 标记 offline / online_corrected，entry_source 与 future_source 进一步区分 offline / exact / shape_bucket。
 
-该适配尚未修改手机 native `CostRouter` 或 Tool 会话；设备、上下文、候选版本和可用性等运行约束继续由现有入口管理。离线基线模式是接入现有 Router 的主路径；不传 offline 时保留原纯在线预测 API，供模块独立使用和测试。
+host 适配与下述 native 接线均保留设备、上下文、候选版本和可用性约束。离线基线模式是接入现有 Router 的主路径；不传 offline 时保留原纯在线预测 API，供模块独立使用和测试。
+
+## Native 接线（无手机验证）
+
+`native/scheduling/online_cost.h` 提供有界、会话内的 EMA 修正，`CostRouter` 查询离线行时覆盖其 future；`should_prepare()` 也使用相同修正。默认关闭，开发配置为 `configs/tool-session-self-calibrating-dev.json`，host 入口传递 `self_calibrating` 与 `online_cost` 参数并记录 manifest。此配置仍依赖本地离线校准结果，不是无手机运行命令。
+
+- 普通路径仅对离线表已有的精确 H/P/D/路径积累；不足 3 样本仍用离线值，冷桶每次采，成熟后每 8 次采；TTL 默认 300 秒、最多 256 项。
+- 复用已有 prefill，抽样轮另取迁移 export/clear/import 工作耗时，排除目的状态重新导出比对。原 handoff_checked_ms 继续保留。
+- decode 只在第 D 次 evaluation 完成时额外读一次时钟，不逐 token 输出。EOG 若被 evaluation 也计数；不足 D 时不更新。完整 decode_ms 仍单独记录。
+- 响应发布后更新 `prefill + handoff_work + decode_prefix(D)`，下一轮生效。准备已完成的候选只比较 future，不重复收取 entry。
+- 原始离线行保持不变。无在线值、数据过期或被淘汰时直接继续用离线行；未观测 CC/HC 不被另一条路径的样本改写。缺少离线覆盖时不凭在线数据扩张候选域。
+- key 隔离表来源、执行条件、路径及精确 H/P/D；模型、库和设备配置在一个进程内固定，跨进程不共享缓存。native 暂不启用 host 的桶内近似复用，真实输入变化可能使在线覆盖稀疏。
+- 开启执行计划准备或机制夹具时普通路径修正 inactive；控制模式不采样。计划命中/失配成本不会进入普通 EMA，联合机制的成本建模留待后续。
+
+输出 `cpu_cost_source` / `htp_cost_source` 标明 offline 或 online_corrected；抽样轮记录 decode_prefix_ms、handoff_work_ms，发布后的 online_cost_updated 事件带更新原因和样本数。短于 D 的输出不占冷桶有效样本名额。
+
+本轮新增单元测试共 5 项，入口 `python3 -m unittest discover -s tests -p 'test_native_self_calibrating.py'`。覆盖候选成本修正、D 前缀与抽样、TTL/容量/身份隔离、API 内取消与跨轮/关闭、预算错误传播与释放。未增加新的线上响应或状态校验链路。
 
 ## 接入方式
 

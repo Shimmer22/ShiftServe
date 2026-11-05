@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "scheduling/online_cost.h"
 
 struct RouteCost {
     int h=0, p=0, d=0, samples=0;
@@ -17,6 +18,7 @@ struct RouteDecision {
     bool cost_covered=false;
     double cpu_ms=std::numeric_limits<double>::quiet_NaN();
     double htp_ms=std::numeric_limits<double>::quiet_NaN();
+    std::string cpu_source="offline", htp_source="offline";
 };
 
 // 首版限于 CPU 权威状态、CPU decode 的 CC/HC；精确匹配，不外推。
@@ -53,27 +55,41 @@ public:
         }
         return result;
     }
-    RouteDecision choose(int h, int p, int d, const std::string & availability) const {
+    const RouteCost * find(int h,int p,int d,const std::string & path) const {
+        for(const auto & r:rows) if(r.h==h && r.p==p && r.d==d && r.path==path) return &r;
+        return nullptr;
+    }
+    double future(const RouteCost & row,const OnlineRouteCosts * online,double now,
+                  const std::string & regime="ordinary",std::string * provenance=nullptr) const {
+        double measured=online?online->predict({source,regime,row.path,row.h,row.p,row.d},now)
+                              :std::numeric_limits<double>::quiet_NaN();
+        if(provenance) *provenance=std::isfinite(measured)?"online_corrected":"offline";
+        return std::isfinite(measured)?measured:row.future_ms;
+    }
+    RouteDecision choose(int h, int p, int d, const std::string & availability,
+                         const OnlineRouteCosts * online=nullptr,double now=0,
+                         const std::string & regime="ordinary") const {
         RouteDecision result; result.availability=availability;
         const RouteCost * cc=nullptr, *hc=nullptr;
         for (const auto & r:rows) if (r.h==h && r.p==p && r.d==d) {
             if(r.path=="CC") cc=&r; else if(r.path=="HC") hc=&r;
         }
-        if (cc) result.cpu_ms=cc->future_ms;
+        if (cc) result.cpu_ms=future(*cc,online,now,regime,&result.cpu_source);
         result.cost_covered=cc && hc;
         if (!result.cost_covered) return result;
         // 不可抢占 API 没有可靠剩余时间；首版不等待未就绪候选。
         if (availability!="ready") { result.reason="candidate_"+availability; return result; }
-        result.htp_ms=hc->future_ms; // 历史准备已完成，不能重复计费。
+        result.htp_ms=future(*hc,online,now,regime,&result.htp_source); // 历史准备已完成，不重复计费。
         if (result.htp_ms < result.cpu_ms) { result.backend="htp"; result.reason="htp_lower_cost"; }
         else result.reason="cpu_lower_cost";
         return result;
     }
     // Tool 开始时未知 P，仅在同一 H/D 有合格且可能获益的输入时准备。
-    bool should_prepare(int h, int d) const {
+    bool should_prepare(int h, int d,const OnlineRouteCosts * online=nullptr,double now=0,
+                        const std::string & regime="ordinary") const {
         for (const auto & hc:rows) if (hc.h==h && hc.d==d && hc.path=="HC")
             for (const auto & cc:rows) if (cc.h==h && cc.p==hc.p && cc.d==d && cc.path=="CC"
-                                          && hc.future_ms<cc.future_ms) return true;
+                                          && future(hc,online,now,regime)<future(cc,online,now,regime)) return true;
         return false;
     }
 };
