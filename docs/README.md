@@ -18,3 +18,5 @@
 最新设备机制记录：[自校准与执行计划准备：14 个短条件](validation/self-calibrating-device.md)。
 
 主实验平台切换：[SM8650 迁移验证](validation/platform-migration.md)。
+
+真实任务反馈：[手机单闭环测试](validation/single-loop.md)。

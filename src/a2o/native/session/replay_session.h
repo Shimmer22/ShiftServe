@@ -13,7 +13,10 @@ static int run_session(const std::map<std::string,std::string> & args) {
     auto vocab=llama_model_get_vocab(cpu.model); int nv=llama_vocab_n_tokens(vocab);
     SessionSnapshot snapshot;
     std::vector<std::pair<std::string,std::string>> conversation={{"system",read(get("--system"))}};
-    std::ifstream plan(get("--session")); require(bool(plan),"session plan unavailable");
+    bool live=get("--live-session","0")=="1";
+    std::ifstream plan_file;
+    if(!live) { plan_file.open(get("--session")); require(bool(plan_file),"session plan unavailable"); }
+    std::istream & plan=live?std::cin:plan_file;
     std::ofstream out(get("--out")); require(bool(out),"session result unavailable");
     out << "{\"session\":true,\"mode\":\"hybrid\",\"vision_backend\":\"OpenCL\","
         << "\"state_model\":\"Qwen2.5-VL full attention; no DeltaNet\","
@@ -22,7 +25,9 @@ static int run_session(const std::map<std::string,std::string> & args) {
     bool async_smoke=get("--async-smoke","0")=="1";
     require(!async_smoke || !compare,"async mechanism smoke cannot run paired prefill");
     int round=0, total_encodes=0; std::string line;
+    if(live) { std::cout << "A2O\t{\"event\":\"session_ready\",\"turn\":-1,\"monotonic_ms\":" << std::fixed << now_ms() << "}\n"; std::cout.flush(); }
     while(std::getline(plan,line)) {
+        if(live && line=="CLOSE") break;
         std::vector<std::string> fields; std::istringstream row(line); std::string field;
         while(std::getline(row,field,'\t')) fields.push_back(field);
         require(fields.size()==4 || fields.size()==5 || (async_smoke && fields.size()==6),"invalid session plan row");
@@ -174,6 +179,17 @@ static int run_session(const std::map<std::string,std::string> & args) {
         llama_pos pos=use_htp?htp_pos:cpu_pos;
         const auto & selected=use_htp?htp_logits:cpu_logits;
         auto first=llama_token(std::max_element(selected.begin(),selected.end())-selected.begin());
+        std::unique_ptr<llama_sampler,decltype(&llama_sampler_free)> sampler(nullptr,llama_sampler_free);
+        if(!get("--response-grammar").empty()) {
+            require(live && !compare,"response grammar is restricted to unpaired live sessions");
+            sampler.reset(llama_sampler_chain_init(llama_sampler_chain_default_params()));
+            require(bool(sampler),"response sampler allocation failed");
+            auto grammar=llama_sampler_init_grammar(vocab,read(get("--response-grammar")).c_str(),"root");
+            require(grammar,"invalid response grammar");
+            llama_sampler_chain_add(sampler.get(),grammar);
+            llama_sampler_chain_add(sampler.get(),llama_sampler_init_greedy());
+            first=llama_sampler_sample(sampler.get(),use_htp?htp.ctx:cpu.ctx,-1);
+        }
         if(mm) { mtmd_input_chunks_free(chunks); mtmd_free(mm); }
         size_t down_bytes=0;
         if(route!=decode_route) {
@@ -184,7 +200,7 @@ static int run_session(const std::map<std::string,std::string> & args) {
         std::cerr<<"SESSION decode_begin turn="<<round<<" backend="<<decode_route<<'\n';
         bool eog=false; start=now_ms();
         for(int i=0;i<max_tokens;++i) {
-            auto tok=i==0?first:greedy(decode_ctx,nv);
+            auto tok=i==0?first:(sampler?llama_sampler_sample(sampler.get(),decode_ctx,-1):greedy(decode_ctx,nv));
             if(preparation && llama_vocab_is_eog(vocab,tok)) preparation->mark("action_complete");
             // Commit the actual generated action and closing token before the next snapshot.
             evaluate(decode_ctx,{tok},pos);
@@ -212,7 +228,10 @@ static int run_session(const std::map<std::string,std::string> & args) {
         }
         conversation.push_back({"assistant",output});
         std::ofstream(get("--out")+".turn-"+std::to_string(round)+".prefix.txt") << snapshot.rendered_prefix;
-        out << (round?",":"") << "{\"turn\":" << round << ",\"prefill_backend\":" << json(route)
+        std::ostringstream turn_record;
+        std::ostream & record=turn_record;
+        record << "{\"turn\":" << round << ",\"prefill_backend\":" << json(route)
+            << ",\"grammar_constrained\":" << (sampler?"true":"false")
             << ",\"decode_backend\":" << json(decode_route) << ",\"cached_tokens\":" << before_tokens
             << ",\"cached_state_bytes\":" << before_bytes << ",\"state_bytes\":" << snapshot.state.size()
             << ",\"position_before\":" << before_pos << ",\"next_position\":" << pos
@@ -224,15 +243,15 @@ static int run_session(const std::map<std::string,std::string> & args) {
             << ",\"logits_nrmse\":" << nrmse << ",\"logits_max_abs\":" << max_abs
             << ",\"logits_top1_equal\":" << (top1?"true":"false")
             << ",\"output\":" << json(output) << ",\"generated_ids\":[";
-        for(size_t i=0;i<generated.size();++i) out << (i?",":"") << generated[i];
-        out << "],\"timing_ms\":{\"vision_init_ms\":" << vision_init_ms << ",\"image_preprocess_ms\":" << preprocess_ms
+        for(size_t i=0;i<generated.size();++i) record << (i?",":"") << generated[i];
+        record << "],\"timing_ms\":{\"vision_init_ms\":" << vision_init_ms << ",\"image_preprocess_ms\":" << preprocess_ms
             << ",\"vision_release_ms\":" << vision_release_ms
             << ",\"vision_encode_ms\":" << vision_ms << ",\"cpu_prefill_ms\":" << cpu_ms
             << ",\"htp_prefill_ms\":" << htp_ms << ",\"restore_checked_ms\":" << restore_ms
             << ",\"handoff_checked_ms\":" << handoff_ms << ",\"decode_ms\":" << decode_ms
             << ",\"snapshot_ms\":" << snapshot_ms << "}";
         if(async_smoke) {
-            out << ",\"async_preparation\":{\"case\":" << json(preparation_case)
+            record << ",\"async_preparation\":{\"case\":" << json(preparation_case)
                 << ",\"reason\":" << json(binding.reason) << ",\"snapshot_version\":" << (snapshot.version-1)
                 << ",\"committed_version\":" << snapshot.version
                 << ",\"authority_checked\":" << (authority_checked?"true":"false")
@@ -240,16 +259,24 @@ static int run_session(const std::map<std::string,std::string> & args) {
                 << ",\"status\":" << json(preparation?preparation->state():"disabled") << ",\"events\":[";
             if(preparation) {
                 auto events=preparation->events();
-                for(size_t i=0;i<events.size();++i) out << (i?",":"") << "{\"event\":" << json(events[i].first)
+                for(size_t i=0;i<events.size();++i) record << (i?",":"") << "{\"event\":" << json(events[i].first)
                     << ",\"ms\":" << events[i].second << "}";
             }
-            out << "]}";
+            record << "]}";
         }
-        out << "}"; out.flush();
+        record << "}"; record.flush();
+        out << (round?",":"") << turn_record.str(); out.flush();
+        if(live) {
+            std::cout << "A2O\t{\"event\":\"response_published\",\"turn\":" << round
+                      << ",\"monotonic_ms\":" << std::fixed << now_ms() << ",\"result\":" << turn_record.str() << "}\n";
+            std::cout.flush(); require(bool(std::cout),"live session protocol failed");
+        }
         std::cerr << "SESSION completed turn=" << round << " output=" << output << '\n'; ++round;
     }
     out << "],\"image_encode_calls\":" << total_encodes << ",\"history_source\":\"previous selected decode backend snapshot\""
         << ",\"timing_valid_for_performance\":"
         << (async_smoke || get("--timing-valid-for-performance","1")=="0"?"false":"true") << "}\n";
+    out.flush(); require(bool(out),"session result write failed");
+    if(live) { std::cout << "A2O\t{\"event\":\"session_closed\",\"turn\":" << round << "}\n"; std::cout.flush(); }
     return 0;
 }

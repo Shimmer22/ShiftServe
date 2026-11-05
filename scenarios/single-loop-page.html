@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A2O live loop</title>
+<style>
+body {margin:0;background:#f4f7fb;color:#142234;font:24px sans-serif;text-align:center}
+main {padding:22px 16px} h1 {font-size:30px;margin:18px 0}
+.code {font-size:32px;font-weight:bold;padding:18px;background:white;border:2px solid #c8d2e0}
+button {display:block;width:94%;height:34vh;margin:30px auto;background:#087b44;color:white;
+border:0;border-radius:16px;font-size:34px;font-weight:bold}
+#status {font-size:32px;font-weight:bold;color:#087b44;margin-top:32px}
+</style>
+<main><h1>A2O LIVE LOOP</h1><p id="instructions">Remember this task code:</p>
+<div class="code" id="code">{{CODE}}</div>
+<button id="complete" onclick="completeTask(event)">COMPLETE TASK</button>
+<div id="status">READY</div></main>
+<script>
+async function completeTask(event) {
+  if (!event.isTrusted) return;
+  const response = await fetch(location.pathname + 'complete', {method:'POST'});
+  if (!response.ok) throw new Error('completion rejected');
+  document.querySelector('#complete').remove();
+  document.querySelector('#code').remove();
+  document.querySelector('#instructions').textContent='Task completed. Recall the earlier task code.';
+  document.querySelector('#status').textContent='DONE';
+  await fetch(location.pathname + 'rendered', {method:'POST'});
+}
+fetch(location.pathname + 'loaded', {method:'POST'});
+</script></html>

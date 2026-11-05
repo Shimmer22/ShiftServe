@@ -4,6 +4,8 @@
 
 主设备已切为小米 SM8650（默认地址见 `configs/device.json`）。[迁移验证](docs/validation/platform-migration.md)：运行库/模型哈希、状态迁移和三路径图像 JSON 已通过，历史文本响应仍未通过，暂不进入新平台性能比较。
 
+[手机单闭环](docs/validation/single-loop.md)已通过：两轮同一进程，模型真实点击测试页，基于新截图确认完成并回忆任务码；当前为 CPU 执行路径的功能基线，尚未接入投机调度。
+
 当前主线已完成真实 HTTP Gap 下的 CC/HC 选路重放、选路 Oracle 与联合 Oracle，以及历史 KV 的 HMX tiles 提前准备对照。[任务结果与后续路线](docs/validation/oracle-summary.md)汇总候选定义、实验结论和复现入口：H/P 与 kernel 路径显著影响最优后端；准备可以与 Tool 等待重叠，但目前尚未证明稳定的 Gap 选路翻转或 tiles 的独立端到端增益。KV 压缩与 QNN ViT 暂缓。
 
 | 目录 | 内容 |

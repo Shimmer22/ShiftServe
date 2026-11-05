@@ -1,0 +1,22 @@
+{
+  "mode": "hybrid",
+  "prefill_backend": "cpu",
+  "decode_backend": "cpu",
+  "vision_backend": "opencl",
+  "vision_flash": "off",
+  "context_size": 6144,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "compare_prefill": false,
+  "max_tokens": 96,
+  "image_max_edge": 1008,
+  "response_grammar": "configs/single-loop.gbnf",
+  "timeout_s": 240,
+  "timing_valid_for_performance": false,
+  "browser_package": "com.android.browser",
+  "port": 18766
+}
