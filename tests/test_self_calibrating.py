@@ -246,7 +246,8 @@ class OnlineCostTests(unittest.TestCase):
             out = Path(tmp) / 'success'
             result = demo.run(config, scenario, out)
             self.assertEqual(result['initialization_warmup']['steps'], 0)
-            self.assertEqual(result['first_ready_request'], 3)
+            self.assertEqual(result['first_ready_request'], 1)
+            self.assertEqual(result['first_online_request'], 3)
             self.assertEqual(result['warmup_state'], 'ready')
             self.assertGreater(result['path_cost_ms'], 38)
             self.assertFalse(result['timing_valid_for_performance'])

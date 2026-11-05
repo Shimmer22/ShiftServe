@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / 'src'))
 from a2o.profiling import CostKey, SamplingProfiler
 from a2o.runtime.self_calibrating import SelfCalibratingRuntime
 from a2o.scheduling.online_cost import OnlineCostModel
+from a2o.scheduling.offline_cost import OfflineCostTable
 from a2o.warmup import RequestWarmup, WarmupConfig, WarmupController
 
 
@@ -45,6 +46,10 @@ def run(config, scenario, out):
             warmup=RequestWarmup(**config['warmup']),
             profiler=SamplingProfiler(**config['profiling'], clock_ns=clock.clock_ns),
             costs=OnlineCostModel(**config['online_cost'], clock=clock.seconds))
+        if config.get('offline_table'):
+            runtime.offline = OfflineCostTable.load(
+                ROOT / config['offline_table'], signature=config['signature'],
+                mode=config['mode'], allow_fixture=True)
         base_key = CostKey(**{name: config[name] for name in (
             'signature', 'mode', 'path', 'history_tokens', 'new_tokens', 'decode_tokens')}, phase='prefill')
         key = base_key
@@ -72,6 +77,7 @@ def run(config, scenario, out):
             emit({'event': 'initialization_warmup', **asdict(initialization)})
             runtime.flush()
             first_ready_request = None
+            first_online_request = None
             for i in range(scenario['requests']):
                 shapes = scenario.get('shapes', [{}])
                 key = replace(base_key, **shapes[i % len(shapes)])
@@ -94,12 +100,18 @@ def run(config, scenario, out):
                 prediction = runtime.path_prediction(key, scenario['gap_ms'])
                 if prediction is not None and first_ready_request is None:
                     first_ready_request = i + 1
+                if (prediction is not None and prediction['samples'] >= runtime.costs.min_samples
+                        and first_online_request is None):
+                    first_online_request = i + 1
                 emit({'event': 'request', 'request': i, 'updated': used,
                       'key': asdict(key), 'phases_ms': phases,
-                      'warmup_state': runtime.state(key), 'path_prediction': prediction})
+                      'warmup_state': runtime.state(key), 'path_prediction': prediction,
+                      # 只回放配置指定的路径；建议不驱动额外候选推理。
+                      'router_recommendation': runtime.choose(key, 'ready') if runtime.offline else None})
         result = {'execution': 'synthetic', 'timing_valid_for_performance': False,
                   'initialization_warmup': asdict(initialization),
                   'warmup_state': runtime.state(key), 'first_ready_request': first_ready_request,
+                  'first_online_request': first_online_request,
                   'accepted': runtime.costs.accepted,
                   'ignored': runtime.costs.ignored, 'dropped': runtime.profiler.dropped,
                   'path_cost_ms': runtime.path_cost(key, scenario['gap_ms']),
@@ -121,6 +133,7 @@ def main():
     result = run(json.loads(args.config.read_text()), json.loads(args.scenario.read_text()), out)
     print(json.dumps({'directory': str(out), 'warmup_state': result['warmup_state'],
                       'first_ready_request': result['first_ready_request'],
+                      'first_online_request': result['first_online_request'],
                       'initialization_steps': result['initialization_warmup']['steps'],
                       'path_cost_ms': result['path_cost_ms'],
                       'timing_valid_for_performance': False}, ensure_ascii=False, indent=2))

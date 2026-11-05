@@ -1,6 +1,6 @@
 # Self-Calibrating Runtime（无手机开发）
 
-关键机制是随正常请求自预热：第 1 轮开始记录实际执行的 H/P/D 和阶段成本，第 2～N 轮继续积累，数据充分的成本桶开始提供预测，后续持续更新。不额外运行模型，不等待整张成本表收齐。
+整体机制是**离线 Cost Model 提供候选路径的初始成本，在线测量随正常请求持续修正**。第 1 轮开始记录实际执行的 H/P/D 和阶段成本，第 2～N 轮继续积累，数据充分的成本桶开始修正对应路径，后续持续更新。不额外运行模型，不等待整张成本表收齐。在线学习无法补出从未执行过的另一条路径的反事实成本，因此不取代离线模型。
 
 本阶段为独立 host 模块和合成演示，未接入手机 native 常驻会话，不改写原有精确成本表。所有演示耗时来自虚拟时钟，不代表设备性能。
 
@@ -8,7 +8,7 @@
 
 | 模块 | 入口 | 工作方式 |
 |---|---|---|
-| 自预热 | `a2o.warmup.RequestWarmup` | 根据正常样本数给出 cold / collecting / ready 状态；桶不足 3 个有效样本时要求密集采样，无推理循环、无额外成本表 |
+| 自预热 | `a2o.warmup.RequestWarmup` | 根据正常样本数给出 cold / collecting / ready 状态；桶不足 3 个有效样本时要求密集采样，无推理循环；ready 表示可提供在线修正，不是 Router 才能开始工作 |
 | Profiling | `a2o.profiling.SamplingProfiler` | 冷桶前 3 次正常执行连续采集；成熟后每 8 次采一次；请求边界批量处理，缓冲区有界 |
 | 在线成本更新 | `a2o.scheduling.online_cost.OnlineCostModel` | 对阶段成本率做 EMA；默认 alpha=0.2、3 样本可用、300 秒过期、最多 256 桶 |
 
@@ -16,8 +16,8 @@
 
 ## 自预热与抽样如何配合
 
-1. 正常请求执行当前既定路径，未覆盖的桶每次记录阶段耗时。
-2. 请求结束后 `flush()` 批量更新；同一桶的第 3 个有效样本到达后，开始提供该桶预测。
+1. Router 使用离线 CC/HC 成本和候选就绪状态选择路径，未覆盖的在线桶每次记录正常阶段耗时。
+2. 请求结束后 `flush()` 批量更新；同一桶的第 3 个有效样本到达后，开始对该路径提供在线成本修正。
 3. 成熟桶降频采集；新桶仍密集采集，不受成熟桶降频影响。
 4. 桶过期或被容量限制淘汰后，组合器恢复密集采样并重新积累。
 
@@ -44,15 +44,32 @@
 
 `prediction()` 与 `path_prediction()` 返回 `source=exact` 或 `shape_bucket`；桶中混合过形状，或查询形状不同于采样形状时，明确标记为近似。桶内成本率近似是轻量启发式，**尚无真机误差评估**；不会自动识别全部 kernel 路径阶跃。已知执行区域不同应使用不同 signature 或收紧桶宽；不将近似值导出为原有 native 的精确实测表。设置 `shape_reuse=false` 可恢复完整 H/P/D 精确分组和耗时 EMA。
 
-每次只更新实际执行过的路径。没有某个候选路径的数据时，不生成该路径预测，也不额外执行候选推理。冷启动选路沿用调用方已有策略；只执行单一路径不能自然学出其他路径的成本。分桶解决邻近形状复用，不解决未执行路径的覆盖。
+每次只更新实际执行过的路径。没有某个候选路径的在线数据时，继续使用该路径的离线成本，不额外执行候选推理。只执行单一路径不能自然学出其他路径的成本。分桶解决邻近形状复用，不解决未执行路径的覆盖。
+
+## 离线基线与 Router 适配
+
+`OfflineCostTable.load()` 读取现有 `a2o-router-v1` TSV，并由调用方绑定配置 signature 和执行模式。离线表保持原有精确 H/P/D 的覆盖范围；在线数据不自动扩张其候选覆盖。组合器通过 `offline=table` 启用基线模式：
+
+- 没有在线数据、样本不足、过期或关闭在线模块：使用原离线成本。
+- 在线 entry 成熟：替换该路径的 entry 估计。
+- 在线 prefill、switch、decode 均成熟：用其合计修正该路径的 future。
+- 离线表只有 future 合计，不拆分猜测各阶段；三个阶段未齐时继续使用完整离线 future，不将部分在线阶段再次加到原合计上。
+
+例如离线 CC=48ms、HC=38ms，候选 ready 时先选 HC。前三轮只执行 HC，在线测得 HC future=70ms 后，比较变成 **CC 离线 48ms 对 HC 在线 70ms**，建议改选 CC。CC 的成本没有被 HC 样本改写；不声称已经获得 CC 的最新实测值。
+
+`choose(key, availability)` 是 host 侧的 Router 适配：继续限定 CPU 权威状态、CC/HC、固定 D；候选未 ready 时仍使用 CPU 权威路径，ready 时比较两条路径的 future。entry 已在准备阶段完成，不能再次计入。返回结果包含两条路径的成本及来源。`source` 标记 offline / online_corrected，entry_source 与 future_source 进一步区分 offline / exact / shape_bucket。
+
+该适配尚未修改手机 native `CostRouter` 或 Tool 会话；设备、上下文、候选版本和可用性等运行约束继续由现有入口管理。离线基线模式是接入现有 Router 的主路径；不传 offline 时保留原纯在线预测 API，供模块独立使用和测试。
 
 ## 接入方式
 
 ```python
 from a2o.profiling import CostKey, Sample
 from a2o.runtime.self_calibrating import SelfCalibratingRuntime
+from a2o.scheduling.offline_cost import OfflineCostTable
 
-runtime = SelfCalibratingRuntime()
+table = OfflineCostTable.load('router.tsv', signature='model-runtime-config-device-id')
+runtime = SelfCalibratingRuntime(offline=table)
 key = CostKey('model-runtime-config-device-id', 'hybrid', 'HC', 256, 32, 4, 'prefill')
 
 # 正常请求中的已有同步阶段，不额外执行推理：
@@ -64,6 +81,7 @@ runtime.profiler.record(Sample(key, duration_ms=20.0))
 runtime.flush()
 state = runtime.state(key)  # collecting；充分后为 ready
 estimate = runtime.costs.prediction(key)  # 当前不足 3 样本，返回 None
+decision = runtime.choose(key, availability='ready')  # 在线不足时已有离线成本可选路
 ```
 
 key 可由调用方在阶段外构造。异步 API 应在已有完成点提交耗时，提交耗时不能替代完成耗时。该实现面向单会话串行调用，不保证跨线程共享安全。
@@ -83,6 +101,6 @@ python3 scripts/run/self_calibrating.py
 python3 -m unittest discover -s tests -p 'test_self_calibrating.py'
 ```
 
-配置在 `configs/self-calibrating-local.json`，轨迹在 `scenarios/self-calibrating-local.json`。默认演示不同形状的正常请求：不执行初始化推理，第 3 轮形成首个可用路径预测，成熟后降频采样，成本上升后继续更新。合成轨迹显式假设桶内单位成本相同，仅用于演示机制。
+配置在 `configs/self-calibrating-local.json`，轨迹在 `scenarios/self-calibrating-local.json`，离线夹具在 `scenarios/self-calibrating-router.tsv`。默认演示不同形状的正常请求：首轮已有离线预测，不执行初始化推理，第 3 轮开始在线修正，成熟后降频采样，成本上升后继续更新。演示固定回放 HC，并记录 CC/HC 选路建议，建议不驱动额外候选执行。合成轨迹显式假设桶内单位成本相同，仅用于演示机制。
 
 `results/<时间>-self-calibrating-local/` 保留配置、原始形状/阶段耗时、采样更新数、预热状态、预测来源和成本快照；失败保留 failure.json。输出标记 `execution=synthetic`、`timing_valid_for_performance=false`。KV 整理、预搬移默认关闭。
