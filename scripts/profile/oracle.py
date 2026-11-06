@@ -12,6 +12,8 @@ import statistics
 import subprocess
 import sys
 import threading
+import tarfile
+import io
 import time
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
@@ -98,6 +100,10 @@ def main():
         raise ValueError('measurement_gap_ms must be a nonempty unique subset of gap_ms')
     if not config.get('prepack_comparison') and ('prepack_strategies' in config or 'measurement_gap_ms' in config):
         raise ValueError('focused measurements require prepack_comparison')
+    if config.get('candidate_scan_only') and (config.get('candidate_backend') != 'opencl'
+            or any(config.get(k) for k in ('observation_scan','p_value_sequence','pending_wait_cases','prepack_comparison','cpu_thread_scan','paired_post_tool'))
+            or config.get('calibration_only') or 200 not in config['gap_ms']):
+        raise ValueError('OpenCL独立扫描要求完整校准、G200、无其他实验模式')
     limits = config.setdefault('numeric_acceptance', {'min_cosine': 0.999, 'max_nrmse': 0.05})
     if not 0 <= limits['min_cosine'] <= 1 or (limits['max_nrmse'] is not None and limits['max_nrmse'] < 0):
         raise ValueError('数值阈值不合法')
@@ -117,7 +123,10 @@ def main():
     skip_calibration=config.get('skip_calibration',False)
     if skip_calibration and (not config.get('prepack_comparison') or pack_strategies!=['always'] or not config.get('response_reference')):
         raise ValueError('skip_calibration requires forced HC early comparison and recorded response reference')
-    binary = build()
+    candidate_backend = config.get('candidate_backend', 'htp')
+    if candidate_backend not in ('htp', 'opencl'):
+        raise ValueError('candidate_backend must be htp/opencl')
+    binary = (ROOT/config['agent_binary']).resolve() if config.get('agent_binary') else build()
     stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out = ROOT / 'results' / (stamp + '-http-oracle-grid'); out.mkdir()
     print(str(out), flush=True)
@@ -161,6 +170,11 @@ def main():
         'vision_backend': 'none', 'decode_backend': 'cpu', 'kv_type': 'F16', 'flash_attention': False,
         'http_transport': 'Android loopback via ' + ('SSH reverse forwarding' if a.transport == 'ssh' else 'adb reverse') + ' to host controlled HTTP server',
         'model': '/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf'}
+    manifest['candidate_backend'] = candidate_backend
+    manifest['route_semantics'] = {'CC':'CPU prefill/CPU decode', 'HC':candidate_backend+' prefill/CPU decode (legacy protocol name)'}
+    if config.get('candidate_scan_only'):
+        manifest['measurement_grid'] = [[p,200,'always','HC'] for p in config['new_tokens']]
+        manifest['expected_trials'] = (6+config['repetitions'])*len(config['new_tokens'])
     manifest['numeric_calibration_performed']=not skip_calibration
     manifest['history_backend']=config.get('history_backend','cpu')
     if config.get('post_tool_routing'):
@@ -250,6 +264,7 @@ def main():
             '--profile-history', str(config['history_tokens']), '--profile-inputs', ','.join(map(str, config['new_tokens'])),
             '--oracle-min-cosine', str(limits['min_cosine']), '--oracle-max-nrmse', 'none' if limits['max_nrmse'] is None else str(limits['max_nrmse']),
             '--http-port', str(port), '--out', remote + '/trials.jsonl']
+        args += ['--oracle-candidate-backend', candidate_backend]
         if config.get('history_backend')=='htp':args += ['--oracle-history-backend','htp']
         if config.get('post_tool_routing'):
             args += ['--oracle-post-tool-routing', '1']
@@ -279,12 +294,24 @@ def main():
         (out / 'command.txt').write_text(shell)
         proc = subprocess.Popen(transport.shell_command(shell), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1)
         protocol = Protocol(proc, out); protocol.wait('session_ready', timeout=config['timeout_s'])
+        # 一次拉取小型文本夹具，避免模型常驻期间反复建立SCP连接。
+        if config.get('candidate_scan_only'):
+            names = [f'trials.jsonl.P{p}.txt' for p in config['new_tokens']] + ['trials.jsonl.prefix.txt']
+            fixture_tar = call('shell', 'tar -cf - -C ' + shlex.quote(remote) + ' ' + shlex.join(names)).stdout
+            (out/'fixture-inputs.tar').write_bytes(fixture_tar)
+            with tarfile.open(fileobj=io.BytesIO(fixture_tar)) as archive:
+                for p in config['new_tokens']:
+                    (out/f'P{p}.txt').write_bytes(archive.extractfile(f'trials.jsonl.P{p}.txt').read())
+                (out/'history-prefix.txt').write_bytes(archive.extractfile('trials.jsonl.prefix.txt').read())
         for p in config['new_tokens']:
-            call('pull', remote + f'/trials.jsonl.P{p}.txt', str(out / f'P{p}.txt')); bodies[p] = (out / f'P{p}.txt').read_bytes()
+            if not config.get('candidate_scan_only'):
+                call('pull', remote + f'/trials.jsonl.P{p}.txt', str(out / f'P{p}.txt'))
+            bodies[p] = (out / f'P{p}.txt').read_bytes()
             if config.get('fixture_reference_run') and bodies[p] != (ROOT/config['fixture_reference_run']/f'P{p}.txt').read_bytes():
                 raise ValueError('快速构造的 HTTP 输入与原夹具不同')
         if config.get('history_fixture_reference'):
-            call('pull', remote+'/trials.jsonl.prefix.txt', str(out/'history-prefix.txt'))
+            if not config.get('candidate_scan_only'):
+                call('pull', remote+'/trials.jsonl.prefix.txt', str(out/'history-prefix.txt'))
             if (out/'history-prefix.txt').read_bytes() != (ROOT/config['history_fixture_reference']).read_bytes():
                 raise ValueError('快速构造的历史输入与原夹具不同')
         costs = {}; qualified = {}; counter = 0
@@ -383,7 +410,14 @@ def main():
                 rng.shuffle(conditions)
                 for p,g,s,pack in conditions: trial(p,g,s,'HC','measurement',rep,pack)
 
-        for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison') or thread_scan or paired_post_tool or wait_cases or config.get('p_value_sequence')) else config['repetitions']):
+        if config.get('candidate_scan_only'):
+            if not all(qualified.values()):
+                raise RuntimeError('候选后端未全部通过数值准入，拒绝正式扫描')
+            for rep in range(config['repetitions']):
+                for p in config['new_tokens']:
+                    trial(p, 200, 'always', 'HC', 'measurement', rep)
+
+        for rep in range(0 if (config.get('candidate_scan_only') or config.get('calibration_only') or config.get('prepack_comparison') or thread_scan or paired_post_tool or wait_cases or config.get('p_value_sequence')) else config['repetitions']):
             conditions = list(grid)
             rng.shuffle(conditions)
             for p, gap, strategy, route in conditions:
@@ -420,6 +454,8 @@ def main():
             'trials': len(rows), 'config': config, 'costs': costs,
             'response_and_state_passed': all(r['passed'] and r['response_check']['passed'] for r in rows)}
         (out / 'diagnostic-summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    elif config.get('candidate_scan_only'):
+        pass  # 专用跨后端曲线由独立分析入口统一验收。
     elif config.get('p_value_sequence'):
         subprocess.run([sys.executable, str(ROOT / 'scripts/analyze/p_value_device.py'), str(out), '--output', str(out)], check=True)
     elif not config.get('prepack_comparison') and not config.get('observation_scan') and not thread_scan and not paired_post_tool and not wait_cases:

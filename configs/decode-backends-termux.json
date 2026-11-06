@@ -1,0 +1,25 @@
+{
+  "mode": "hybrid",
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "backends": [
+    "cpu",
+    "htp",
+    "opencl"
+  ],
+  "repetitions": 3,
+  "horizon": 64,
+  "batch_size": 128,
+  "context_size": 6144,
+  "timeout_s": 1200,
+  "agent_binary": "build/agent_runtime",
+  "history_fixtures": {
+    "2048": "results/20261105-222416-140819-http-oracle-grid/history-prefix.txt",
+    "4096": "results/20261105-225513-856128-http-oracle-grid/history-prefix.txt"
+  },
+  "input_fixtures": {
+    "32": "results/20261106-144555-894164-http-oracle-grid/P32.txt",
+    "1024": "results/20261106-144555-894164-http-oracle-grid/P1024.txt"
+  }
+}

@@ -1,5 +1,6 @@
 #pragma once
 #include <future>
+#include "profiling/text_fixture.h"
 #include "scheduling/pending_wait.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -40,7 +41,9 @@ static std::string oracle_http(int port,int p,int gap,int id) {
 static int run_oracle(const std::map<std::string,std::string> & args) {
     auto get=[&](const std::string & k){return args.at(k);};
     require(get("--mode")=="hybrid" && get("--policy")=="none" && get("--pre-move")=="0","explicit hybrid/none required");
-    double start=now_ms();Engine cpu(get("--model"),false,false),htp(get("--model"),true,false);
+    const std::string candidate_backend=args.count("--oracle-candidate-backend")?get("--oracle-candidate-backend"):"htp";
+    require(candidate_backend=="htp" || candidate_backend=="opencl","unsupported candidate backend");
+    double start=now_ms();Engine cpu(get("--model"),false,false),htp(get("--model"),true,false,candidate_backend=="opencl"?"GPUOpenCL":"HTP0");
     double init=now_ms()-start;auto vocab=llama_model_get_vocab(cpu.model);int nv=llama_vocab_n_tokens(vocab);
     const int h=std::stoi(args.count("--profile-history")?get("--profile-history"):"4096");
     const double min_cosine=std::stod(args.count("--oracle-min-cosine")?get("--oracle-min-cosine"):"0.999");
@@ -55,6 +58,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
     if(!reg) reg=ggml_backend_reg_by_name("Hexagon");
     using KvControl=int(*)(ggml_backend_reg_t,int,int,uint64_t*);
     KvControl kv_control=prepack && reg?reinterpret_cast<KvControl>(ggml_backend_reg_get_proc_address(reg,"a2o_kv_control_v1")):nullptr;
+    require(candidate_backend=="htp" || !prepack,"OpenCL cannot use HTP prepack");
     require(!prepack || kv_control,"private HTP prepack bridge unavailable");
     if(prepack) require(h%32==0,"prepack H must align 32");
     const bool release_tiles=args.count("--htp-kv-release-before-decode") && get("--htp-kv-release-before-decode")=="1";
@@ -62,23 +66,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
     const bool release_calibration=args.count("--oracle-release-calibration-state") && get("--oracle-release-calibration-state")=="1";
     int port=std::stoi(get("--http-port"));
     double history_fixture_start=now_ms();
-    auto prefix=tokens(vocab,"<|im_start|>system\nYou are a GUI agent. For every new request return only {\"action\":\"wait\"}. Do not repeat observation text. No markdown.<|im_end|>\n<|im_start|>user\nPast screen observations:\n",true);
-    auto closing=tokens(vocab,"\nThe tool completed successfully. Continue waiting for the next request.<|im_end|>\n<|im_start|>assistant\n{\"action\":\"wait\"}<|im_end|>",false);
-    // 复用四路径已验收历史夹具，固定内容以便比较 backend 数值准入。
-    std::string records;
-    const char * screens[]={"Settings shows battery level and network status.","Developer options shows logging, graphics and debugging controls.","The application displays a list of saved documents.","A confirmation dialog has been dismissed and the toolbar is visible."};
-    require(size_t(h)>=prefix.size()+closing.size(),"H too small for structured history");
-    std::vector<llama_token> body_tokens;size_t needed=h-prefix.size()-closing.size();
-    for(int i=0;i<h;++i) {
-        records+="Observation "+std::to_string(i)+": "+screens[i%4]+" Tool result: success.\n";
-        if((i+1)%64==0 || i+1==h) {
-            body_tokens=tokens(vocab,records,false);
-            if(body_tokens.size()>=needed+64)break;
-        }
-    }
-    require(body_tokens.size()>=needed,"history fixture too short");body_tokens.resize(needed);
-    prefix.insert(prefix.end(),body_tokens.begin(),body_tokens.end());prefix.insert(prefix.end(),closing.begin(),closing.end());
-    require(prefix.size()==h,"H fixture mismatch");
+    auto prefix=observation_history(vocab,h);
     double history_fixture_ms=now_ms()-history_fixture_start;
     const bool history_htp=args.count("--oracle-history-backend") && get("--oracle-history-backend")=="htp";
     llama_pos pos=0;start=now_ms();evaluate(history_htp?htp.ctx:cpu.ctx,prefix,pos);double history_ms=now_ms()-start;
@@ -262,7 +250,7 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
         bool passed=eog && same;
         std::ostringstream row;row<<"{\"id\":"<<id<<",\"phase\":"<<json(phase)<<",\"H\":"<<h<<",\"P\":"<<p<<",\"D\":"<<ids.size()<<",\"gap_requested_ms\":"<<g
           <<",\"cpu_prefill_threads\":"<<cpu_prefill_threads<<",\"cpu_decode_threads\":4"
-          <<",\"strategy\":"<<json(strategy)<<",\"requested_route\":"<<json(route)<<",\"route\":"<<json(selected)<<",\"prepared_early\":"<<(early?"true":"false")<<",\"ready_at_return\":"<<(ready?"true":"false")
+          <<",\"candidate_backend\":"<<json(candidate_backend)<<",\"strategy\":"<<json(strategy)<<",\"requested_route\":"<<json(route)<<",\"route\":"<<json(selected)<<",\"prepared_early\":"<<(early?"true":"false")<<",\"ready_at_return\":"<<(ready?"true":"false")
           <<",\"want_prepare\":"<<(want?"true":"false")<<",\"wait_policy\":"<<json(bounded_wait?"bounded":"ready_only")
           <<",\"route_reason\":"<<json(route_reason)<<",\"pending_wait_eligible\":"<<(wait_plan.eligible?"true":"false")
           <<",\"pending_wait_attempted\":"<<(wait_attempted?"true":"false")<<",\"pending_wait_succeeded\":"<<(wait_succeeded?"true":"false")

@@ -47,3 +47,11 @@ python scripts/plot/observations.py results/<第一批> results/<第二批> --ou
 每批保留 checked-rows.jsonl、设备原始trials、HTTP正文hash、同一设备时钟事件、完整响应与ID、数值校准、源文件及二进制hash。出图前核验完整矩阵、原始记录一致性、输出、计时恒等式、发布顺序和数值准入；HC失败按整个H/P排除。图像和独立历史记忆验收不属于该文本微基准。
 
 选路 Oracle 只在准备状态匹配时比较，无法匹配记空值。联合 Oracle 从包括实际策略轨迹的完整实测候选取经验最小值，明确允许等待；不通过阶段拼接构造重叠收益，也不与严格 ready Oracle 混为一谈。
+
+## OpenCL 补充曲线
+
+2026-11-06新增OpenCL prefill→CPU decode，沿用同一H/P、模型、F16 KV和完整响应/状态迁移验收。使用晚间Termux重跑的CPU/HTP数据与独立GPU会话合并，图例明确标注；旧图保留。见[OpenCL实验结果及更新后的第一张曲线](../validation/gpu-study.md)。
+
+## Decode 独立比较
+
+[Decode补测](../validation/gpu-study.md)使用相同CPU prefill快照，比较CPU/HTP/OpenCL上已驻留KV的短JSON decode与64步固定回放。自然输出与长回放分别数值准入，初始化、prefill、迁移和审计不混入decode计算。它与第一张完整响应图是不同口径，不直接相加推导端到端路径。

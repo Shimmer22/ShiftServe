@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "panels": [
+    "full P16\u20131024",
+    "P31/32/33 detail"
+  ],
+  "checks": [
+    "legend identity",
+    "raw points and median lines",
+    "axes and units",
+    "caption and session distinction",
+    "no clipping in final figure"
+  ],
+  "formats": [
+    "png",
+    "pdf"
+  ]
+}

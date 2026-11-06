@@ -100,6 +100,7 @@ static std::map<std::string, long long> resource_sample() {
 #include "session/tool_session.h"
 #include "profiling/oracle.h"
 #include "profiling/execution_preparation.h"
+#include "profiling/decode.h"
 
 int main(int argc, char ** argv) { try {
     std::map<std::string, std::string> a;
@@ -149,6 +150,7 @@ int main(int argc, char ** argv) { try {
         }
     } else { unsetenv("MTMD_BACKEND_DEVICE"); }
     if(get("--execution-prepare-probe")=="1") return run_execution_probe(a);
+    if(get("--decode-profile")=="1") return run_decode_profile(a);
     if(get("--oracle-profile")=="1") return run_oracle(a);
     if(get("--tool-session")=="1") return run_tool_session(a);
     if(get("--path-profile")=="1") return run_paths(a);

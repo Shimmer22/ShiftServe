@@ -28,3 +28,7 @@ CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.m
 短Gap机制：[按成本有限等待与Cost-aware触发率](guides/pending-wait.md)。
 
 - [P 分布与投机准备期望价值](design/p-distribution-value.md)
+
+- [第一张曲线补测 OpenCL GPU：实验与结果](validation/gpu-study.md)
+
+- [CPU / HTP / OpenCL decode 独立测量与曲线](validation/gpu-study.md)

@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "panels": [
+    "natural JSON",
+    "64-step replay"
+  ],
+  "checks": [
+    "raw points and medians",
+    "rejected data excluded from summary lines",
+    "labels and units",
+    "legend and caption",
+    "no collisions or clipping"
+  ]
+}

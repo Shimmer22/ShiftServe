@@ -1,0 +1,730 @@
+{
+  "sources": [
+    {
+      "run": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261105-222416-140819-http-oracle-grid",
+      "opencl": false,
+      "binary_sha256": "27ecef916507e26c6d1bbd2eea09f8cbf3c2e7db4415ec4b0e40cb8807cbd216",
+      "hashes": {
+        "manifest.json": "3080a15b48e030386c43cb6b2160bebc4acd9f69c1d53fa5d1d3f6febccfe85d",
+        "checked-rows.jsonl": "21f2323081711cba47f39082640bb60266993816922edff2355d5f0db263518b",
+        "http-server.jsonl": "6a93bd03c744b22bf0a53aa464b2826f471cc16b5872d0a2cd116d5f612f99dc",
+        "native-events.jsonl": "4f97a8454124e086e461f4ac9d15143712a6be80459516c816eb609927918d74"
+      }
+    },
+    {
+      "run": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261105-225513-856128-http-oracle-grid",
+      "opencl": false,
+      "binary_sha256": "27ecef916507e26c6d1bbd2eea09f8cbf3c2e7db4415ec4b0e40cb8807cbd216",
+      "hashes": {
+        "manifest.json": "7c12e0233f253ac7fafec1a51d5049a950bd80da5a0505a537ae1d96e0ece14e",
+        "checked-rows.jsonl": "4eebde78cc87eb0006c73894ae5279d2550e8aac45b466a3b48c8efe8bf9a924",
+        "http-server.jsonl": "07b3ec82796128a57ea75a7f91f6283758b35655058a435243d16c6c679aa1ad",
+        "native-events.jsonl": "baa7e20dbf07966d9fe9a1440915f71031581ea049da58f609429b5f0f58fb3d"
+      }
+    },
+    {
+      "run": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261106-144555-894164-http-oracle-grid",
+      "opencl": true,
+      "binary_sha256": "b97e881bcb03945b15d2a7d6d8f9caa0fc45d90cd59adff55f93f0578c737dc8",
+      "hashes": {
+        "manifest.json": "24bd0b4270e5240045b200f79fe98b15c11cf54197e08a13804f482de73c75ce",
+        "checked-rows.jsonl": "ea930bb8505319238459b9f324cb37e3a9517d2394a8e33e8ebd7e3f0b1b0bf5",
+        "http-server.jsonl": "121265d8c79e5917dcbb9900d6863a76807c72e03ffb359eac77f5a56844e7fe",
+        "native-events.jsonl": "497b25d873a59e1d45e2e97ed8e98d9b89ef1e578e28f676df29eaad5ce65eac"
+      }
+    },
+    {
+      "run": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261106-145744-737602-http-oracle-grid",
+      "opencl": true,
+      "binary_sha256": "b97e881bcb03945b15d2a7d6d8f9caa0fc45d90cd59adff55f93f0578c737dc8",
+      "hashes": {
+        "manifest.json": "1a8dd413a0127f4ed4625814e29465180fa6b20cbead5d1c12dfe7783e5b2d31",
+        "checked-rows.jsonl": "ae9bf49cb332446463a2b766c56ed24ab6b92720a06ae53c5d92b74d395a52fc",
+        "http-server.jsonl": "cb9093ce5e0d744a16770ef087dbfc90a9e77fee89b6500eae216ea0197dafb9",
+        "native-events.jsonl": "8076c8a5ad30d7a1df0cf55ee0ba5c61b8a882c323198ea2a99288e9e605d199"
+      }
+    }
+  ],
+  "shared": {
+    "context_size": 6144,
+    "batch_size": 128,
+    "kv_policy": "none",
+    "pre_move": false,
+    "cpu_repack": false,
+    "numeric_acceptance": {
+      "min_cosine": 0.99,
+      "max_nrmse": null
+    },
+    "input_fixture": "neutral_padding_v1",
+    "release_calibration_state": true,
+    "model": "/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf",
+    "device_identity": {
+      "ro.product.model": "23116PN5BC",
+      "ro.product.device": "shennong",
+      "ro.soc.model": "SM8650",
+      "ro.build.version.release": "14",
+      "ro.serialno": ""
+    },
+    "runtime": {
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-base.so": "589e83f4bf16e438d92d76ef1f9749c8014867ffb93595436e5ff455ae85abd9",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-cpu.so": "aa9a89a1e2a6276a35d59266d9064fb9a4cd6062ccc8fc0b991dc58f9ddbbeec",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-hexagon.so": "ab20b0ff91ff76319e5f79903e5522e91cd1f7627791da4ea6c4ce9749a50eff",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v68.so": "26cafcab17f78c04cd679411e69e6b2f24d5b255dd3e468e042b624db3dead3d",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v69.so": "6e3aba535231313ca4fc2a920655a6ec65709abdcb8cd2c01279c7cab5a0cc65",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v73.so": "428a9da5840ee68b2d308e5d8578aecf2aed87cd6a53fc0f22fe4c3d173cfd33",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v75.so": "ba4df874646bd81182b4ffcbb2039f43cd45f54a543ebdbebb12c1c8879f92dc",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v79.so": "02d953b433ca806d81422b46a5129dc470b905acca014ba28a4f42a5330666bc",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v81.so": "fcb9c47f14fd9b69ca4587055fa0367502f7bf2c21a22143669e88ac31388118",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-opencl.so": "b9bf9bf0697d9206215d1939443bad3d19bdb8c09bf48bc746d94d92f85c0702",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml.so": "2cd14acab70b62e2b723a7adaf4e05f396476563c0748171c5d9941ba24ac48d",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libllama-common.so": "95b50a1d048b0583719226f26fc9e876ef6a0afb92091499dfdea0d3779bb482",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libllama.so": "89dbf30d32b2586221fce0f494bc9ae41c602339b0858a9e5e1b98d7beef40b5",
+      "/data/data/com.termux/files/home/.local/a2o/runtime/lib/libmtmd.so": "eb1d028abe1d39d07579da510fe6a142b107d57bc043105f287f13c8241d731d"
+    }
+  },
+  "points": [
+    {
+      "H": 2048,
+      "P": 16,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 1.549208906,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 24,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 1.992235103,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 31,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.071255937,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 32,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.2325789570000003,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 33,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.9145128639999998,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 40,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.873592499,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 48,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.317524791,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 56,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.727312082,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 64,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.776964477,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 128,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 7.725108799,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 256,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 14.639707442,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 512,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 28.415403843,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 1024,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 55.376056281,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 16,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.343694374,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 24,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 3.19206927,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 31,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 3.863266248,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 32,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 1.804399426,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 33,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 1.894365468,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 40,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 1.888415988,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 48,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 1.96426802,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 56,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 1.994234166,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 64,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.020256093,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 128,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 3.430959269,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 256,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 6.499944737,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 512,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 12.599760204,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 1024,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 25.177331501,
+      "run": "results/20261105-222416-140819-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 16,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.09553875,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 24,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.133566666,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 31,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.195465573,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 32,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.2214451039999998,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 33,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.342323906,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 40,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.310563854,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 48,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.3721938009999999,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 56,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.4120924480000001,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 64,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.397117604,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 128,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.872647187,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 256,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 2.989461926,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 512,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 5.415029061,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 2048,
+      "P": 1024,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 10.494325725000001,
+      "run": "results/20261106-144555-894164-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 16,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 1.799488281,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 24,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.148793697,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 31,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.4978084359999997,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 32,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.518254634,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 33,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.467244686,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 40,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 2.979532031,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 48,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.5689273939999997,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 56,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 3.8041335399999996,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 64,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 4.6489501540000004,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 128,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 8.318017914,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 256,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 16.655901816,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 512,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 32.154834206,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 1024,
+      "backend": "CPU/CPU",
+      "accepted": true,
+      "median_response_s": 66.713775756,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 16,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 3.670901769,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 24,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 5.006186405,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 31,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 6.169531248,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 32,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.062455364,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 33,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.163491093,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 40,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.202249999,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 48,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.2254363010000002,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 56,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.233607395,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 64,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 2.241600311,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 128,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 4.981013279,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 256,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 8.624796610999999,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 512,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 17.562319212,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 1024,
+      "backend": "HTP/CPU",
+      "accepted": true,
+      "median_response_s": 34.730904413999994,
+      "run": "results/20261105-225513-856128-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 16,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.4988566140000001,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 24,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.530936093,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 31,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.588710625,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 32,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.566378281,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 33,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.7132224470000001,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 40,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.723053697,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 48,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.748422708,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 56,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.790652551,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 64,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 1.808572082,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 128,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 2.4693380200000004,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 256,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 4.018579843,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 512,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 7.222501404,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    },
+    {
+      "H": 4096,
+      "P": 1024,
+      "backend": "OpenCL/CPU*",
+      "accepted": true,
+      "median_response_s": 13.932066661999999,
+      "run": "results/20261106-145744-737602-http-oracle-grid"
+    }
+  ],
+  "clock_diagnostic_read_skew_tolerance_ms": {
+    "original": 0.1,
+    "opencl": 1.0
+  },
+  "response_signature": [
+    "{\"action\":\"wait\"}",
+    [
+      4913,
+      1311,
+      3252,
+      11489,
+      9207,
+      151645
+    ],
+    6
+  ],
+  "plot_script_sha256": "3fa975c1fe629734f0150985ab467e82abe7a53f0f4955381bc72c602c302c4e",
+  "figure_style_sha256": "5f6550d8cfbaf8cf7ac080dfa130c426e61117c8cb4d9bf72ae7b5511aed7a5d",
+  "matplotlib_version": "3.10.9"
+}

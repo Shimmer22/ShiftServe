@@ -1,0 +1,59 @@
+{
+  "mode": "hybrid",
+  "history_tokens": 2048,
+  "new_tokens": [
+    16,
+    24,
+    31,
+    32,
+    33,
+    40,
+    48,
+    56,
+    64,
+    128,
+    256,
+    512,
+    1024
+  ],
+  "gap_ms": [
+    0,
+    50,
+    200
+  ],
+  "strategies": [
+    "after_return",
+    "always",
+    "cost_aware"
+  ],
+  "routes": [
+    "CC",
+    "HC"
+  ],
+  "repetitions": 3,
+  "context_size": 6144,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "timeout_s": 1200,
+  "seed": 20261104,
+  "numeric_acceptance": {
+    "min_cosine": 0.99,
+    "max_nrmse": null
+  },
+  "input_fixture": "neutral_padding_v1",
+  "observation_scan": false,
+  "scan_gap_ms": 200,
+  "post_tool_routing": true,
+  "release_calibration_state": true,
+  "fixture_reference_run": "results/20261104-221546-860540-http-oracle-grid",
+  "history_fixture_reference": "results/20261105-222416-140819-http-oracle-grid/history-prefix.txt",
+  "require_awake": false,
+  "power_mode": "termux_wakelock",
+  "candidate_backend": "opencl",
+  "candidate_scan_only": true,
+  "agent_binary": "build/agent_runtime"
+}

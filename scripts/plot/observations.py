@@ -23,28 +23,32 @@ import numpy as np
 DUAL_CLOCK_READ_SKEW_TOLERANCE_MS = 0.1
 
 
-def check_dual_clock(row):
-    if (row['actual_gap_ms']+DUAL_CLOCK_READ_SKEW_TOLERANCE_MS<row['active_actual_gap_ms'] or
-            row['suspend_during_tool_to_response_ms']<-DUAL_CLOCK_READ_SKEW_TOLERANCE_MS or
+def check_dual_clock(row, read_skew_tolerance_ms=DUAL_CLOCK_READ_SKEW_TOLERANCE_MS):
+    if (row['actual_gap_ms']+read_skew_tolerance_ms<row['active_actual_gap_ms'] or
+            row['suspend_during_tool_to_response_ms']<-read_skew_tolerance_ms or
             abs(row['tool_to_response_ms']-row['active_tool_to_response_ms']-row['suspend_during_tool_to_response_ms'])>.01):
         raise ValueError('双时钟或挂起诊断不一致')
 
 
-def load_run(path):
+def load_run(path, *, candidate_scan=False):
     """全组校验后再筛选；失败 HC 整个 P 排除，不选成功子集。"""
     read = lambda name: [json.loads(x) for x in (path / name).read_text().splitlines()]
     manifest = json.loads((path / 'manifest.json').read_text())
     cfg = manifest['config']
     if manifest.get('clock_id') != 'CLOCK_BOOTTIME':
         raise ValueError('完整用户等待延迟必须使用包含挂起的 CLOCK_BOOTTIME')
-    if not cfg.get('observation_scan') or cfg.get('prepack_comparison') or cfg.get('htp_kv_prepack_dir'):
+    if candidate_scan:
+        if not cfg.get('candidate_scan_only') or cfg.get('candidate_backend') != 'opencl':
+            raise ValueError('要求显式OpenCL独立扫描')
+    if (not cfg.get('observation_scan') and not candidate_scan) or cfg.get('prepack_comparison') or cfg.get('htp_kv_prepack_dir'):
         raise ValueError('主图要求统一的 observation_scan，关闭额外 KV 表示')
     if not json.loads((path / 'completion.json').read_text())['passed']:
         raise ValueError('实验未完成')
     raw, rows, http, events = map(read, ['device/trials.jsonl', 'checked-rows.jsonl', 'http-server.jsonl', 'native-events.jsonl'])
     expected = {('calibration', p, 0, 'after_return', route, rep)
                 for p in cfg['new_tokens'] for route in ['CC', 'HC'] for rep in range(3)}
-    expected |= {('measurement', p, g, s, route, rep) for p, g, s, route in measurement_grid(cfg)
+    grid = [(p,200,'always','HC') for p in cfg['new_tokens']] if candidate_scan else measurement_grid(cfg)
+    expected |= {('measurement', p, g, s, route, rep) for p, g, s, route in grid
                  for rep in range(cfg['repetitions'])}
     keys = [(r['phase'], r['P'], r['gap_requested_ms'], r['strategy'], r['requested_route'], r['repetition']) for r in rows]
     if len(keys) != len(expected) or set(keys) != expected:
@@ -53,6 +57,8 @@ def load_run(path):
         raise ValueError('trial ID 缺失或重复')
     if len(raw) != len(rows) or any(any(r[k] != v for k, v in a.items()) for a, r in zip(raw, rows)):
         raise ValueError('设备原始行与主机记录不同')
+    if candidate_scan and any(r.get('candidate_backend') != 'opencl' for r in rows):
+        raise ValueError('设备实际候选后端不符')
     by_http = {h['id']: h for h in http}
     if len(http) != len(rows) or set(by_http) != {r['id'] for r in rows}:
         raise ValueError('HTTP 记录不完整')
@@ -84,7 +90,9 @@ def load_run(path):
             raise ValueError('设备事件顺序不成立')
         if abs(r['tool_to_response_ms'] - r['actual_gap_ms'] - r['response_after_return_ms']) > .01:
             raise ValueError('设备同一时钟的计时恒等式不成立')
-        check_dual_clock(r)
+        # 独立时钟读取可被调度打断；候选扫描保留原值并容许1ms诊断偏差。
+        # 主CLOCK_BOOTTIME恒等式/事件顺序仍使用原严格检查。
+        check_dual_clock(r, read_skew_tolerance_ms=1.0 if candidate_scan else DUAL_CLOCK_READ_SKEW_TOLERANCE_MS)
         if pubs[r['id']]['output'] != r['output']:
             raise ValueError('发布输出不一致')
     if hashlib.sha256((path / 'device/agent').read_bytes()).hexdigest() != manifest['binary_sha256']:

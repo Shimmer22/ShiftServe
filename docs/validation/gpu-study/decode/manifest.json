@@ -1,0 +1,81 @@
+{
+  "config": {
+    "mode": "hybrid",
+    "kv_policy": "none",
+    "pre_move": false,
+    "cpu_repack": false,
+    "backends": [
+      "cpu",
+      "htp",
+      "opencl"
+    ],
+    "repetitions": 3,
+    "horizon": 64,
+    "batch_size": 128,
+    "context_size": 6144,
+    "timeout_s": 1200,
+    "agent_binary": "build/agent_runtime",
+    "history_fixtures": {
+      "2048": "results/20261105-222416-140819-http-oracle-grid/history-prefix.txt",
+      "4096": "results/20261105-225513-856128-http-oracle-grid/history-prefix.txt"
+    },
+    "input_fixtures": {
+      "32": "results/20261106-144555-894164-http-oracle-grid/P32.txt",
+      "1024": "results/20261106-144555-894164-http-oracle-grid/P1024.txt"
+    }
+  },
+  "transport": "ssh",
+  "clock_id": "CLOCK_BOOTTIME",
+  "device": "u0_a320@10.29.131.50:8022",
+  "model": "/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf",
+  "binary_sha256": "6e1575df301db01ca8e0a2b489eaa3bbcfdea27b65c3d6d3f3abe0ef485738df",
+  "source_files_sha256": {
+    "src/a2o/native/agent_runtime.cpp": "168cf860bb2094424bec33290249dac07f864d79a61c7c256c4782678069f331",
+    "src/a2o/native/backend/engine.h": "19810ae7fd7855dfbbcc38a33931bcfb4818dd1bd913e7cda55ed2ab1761a887",
+    "src/a2o/native/backend/execution-preparation.h": "3ca132feefbdf588c6ac7b4df3fe34258119c51b4d705e548994b636396ed2f9",
+    "src/a2o/native/backend/htp-execution-prepare.inc": "0ba766e6929b1aaafbe12551382a482ade0e0238f621cdcef5e63263dab5831e",
+    "src/a2o/native/backend/inference.h": "0154472973e23cc00421f2141be07908049bd753fe55c0bf6bc280831c4422fb",
+    "src/a2o/native/backend/llama-execution-context.inc": "dc00a6cb5d071d643897ca9708241b7577462e48694e7c23c2a40a7576a8ce61",
+    "src/a2o/native/profiling/clock_probe.cpp": "e1b6e6857de0cec391dd630a30b2eff1efa5dd4d2014c6ea1f81116553ab1b35",
+    "src/a2o/native/profiling/decode.h": "0c68268cb1d3872eb8473cb9e1bf2e22a8cced95c3835cd6a650a143e668dc03",
+    "src/a2o/native/profiling/execution_preparation.h": "33cd6d39bdf4315f536f2b06150963b438cd6b7e1295332a57caaeefff867cd2",
+    "src/a2o/native/profiling/oracle.h": "a3c065d144b50c406f35871b7bd096793adb222bd972ffda438610256f4faf55",
+    "src/a2o/native/profiling/paths.h": "c5c6baa0aadf7e40cf0f541a50f9510c419faafd12b31a726275589adfc955f1",
+    "src/a2o/native/profiling/prefill.h": "e13c1bdeb069ff4d29cb4b958cf2c945138d62475b9735dac14ea078d8d23258",
+    "src/a2o/native/profiling/text_fixture.h": "51b41020cc9a6538be989f207899ec7e09d51bd1c3c73ceed9b3392dd291f0ce",
+    "src/a2o/native/scheduling/execution_preparation.h": "adc058003f7fd1051c9043c438d7ef44a9ca9458a8c9c5a676612a08285e4d9f",
+    "src/a2o/native/scheduling/ggml-execution-prepare.inc": "310bb88f97e3df95dd6dc3a1d721184c567c14d0f307a7a43b3ce946984af65f",
+    "src/a2o/native/scheduling/online_cost.h": "dc2ac7e1886581217f568c2a50151de222ef56dac9c58ac4f0e3338edb193808",
+    "src/a2o/native/scheduling/pending_wait.h": "975adabca65dab2c845b41511524de5c502672e68ae1724ba6c1a9616b057e08",
+    "src/a2o/native/scheduling/router.h": "03a6424a2c5e4ead833e92718119a7f87e7a019ccd226068eee56f18009bee20",
+    "src/a2o/native/session/replay_session.h": "34ad08b3864ea5fe2c2259f36c6f940399bd7b3d0342b435b0331967e74b9ed3",
+    "src/a2o/native/session/tool_session.h": "a7473c3898471affcdb549a14999702aee530328fc9d2c900842769649c909c4",
+    "src/a2o/native/state/async_preparation.h": "c5a83c4f0a962367a1049fa8fb0906c900289d084e0dfb3f7073a6cbf5070a62",
+    "src/a2o/native/state/htp-kv-prepack-host.inc": "3e97e16413a5b11810716ad77ab689792245dc8fb2bb29c1a8fab77b45763b1c",
+    "src/a2o/native/state/htp-kv-prepack-load.inc": "98598e04894564bc99f926c5d42d3a12e01718d6280c08d58623010ab8bb67ce",
+    "src/a2o/native/state/htp-kv-prepack-main.inc": "a9f8d8d3210e8832073531ead1aa601f5360af4c73531ae6813cbb6d568be05d",
+    "src/a2o/native/state/htp-kv-prepack-pack.inc": "4055458749bcef37c79c253617edfdd60b926d341303e058f070a23a3b4b35e4",
+    "src/a2o/native/state/htp-kv-prepack-workspace.inc": "98c77d04e6a4115c869ee0e7a9a48c3087b2479606723e3fdcedbc7d1c98a08f",
+    "src/a2o/native/state/htp-kv-prepack.h": "2ac4786bad696b64766fa864c897963864fb0406458141b6a57159348c33d866",
+    "src/a2o/native/state/kv-execution-preview.inc": "4e89d6e3f5d7c9205915c19e6a178d0306f8c1aa36057479a0ee6de368ce4fbf",
+    "src/a2o/native/state/preparation_lane.h": "ea306bda4e62db123f8a7a603c70d6d455a0619b4d632a0c54a09ebc98a041ae",
+    "src/a2o/native/state/sequence.h": "6ae7433f882e143ce5f77be048bde5034ad362c7ae534380be468884c0697414",
+    "src/a2o/native/state/snapshot.h": "dc8579d8ffe393de8819e7c6629bcd2f77566fe3d11aff43a653dadf1d0d8769",
+    "src/a2o/native/vision/prepared_image.h": "5be1381ae27d88a7941770e9567be86f8dd87d3eb5a0207789d01798191b595c"
+  },
+  "fixture_sha256": {
+    "H2048.txt": "f6b3dda236b8c9dc42c6472a88e993bf2dbc88a021bde4230630c5751e70e280",
+    "H4096.txt": "42cd6c5d06598e855fd640c73b77f5622fe0ca8ec9555fd2cf4c8b335af13c46",
+    "P32.txt": "b821babc478bf82958e1ce90bf89354d7a1de29141a9957e45ccb362b2b8c2d0",
+    "P1024.txt": "3e3f59e68e7b84cf45591238c296d9284d7855644b49c21eaf6f3f834f9614e0"
+  },
+  "expected_trials": 52,
+  "numeric_acceptance": {
+    "min_cosine": 0.99,
+    "max_nrmse": null
+  },
+  "kv_type": "F16",
+  "flash_attention": false,
+  "semantics": "natural JSON until EOG; separate fixed 64-step compute replay; replay is not a natural response; migration and numerical audits excluded from decode sums",
+  "command": "export LD_LIBRARY_PATH=/data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843:/data/data/com.termux/files/home/.local/a2o/runtime/lib:/vendor/lib64:/vendor/lib64/egl ADSP_LIBRARY_PATH=/data/data/com.termux/files/home/.local/a2o/runtime/lib GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE=1 GGML_HEXAGON_OPBATCH=1; echo $$ > /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/pid; exec /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/agent --decode-profile 1 --model /data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf --mode hybrid --policy none --pre-move 0 --cpu-repack 0 --vision-backend cpu --ctx-size 6144 --batch-size 128 --decode-repeats 3 --decode-horizon 64 --decode-histories 2048,4096 --decode-inputs 32,1024 --decode-fixtures /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/fixtures --out /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/trials.jsonl --system /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/empty.txt --history /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/empty.txt --previous /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/empty.txt --prompt /data/data/com.termux/files/home/.local/a2o/runs/decode_20261106-161056-356843/empty.txt"
+}

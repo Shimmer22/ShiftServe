@@ -1,0 +1,11 @@
+{
+  "completed": true,
+  "all_short_responses_passed": true,
+  "all_numerical_passed": false,
+  "trials": 52,
+  "measurement_trials": 36,
+  "natural_qualified_conditions": 12,
+  "replay_qualified_conditions": 10,
+  "replay_rejected_conditions": 2,
+  "figure": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261106-161056-356843-decode-backends/figures/decode_backends.png"
+}
