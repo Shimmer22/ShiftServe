@@ -1,0 +1,10 @@
+{
+  "host": "10.29.131.50",
+  "port": 8022,
+  "user": "u0_a320",
+  "identity_file": "~/.ssh/a2o_xiaomi14pro_ed25519",
+  "known_hosts": "configs/termux-known-hosts",
+  "remote_root": "/data/data/com.termux/files/home/.local/a2o/runs",
+  "runtime_library_dir": "/data/data/com.termux/files/home/.local/a2o/runtime/lib",
+  "clock_probe": "/data/data/com.termux/files/home/.local/a2o/probes/clock-probe-static"
+}

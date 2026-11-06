@@ -38,7 +38,7 @@
   "kv_policy": "none",
   "pre_move": false,
   "cpu_repack": false,
-  "timeout_s": 1200,
+  "timeout_s": 600,
   "seed": 20261104,
   "numeric_acceptance": {
     "min_cosine": 0.99,
@@ -55,5 +55,6 @@
   "post_tool_routing": true,
   "release_calibration_state": true,
   "fixture_reference_run": "results/20261104-221546-860540-http-oracle-grid",
-  "history_fixture_reference": "results/20261104-221546-860540-http-oracle-grid/device/trials.jsonl.prefix.txt"
+  "history_fixture_reference": "results/20261104-221546-860540-http-oracle-grid/device/trials.jsonl.prefix.txt",
+  "require_awake": true
 }

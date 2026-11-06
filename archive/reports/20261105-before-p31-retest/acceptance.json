@@ -1,0 +1,27 @@
+{
+  "accepted_at": "2026-11-05T18:20:59.976503+08:00",
+  "data_audit_passed": true,
+  "visual_qa_passed": true,
+  "geometry_qa_passed": true,
+  "total_trials": 762,
+  "calibration_trials": 156,
+  "measurement_trials": 606,
+  "preflight_trials_separate": 18,
+  "clock_read_skew_tolerance_ms": 0.1,
+  "primary_clock_accounting_tolerance_ms": 0.01,
+  "observed_min_dual_clock_difference_ms": -0.02526,
+  "original_rows_changed": false,
+  "files_sha256": {
+    "01_backend_boundary.png": "d08df4734d9be77def92ea7097dd64bcfb8a16f26632fce9c0b0e04741e77c55",
+    "01_backend_boundary.pdf": "b35e4eab6af97ff15fcf71c6e3c319fd29725106880674ccd686f5873a202891",
+    "03_actual_gap_overlap.png": "4615e559868f25429457ffb61a08fba73bf5524e675aaf6f0e715aa52c56b409",
+    "03_actual_gap_overlap.pdf": "a00d4117b41ddc9d4d7663d90b0b3ac3d91c2121e7ee0ac74c842c3d81bb3694",
+    "02_cost_breakdown.pdf": "d7816ad53ad2e454dd15ef3ecf7f91c129ff0a4ce5a7f6d0618daeb1cbb99e94",
+    "02_cost_breakdown.png": "0b23c2db5f8179473b48ff5c831139667101d799eda671277cfbbe06d1665880",
+    "05_oracle_gap.pdf": "c09f08ee34f8bd13a3b73df68696ba8262cae41c0ca80571eaa0b6ba04123add",
+    "05_oracle_gap.png": "533172ee84e1e0b1d62b2d5578fd7e7a095ff8962d94028c96f8088fb91448a3",
+    "04_end_to_end_policies.png": "c3a1c5af17e7db217b15a9e7c22bf744cc45dbbd0132a4091aa4bdb8369a5e79",
+    "04_end_to_end_policies.pdf": "66434755c14113345ae6ddd9784192b316aa188fa5999d0a7aa322d4fe238617"
+  },
+  "limitations": "每条件3次的探索数据；数据/图形验收通过不等于已证明稳定的系统调度增益。"
+}

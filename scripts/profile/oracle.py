@@ -23,16 +23,42 @@ from a2o.runtime.protocol import Protocol
 from a2o.validation.contracts import check_response
 from a2o.validation.oracle import active_model_processes
 from a2o.validation.observation import measurement_grid
+from a2o.runtime.device_transport import DeviceTransport
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', required=True)
+    parser.add_argument('--device')
+    parser.add_argument('--transport', choices=('ssh', 'adb'), default='ssh')
+    parser.add_argument('--ssh-config', type=Path, default=ROOT / 'configs/termux-ssh.json')
     parser.add_argument('--config', type=Path, default=ROOT / 'configs/oracle-grid.json')
     parser.add_argument('--repetitions', type=int)
     parser.add_argument('--calibration-only', action='store_true', help='仅作独立诊断，不与正式时延矩阵混合')
     a = parser.parse_args()
     config = json.loads(a.config.read_text())
+    wait_cases = config.get('pending_wait_cases', [])
+    if wait_cases:
+        if (config.get('paired_post_tool') or config.get('observation_scan') or config.get('prepack_comparison')
+                or config.get('cpu_thread_scan') or config.get('htp_profile', 0)
+                or config['repetitions'] < 20 or config['repetitions'] % 2
+                or not 0 < config['pending_wait_cap_ms'] <= 1000
+                or config['pending_wait_margin_ms'] < 0 or config['pending_wait_prepare_factor'] < 1
+                or len({tuple(c) for c in wait_cases}) != len(wait_cases)
+                or any(len(c) != 3 or c[0] not in config['new_tokens'] or c[1] not in config['gap_ms']
+                       or c[2] not in ('always', 'cost_aware') for c in wait_cases)):
+            raise ValueError('有限等待要求独立无profile配对、至少20个偶数块和显式预算参数')
+    paired_post_tool = config.get('paired_post_tool', False)
+    if paired_post_tool and (config['new_tokens'] != [31] or config['gap_ms'] != [0, 200]
+            or not config.get('post_tool_routing') or config.get('observation_scan')
+            or config.get('calibration_only') or config.get('prepack_comparison')
+            or config.get('cpu_thread_scan') or config.get('htp_profile', 0)
+            or config['repetitions'] < 20 or config['repetitions'] % 2):
+        raise ValueError('P31配对复测要求独立校准、G200、偶数且至少20块，无其他扫描或profile')
+    thread_scan=config.get('cpu_thread_scan',[])
+    if thread_scan and (4 not in thread_scan or len(set(thread_scan))!=len(thread_scan) or
+                        any(type(t) is not int or not 1<=t<=8 for t in thread_scan) or
+                        config.get('observation_scan') or config.get('prepack_comparison')):
+        raise ValueError('CPU线程扫描必须含4线程参考，线程1..8且不重复，并与主图/tiles矩阵分开')
     if a.calibration_only:
         config['calibration_only'] = True
     if config.get('htp_profile', 0) not in (0, 1, 2) or config.get('htp_use_hmx') not in (None, 0, 1):
@@ -86,10 +112,11 @@ def main():
     stamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S-%f')
     out = ROOT / 'results' / (stamp + '-http-oracle-grid'); out.mkdir()
     print(str(out), flush=True)
-    adb = ['adb', '-s', a.device]
-    remote = '/data/local/tmp/a2o_oracle_' + stamp
+    transport = DeviceTransport(ROOT, a.transport, a.device, a.ssh_config)
+    remote = transport.remote_root + '/a2o_oracle_' + stamp
+    runtime_lib = transport.config['runtime_library_dir'] if a.transport == 'ssh' else '/data/local/tmp/llama.cpp/lib'
     def call(*args):
-        return subprocess.run(adb + list(args), check=True, capture_output=True, timeout=60)
+        return transport.call(*args)
     bodies = {}
     class Handler(http.server.BaseHTTPRequestHandler):
         protocol_version = 'HTTP/1.0'
@@ -111,7 +138,7 @@ def main():
     server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     port = server.server_port
-    manifest = {'config': config, 'device': a.device, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
+    manifest = {'config': config, 'device': transport.identity, 'transport': a.transport, 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
         'source_files_sha256': native_source_hashes(), 'runtime_package': str(PKG),
         'python_files_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in (Path(__file__), ROOT / 'scripts/analyze/oracle.py')},
         'scope': '真实 HTTP Tool + 原生并发准备；文本固定 H/P、完整自由生成到 EOG；无图像、无能耗结论',
@@ -123,15 +150,23 @@ def main():
         'oracle': '强制路径重放是实测反事实，不是同时可观测的单轮真值；严格选路只允许返回时 ready 的 HC；另报允许等待/返回后准备的扩展上界',
         'backend_diagnostic': {'profile': config.get('htp_profile', 0), 'use_hmx': config.get('htp_use_hmx', 'default'), 'calibration_only': config.get('calibration_only', False)},
         'vision_backend': 'none', 'decode_backend': 'cpu', 'kv_type': 'F16', 'flash_attention': False,
-        'http_transport': 'Android loopback via adb reverse to host controlled HTTP server',
+        'http_transport': 'Android loopback via ' + ('SSH reverse forwarding' if a.transport == 'ssh' else 'adb reverse') + ' to host controlled HTTP server',
         'model': '/data/local/tmp/models/Qwen2.5-VL-3B-Instruct-Q4_0.gguf'}
     manifest['numeric_calibration_performed']=not skip_calibration
     manifest['history_backend']=config.get('history_backend','cpu')
     if config.get('post_tool_routing'):
         manifest['post_tool_routing'] = 'after_return/router 在 Tool 完整返回后按独立校准 CC 与 HC+准备成本选路，允许按需准备；不是 ready-only Router'
+    if wait_cases:
+        manifest['pending_wait'] = '全额准备上界=独立三次HC校准prepare最大值×显式factor；HC+上界+margin<CC才准入，最多等min(cap,CC-HC-margin)，不读取本轮完成时间/实时剩余时间'
+        manifest['expected_trials'] = 6 * len(config['new_tokens']) + (0 if config.get('calibration_only') else 2 * len(wait_cases) * config['repetitions'])
+        manifest['pending_wait_pairs'] = '同一H/P/G/strategy相邻AB/BA，ready_only与bounded各半先运行；所有case在每块随机排列'
     if config.get('observation_scan'):
         manifest['measurement_grid'] = grid
         manifest['expected_trials'] = 6 * len(config['new_tokens']) + len(grid) * config['repetitions']
+    if paired_post_tool:
+        manifest['measurement_grid'] = [[31, 200, 'after_return', r] for r in ('CC', 'router')]
+        manifest['expected_trials'] = 6 + 2 * config['repetitions']
+        manifest['paired_design'] = '每块CC/router相邻；AB/BA各半后随机打乱；各H独立seed；CPU prefill/decode均4线程'
     if probe_skel:
         manifest['route_probe'] = {'library': str(probe_skel), 'sha256': hashlib.sha256(probe_skel.read_bytes()).hexdigest(),
             'transport': 'a2o-route-v1', 'pmu_values_are_hardware_counters': False,
@@ -143,11 +178,50 @@ def main():
     log = (out / 'runtime.log').open('w'); proc = None; protocol = None; rows = []
     try:
         call('get-state')
+        if a.transport == 'ssh':
+            if config.get('require_awake') or config.get('power_mode') != 'termux_wakelock':
+                raise ValueError('SSH灭屏运行要求显式power_mode=termux_wakelock、require_awake=false')
+            manifest['ssh_power_check'] = transport.prepare_ssh(out)
+            manifest['process_visibility'] = 'Termux UID only; host campaign lock and remote Termux lock serialize model runs'
+        identity = {key: call('shell', 'getprop', key).stdout.decode().strip()
+                    for key in ('ro.product.model', 'ro.product.device', 'ro.soc.model', 'ro.build.version.release', 'ro.serialno')}
+        manifest['device_identity'] = identity
+        manifest['device_identity_access_limited'] = a.transport == 'ssh' and not identity['ro.serialno']
+        power = call('shell', 'dumpsys', 'power').stdout.decode()
+        (out / 'power-before.txt').write_text(power)
+        manifest['power_precondition'] = ('termux_wakelock_clock_checked' if a.transport == 'ssh'
+                                        else 'Awake' if 'mWakefulness=Awake' in power else 'not_Awake')
+        (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+        if config.get('require_awake') and manifest['power_precondition'] != 'Awake':
+            raise RuntimeError('设备未处于 Awake，拒绝开始主图采样；不自动唤醒')
+        hashes = call('shell', 'sha256sum ' + shlex.quote(manifest['model']) +
+                      ' /data/local/tmp/llama.cpp/lib/libllama.so /data/local/tmp/llama.cpp/lib/libggml-hexagon.so /data/local/tmp/llama.cpp/lib/libggml-htp-*.so').stdout.decode()
+        (out / 'device-files-sha256.txt').write_text(hashes)
+        manifest['device_files_sha256'] = {line.split(maxsplit=1)[1]: line.split(maxsplit=1)[0]
+                                          for line in hashes.splitlines()}
+        if a.transport == 'ssh':
+            loaded_hashes = call('shell', 'sha256sum ' + shlex.quote(runtime_lib) + '/*.so').stdout.decode()
+            (out / 'loaded-runtime-sha256.txt').write_text(loaded_hashes)
+            manifest['loaded_runtime_files_sha256'] = {line.split(maxsplit=1)[1]: line.split(maxsplit=1)[0]
+                                                       for line in loaded_hashes.splitlines()}
+            source_hashes = call('shell', 'sha256sum /data/local/tmp/llama.cpp/lib/*.so').stdout.decode()
+            by_name = lambda s: {Path(line.split(maxsplit=1)[1]).name: line.split()[0] for line in s.splitlines()}
+            if by_name(source_hashes) != by_name(loaded_hashes):
+                raise RuntimeError('Termux私有运行库与原运行库hash不一致')
+        (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
         processes = call('shell', 'ps -A -o PID,ARGS').stdout.decode()
         (out / 'device-processes-before.txt').write_text(processes)
         if active_model_processes(processes):
             raise RuntimeError('设备已有模型实验进程，拒绝争抢资源')
         call('shell', 'mkdir', remote); call('push', str(binary), remote + '/agent'); call('shell', 'chmod', '755', remote + '/agent')
+        if a.transport == 'ssh':
+            # 复用本机NDK的匹配C++运行库，仅放本轮私有目录，不改共享库。
+            ndk = sorted((Path.home() / 'Library/Android/sdk/ndk').iterdir(),
+                         key=lambda p: tuple(map(int, p.name.split('.'))))[-1]
+            cpp = next((ndk / 'toolchains/llvm/prebuilt').glob('*/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so'))
+            call('push', str(cpp), remote + '/libc++_shared.so')
+            manifest['private_cpp_runtime_sha256'] = hashlib.sha256(cpp.read_bytes()).hexdigest()
+            (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
         if prepack_dir:
             call('shell','mkdir',remote+'/probe-lib')
             for n in ('libggml-hexagon.so','libggml-htp-v79.so'):
@@ -184,12 +258,17 @@ def main():
         extra_env = f'GGML_HEXAGON_PROFILE={config.get("htp_profile", 0)} '
         if config.get('htp_use_hmx') is not None:
             extra_env += f'GGML_HEXAGON_USE_HMX={config["htp_use_hmx"]} '
-        adsp_path = remote + '/probe-lib' if (probe_skel or prepack_dir) else '/data/local/tmp/llama.cpp/lib'
-        shell = ('cd /data/local/tmp/llama.cpp; export LD_LIBRARY_PATH=' + shlex.quote(remote+':/data/local/tmp/llama.cpp/lib') + ' ' + 'ADSP_LIBRARY_PATH=' + shlex.quote(adsp_path) + ' '
+        adsp_path = remote + '/probe-lib' if (probe_skel or prepack_dir) else runtime_lib
+        library_path = remote + ':' + runtime_lib
+        if a.transport == 'ssh':
+            library_path += ':/vendor/lib64:/vendor/lib64/egl'
+        manifest['library_path'] = library_path
+        (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2))
+        shell = ('cd ' + shlex.quote(transport.remote_root if a.transport == 'ssh' else '/data/local/tmp/llama.cpp') + '; export LD_LIBRARY_PATH=' + shlex.quote(library_path) + ' ' + 'ADSP_LIBRARY_PATH=' + shlex.quote(adsp_path) + ' '
             f'{extra_env}GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE={config["htp_queue"]} GGML_HEXAGON_OPBATCH={config["htp_opbatch"]}; '
             f'echo $$ > {remote}/pid; exec ' + shlex.join(args))
         (out / 'command.txt').write_text(shell)
-        proc = subprocess.Popen(adb + ['shell', '-T', shell], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1)
+        proc = subprocess.Popen(transport.shell_command(shell), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1)
         protocol = Protocol(proc, out); protocol.wait('session_ready', timeout=config['timeout_s'])
         for p in config['new_tokens']:
             call('pull', remote + f'/trials.jsonl.P{p}.txt', str(out / f'P{p}.txt')); bodies[p] = (out / f'P{p}.txt').read_bytes()
@@ -200,16 +279,22 @@ def main():
             if (out/'history-prefix.txt').read_bytes() != (ROOT/config['history_fixture_reference']).read_bytes():
                 raise ValueError('快速构造的历史输入与原夹具不同')
         costs = {}; qualified = {}; counter = 0
-        def trial(p, gap, strategy, route, phase, rep, pack=-1):
+        def trial(p, gap, strategy, route, phase, rep, pack=-1, cpu_threads=4, comparison_order=None, pending_mode=0):
             nonlocal counter
             cc, hc = costs.get(p, (0, 0))
             if config.get('post_tool_routing') and strategy == 'after_return' and route == 'router':
                 hc += statistics.median(r['prepare_ms'] for r in rows
                     if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC')
             prepare = any(qualified.get(key, False) and h < c for key, (c, h) in costs.items())
-            protocol.send('TRIAL', counter, p, gap, strategy, route, phase, cc, hc, int(prepare), int(qualified.get(p, False)), pack)
+            upper = (max(r['prepare_ms'] for r in rows if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC')
+                     * config['pending_wait_prepare_factor']) if pending_mode else 0
+            protocol.send('TRIAL', counter, p, gap, strategy, route, phase, cc, hc, int(prepare), int(qualified.get(p, False)), pack, cpu_threads,
+                          pending_mode, upper, config.get('pending_wait_cap_ms', 0), config.get('pending_wait_margin_ms', 0))
             row = protocol.wait('trial_completed', counter, config['timeout_s'])['result']
             row['repetition'] = rep
+            if comparison_order is not None:
+                row['comparison_block'] = rep
+                row['comparison_order'] = comparison_order
             row['response_check'] = check_response(row, {'check': {'type': 'json_action', 'action': 'wait'}})
             rows.append(row)
             with (out / 'checked-rows.jsonl').open('a') as f:
@@ -217,10 +302,10 @@ def main():
             diagnostic = row['route'] == 'HC' and (phase == 'calibration' or (not skip_calibration and not qualified.get(p, False)))
             if (not row['passed'] or not row['response_check']['passed']) and not diagnostic:
                 raise RuntimeError(f'响应或状态检查失败 trial={counter}')
-            print(f'{counter} {phase} P={p} G={gap} {strategy}/{route}->{row["route"]} ready={row["ready_at_return"]} gap={row["actual_gap_ms"]:.1f} response={row["response_after_return_ms"]:.1f}', flush=True)
+            print(f'{counter} {phase} P={p} T={cpu_threads} G={gap} {strategy}/{route}->{row["route"]} policy={row["wait_policy"]} ready={row["ready_at_return"]} gap={row["actual_gap_ms"]:.1f} response={row["response_after_return_ms"]:.1f}', flush=True)
             counter += 1
         # 每个 P 先 CPU 参考，再独立三组完整路径校准，不把校准混入 Oracle 测量。
-        for p in ([] if skip_calibration else config['new_tokens']):
+        for p in ([] if (skip_calibration or thread_scan) else config['new_tokens']):
             for rep in range(3):
                 for route in ('CC', 'HC'):
                     trial(p, 0, 'after_return', route, 'calibration', rep)
@@ -231,13 +316,43 @@ def main():
         (out / 'candidate-qualification.json').write_text(json.dumps(qualified, indent=2))
         (out / 'full-response-costs.json').write_text(json.dumps(costs, indent=2))
         rng = random.Random(config['seed'])
+        if wait_cases and not config.get('calibration_only'):
+            if not all(qualified.values()):
+                raise RuntimeError('有限等待候选未全部通过独立校准，拒绝进入测量')
+            orders = {}
+            for case in wait_cases:
+                sequence = [(0, 1), (1, 0)] * (config['repetitions'] // 2)
+                rng.shuffle(sequence); orders[tuple(case)] = sequence
+            for block in range(config['repetitions']):
+                cases = list(wait_cases); rng.shuffle(cases)
+                for p, gap, strategy in cases:
+                    for position, mode in enumerate(orders[(p, gap, strategy)][block]):
+                        trial(p, gap, strategy, 'router', 'measurement', block,
+                              comparison_order=position, pending_mode=mode)
+        if paired_post_tool:
+            orders = [('CC', 'router'), ('router', 'CC')] * (config['repetitions'] // 2)
+            rng.shuffle(orders)
+            for block, order in enumerate(orders):
+                for position, route in enumerate(order):
+                    trial(31, 200, 'after_return', route, 'measurement', block,
+                          comparison_order=position)
+        if thread_scan:
+            for p in config['new_tokens']:
+                order=[t for t in thread_scan if t!=4];rng.shuffle(order)
+                for t in [4,*order]:trial(p,0,'after_return','CC','calibration',0,cpu_threads=t)
+                qualified[p]=all(r['numerical_passed'] and r['passed'] and r['response_check']['passed'] for r in rows if r['P']==p)
+                if not qualified[p]:raise RuntimeError(f'CPU线程数值或响应验收失败 P={p}')
+            (out/'candidate-qualification.json').write_text(json.dumps(qualified,indent=2))
+            for rep in range(config['repetitions']):
+                conditions=[(p,t) for p in config['new_tokens'] for t in thread_scan];rng.shuffle(conditions)
+                for p,t in conditions:trial(p,200,'after_return','CC','measurement',rep,cpu_threads=t)
         if config.get('prepack_comparison'):
             for rep in range(0 if config.get('calibration_only') else config['repetitions']):
                 conditions=[(p,g,s,pack) for p in config['new_tokens'] for g in measured_gaps for s in pack_strategies for pack in (0,1)]
                 rng.shuffle(conditions)
                 for p,g,s,pack in conditions: trial(p,g,s,'HC','measurement',rep,pack)
 
-        for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison')) else config['repetitions']):
+        for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison') or thread_scan or paired_post_tool or wait_cases) else config['repetitions']):
             conditions = list(grid)
             rng.shuffle(conditions)
             for p, gap, strategy, route in conditions:
@@ -245,8 +360,8 @@ def main():
         protocol.send('CLOSE'); protocol.wait('session_closed', timeout=60); proc.stdin.close()
         if proc.wait(timeout=60):
             raise RuntimeError('native 退出失败')
-        (out / 'completion.json').write_text(json.dumps({'passed': True, 'trials': len(rows), 'measurement_trials': sum(r['phase']=='measurement' for r in rows), 'numeric_calibration_performed':not skip_calibration,'all_HC_candidates_numerically_qualified': not skip_calibration and all(qualified.values())}, indent=2))
-    except Exception as exc:
+        (out / 'completion.json').write_text(json.dumps({'passed': True, 'trials': len(rows), 'measurement_trials': sum(r['phase']=='measurement' for r in rows), 'numeric_calibration_performed':not skip_calibration,'all_HC_candidates_numerically_qualified': not thread_scan and not skip_calibration and all(qualified.values()),'all_CPU_thread_candidates_numerically_qualified': bool(thread_scan) and all(qualified.values())}, indent=2))
+    except BaseException as exc:
         (out / 'failure.json').write_text(json.dumps({'error': repr(exc)}, ensure_ascii=False, indent=2)); raise
     finally:
         if proc is not None and proc.poll() is None:
@@ -267,12 +382,14 @@ def main():
         # 原始文件已拉取才清理本次目录；失败时留设备副本供检查。
         if (out / 'completion.json').exists():
             call('shell', 'rm', '-rf', remote)
+        if proc is None or proc.poll() is not None:
+            transport.release_lock()
     if config.get('calibration_only'):
         result = {'diagnostic_only': True, 'timing_valid_for_formal_comparison': False, 'HC_qualified': qualified,
             'trials': len(rows), 'config': config, 'costs': costs,
             'response_and_state_passed': all(r['passed'] and r['response_check']['passed'] for r in rows)}
         (out / 'diagnostic-summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
-    elif not config.get('prepack_comparison') and not config.get('observation_scan'):
+    elif not config.get('prepack_comparison') and not config.get('observation_scan') and not thread_scan and not paired_post_tool and not wait_cases:
         subprocess.run([sys.executable, str(ROOT / 'scripts/analyze/oracle.py'), str(out)], check=True)
 
 

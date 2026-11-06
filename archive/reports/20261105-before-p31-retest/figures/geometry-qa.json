@@ -1,0 +1,22 @@
+{
+  "01_backend_boundary": {
+    "text_collisions": [],
+    "outside_canvas": []
+  },
+  "02_cost_breakdown": {
+    "text_collisions": [],
+    "outside_canvas": []
+  },
+  "03_actual_gap_overlap": {
+    "text_collisions": [],
+    "outside_canvas": []
+  },
+  "04_end_to_end_policies": {
+    "text_collisions": [],
+    "outside_canvas": []
+  },
+  "05_oracle_gap": {
+    "text_collisions": [],
+    "outside_canvas": []
+  }
+}

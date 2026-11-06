@@ -25,7 +25,8 @@ class OracleHttpTest(unittest.TestCase):
                           'void require(bool b,const std::string &m){if(!b)throw std::runtime_error(m);}\n' + http +
                           '\nint main(int argc,char**argv){struct sigaction a{};a.sa_handler=+[](int){};sigaction(SIGALRM,&a,nullptr);ualarm(50000,0);try{std::cout<<oracle_http(std::stoi(argv[1]),16,0,0);return 0;}'
                           'catch(const std::exception&e){std::cerr<<e.what();return 1;}}\n')
-        subprocess.run([compiler, '-std=c++17', str(source), '-o', str(cls.binary)], check=True, capture_output=True)
+        subprocess.run([compiler, '-std=c++17', '-I' + str(ROOT / 'src/a2o/native'),
+                        str(source), '-o', str(cls.binary)], check=True, capture_output=True)
 
     @classmethod
     def tearDownClass(cls):

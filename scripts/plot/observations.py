@@ -18,6 +18,17 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
 
+# BOOTTIME 与 steady_clock 分开采样，差值含两次读取之间的调度抖动。
+# 此容差只用于双时钟诊断；主时钟计时恒等式仍使用 0.01ms，原值不裁剪。
+DUAL_CLOCK_READ_SKEW_TOLERANCE_MS = 0.1
+
+
+def check_dual_clock(row):
+    if (row['actual_gap_ms']+DUAL_CLOCK_READ_SKEW_TOLERANCE_MS<row['active_actual_gap_ms'] or
+            row['suspend_during_tool_to_response_ms']<-DUAL_CLOCK_READ_SKEW_TOLERANCE_MS or
+            abs(row['tool_to_response_ms']-row['active_tool_to_response_ms']-row['suspend_during_tool_to_response_ms'])>.01):
+        raise ValueError('双时钟或挂起诊断不一致')
+
 
 def load_run(path):
     """全组校验后再筛选；失败 HC 整个 P 排除，不选成功子集。"""
@@ -73,10 +84,7 @@ def load_run(path):
             raise ValueError('设备事件顺序不成立')
         if abs(r['tool_to_response_ms'] - r['actual_gap_ms'] - r['response_after_return_ms']) > .01:
             raise ValueError('设备同一时钟的计时恒等式不成立')
-        if (r['actual_gap_ms']+.01<r['active_actual_gap_ms'] or
-                r['suspend_during_tool_to_response_ms']<-.01 or
-                abs(r['tool_to_response_ms']-r['active_tool_to_response_ms']-r['suspend_during_tool_to_response_ms'])>.01):
-            raise ValueError('双时钟或挂起诊断不一致')
+        check_dual_clock(r)
         if pubs[r['id']]['output'] != r['output']:
             raise ValueError('发布输出不一致')
     if hashlib.sha256((path / 'device/agent').read_bytes()).hexdigest() != manifest['binary_sha256']:
@@ -91,6 +99,41 @@ def sample(rows, h, p, g, s, route):
 
 def median(rows, field):
     return st.median(r[field] for r in rows)
+
+
+def oracle_regret(rows, h, p, gap, qualified):
+    """严格选路比较返回后成本；联合候选保留完整重放及原始trial ID。"""
+    actual=sample(rows,h,p,gap,'cost_aware','router')
+    cc=sample(rows,h,p,gap,'cost_aware','CC');hc=sample(rows,h,p,gap,'cost_aware','HC')
+    matched=qualified;replays=[]
+    for a in actual:
+        c=next(r for r in cc if r['repetition']==a['repetition'])
+        t=next((r for r in hc if r['repetition']==a['repetition']),None)
+        candidates=[a];same=True
+        if a['route']=='HC':
+            if (c['ready_at_return'],c['prepared_early'])==(a['ready_at_return'],a['prepared_early']):candidates.append(c)
+            else:same=False
+        elif qualified and a['ready_at_return']:
+            if t and t['ready_at_return'] and t['prepared_early']==a['prepared_early']:candidates.append(t)
+            else:same=False
+        matched=matched and same
+        best=min(candidates,key=lambda r:r['response_after_return_ms'])
+        replays.append(dict(repetition=a['repetition'],actual_trial_id=a['id'],candidate_trial_ids=[r['id'] for r in candidates],
+                            selected_trial_id=best['id'],after_return_ms=best['response_after_return_ms'],state_matched=same))
+    joint=[]
+    for s in ['after_return','always','cost_aware']:
+        for route in ['CC','HC','router']:
+            group=sample(rows,h,p,gap,s,route)
+            if not group or any(r['route']=='HC' for r in group) and not qualified:continue
+            joint.append(dict(strategy=s,requested_route=route,trial_ids=[r['id'] for r in group],
+                              median_total_ms=median(group,'tool_to_response_ms'),median_actual_gap_ms=median(group,'actual_gap_ms'),
+                              ready_count=sum(r['ready_at_return'] for r in group)))
+    best=min(joint,key=lambda r:r['median_total_ms'])
+    return dict(H=h,P=p,gap_target_ms=gap,
+        routing_regret_ms=median(actual,'response_after_return_ms')-st.median(r['after_return_ms'] for r in replays) if matched else None,
+        joint_empirical_gap_ms=median(actual,'tool_to_response_ms')-best['median_total_ms'] if qualified else None,
+        actual_gap_ms=median(actual,'actual_gap_ms'),matched=matched,routing_replays=replays,
+        joint_candidates=joint,joint_oracle=best)
 
 
 def audit_geometry(fig):
@@ -145,6 +188,8 @@ def main():
         signature = {k: c.get(k) for k in ['context_size', 'batch_size', 'htp_queue', 'htp_opbatch', 'numeric_acceptance', 'kv_policy', 'pre_move', 'cpu_repack', 'release_calibration_state', 'input_fixture', 'post_tool_routing', 'system_inputs', 'gap_ms', 'new_tokens']}
         signature.update(binary_sha256=m['binary_sha256'], model=m['model'], history_backend=m.get('history_backend', 'cpu'))
         signature['clock_id']=m.get('clock_id','legacy_steady_clock')
+        signature['device_identity']=m.get('device_identity')
+        signature['device_files_sha256']=m.get('device_files_sha256')
         if args.legacy_preview:
             for key in ['new_tokens', 'gap_ms']:
                 signature.pop(key)
@@ -170,7 +215,8 @@ def main():
     data = dict(sources=sources, constants=constants, initialization=initializations, rows=rows,
                 plot_script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 figure_style_sha256=hashlib.sha256(skill.read_bytes()).hexdigest(),
-                matplotlib_version=matplotlib.__version__, numpy_version=np.__version__)
+                matplotlib_version=matplotlib.__version__, numpy_version=np.__version__,
+                dual_clock_read_skew_tolerance_ms=DUAL_CLOCK_READ_SKEW_TOLERANCE_MS)
     (out/'plot-data.json').write_text(json.dumps(data, ensure_ascii=False, indent=2)+'\n')
     suspension=[]
     for key in sorted({(r['H'],r['P'],r['gap_requested_ms'],r['strategy'],r['requested_route']) for r in valid if r['phase']=='measurement' and not args.legacy_preview}):
@@ -264,7 +310,9 @@ def main():
                 if group:
                     ax.scatter(np.linspace(i-.09,i+.09,len(group)),[r['tool_to_response_ms']/1000 for r in group],s=19,color=color,alpha=.55)
                     ax.hlines(median(group,'tool_to_response_ms')/1000,i-.22,i+.22,color=color,lw=2)
-                    comparisons.append(dict(H=h,P=p,gap_target_ms=g,policy=label,median_total_ms=median(group,'tool_to_response_ms'),actual_routes=[r['route'] for r in group]))
+                    comparisons.append(dict(H=h,P=p,gap_target_ms=g,policy=label,median_total_ms=median(group,'tool_to_response_ms'),
+                        median_actual_gap_ms=median(group,'actual_gap_ms'),median_after_return_ms=median(group,'response_after_return_ms'),
+                        trial_ids=[r['id'] for r in group],actual_routes=[r['route'] for r in group]))
                 else: ax.text(i,0,'n.d.',ha='center')
             ax.set_xticks(range(5),['CPU/CPU','HTP/CPU','Post-tool\nrouting','Always\nprepare','Cost-aware']); ax.set_title(f'H={h}, P={p}'); ax.margins(x=.08,y=.12)
             if ax is axs[row,0]: ax.set_ylabel('Tool issue to full response (s)')
@@ -274,28 +322,7 @@ def main():
     for h in hs:
         for p in system:
             for gap in gaps:
-                actual=sample(valid,h,p,gap,'cost_aware','router')
-                cc=sample(valid,h,p,gap,'cost_aware','CC'); hc=sample(valid,h,p,gap,'cost_aware','HC')
-                matched=True; minima=[]
-                if not q[h][p]: matched=False
-                for a in actual:
-                    c=next(r for r in cc if r['repetition']==a['repetition']); t=next((r for r in hc if r['repetition']==a['repetition']),None)
-                    candidates=[a]
-                    if a['route']=='HC':
-                        if (c['ready_at_return'],c['prepared_early'])==(a['ready_at_return'],a['prepared_early']): candidates.append(c)
-                        else: matched=False
-                    elif a['ready_at_return']:
-                        if t and t['ready_at_return'] and t['prepared_early']==a['prepared_early']: candidates.append(t)
-                        else: matched=False
-                    minima.append(min(r['tool_to_response_ms'] for r in candidates))
-                joint=[]
-                for s,route,_ in policies:
-                    group=sample(valid,h,p,gap,s,route)
-                    if group: joint.append(median(group,'tool_to_response_ms'))
-                actual_ms=median(actual,'tool_to_response_ms')
-                regrets.append(dict(H=h,P=p,gap_target_ms=gap,routing_regret_ms=actual_ms-st.median(minima) if matched else None,
-                    joint_empirical_gap_ms=actual_ms-min(joint) if q[h][p] else None,
-                    actual_gap_ms=median(actual,'actual_gap_ms'),matched=matched))
+                regrets.append(oracle_regret(valid,h,p,gap,q[h][p]))
     fig,axs=plt.subplots(1,2,figsize=(11,3.9),layout='constrained')
     workloads=[(h,p) for h in hs for p in system]
     for ax,field,title in zip(axs,['routing_regret_ms','joint_empirical_gap_ms'],['State-matched routing Oracle','Joint replay Oracle (waiting allowed)']):
@@ -307,7 +334,8 @@ def main():
             for x,v in zip(xx,values):
                 if v is None: ax.text(x,0,'×',ha='center',va='bottom',color='#888888')
         ax.axhline(0,color='#BBBBBB',lw=.7); ax.set_xticks(range(len(workloads)),[f'H{h}\nP{p}' for h,p in workloads],rotation=35,ha='right')
-        ax.set_title(title); ax.set_ylabel('Cost-aware regret (ms)'); ax.margins(.08)
+        ax.set_title(title); ax.set_ylabel('Regret after Tool return (ms)' if field=='routing_regret_ms' else 'Full-latency regret (ms)'); ax.margins(.08)
+    axs[0].scatter([],[],marker='x',color='#888888',label='State unmatched')
     axs[0].legend(); save(fig,out,'05_oracle_gap',qa)
     (out/'comparisons.json').write_text(json.dumps(dict(policies=comparisons,regret=regrets,preparation=prepare_table),ensure_ascii=False,indent=2)+'\n')
     (out/'geometry-qa.json').write_text(json.dumps(qa,ensure_ascii=False,indent=2)+'\n')
@@ -321,7 +349,7 @@ def main():
         '2. `02_cost_breakdown`：堆叠采用阶段墙钟均值，包含阶段内系统挂起，黑点是各次完整响应；准备只计返回后阻塞部分，后台总准备时间见 comparisons.json；交接包含状态检查；Other 为同次完整时间减已列阶段的余额。初始化/共同历史不被虚构成每轮成本。双时钟拆出的响应内总挂起单列 suspension-summary.json，不能把含挂起的阶段差异全部归因于算子或机制。',
         '3. `03_actual_gap_overlap`：横轴是每次设备 CLOCK_BOOTTIME 实测 G（包含挂起）；线连接各目标组的实测中位数，不使用服务端目标作为横坐标。三个 G 条件只能判断已有跨度，无法据此宣称精准隐藏阈值。',
         '4. `04_end_to_end_policies`：统一 Tool 发起到完整 JSON 发布；CC 不提前准备，HC 在返回后按需准备；Post-tool 按包含准备成本的独立校准选路；Always Prepare 和 Cost-aware 均为实际在线 Router。服务器目标200ms，实际 G 各次记录，不能逐次视为完全配对。',
-        '5. `05_oracle_gap`：左为同准备状态的选路反事实，状态无法匹配时 × 表示不可识别；右为包含五种实测策略轨迹、允许等待的联合经验最小值。联合候选包含实际策略自身。Oracle 复用完整重放，不拼接阶段最小值。',
+        '5. `05_oracle_gap`：左为同准备状态、从Tool返回计时的选路反事实，状态无法匹配时 × 表示不可识别；右为全部九路完整重放、允许等待的联合经验最小值，从Tool发起计时。联合候选包含实际策略自身，也包含固定提前HC等强制路径；候选和所选trial ID均保留。串行重放实际G不同，三次中位数取最小有选择偏差，只能用于筛查空间。Oracle不拼接阶段最小值。',
         '', '## 结论边界','',
         '小样本用于首轮筛查；三次重放不足以支撑几十毫秒的稳定收益。没有图像或真实外部 Tool 工作负载，只有真实 HTTP 固定文本微基准。独立历史记忆与实际图像验收沿用独立入口，本次不宣称其通过。P16–1024 是13点稀疏扫描，不是每个整数。未准入 HC 整组排除，不以成功子集作图。',
         '', '初步统计：','']

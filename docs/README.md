@@ -20,3 +20,9 @@
 主实验平台切换：[SM8650 迁移验证](validation/platform-migration.md)。
 
 真实任务反馈：[手机单闭环测试](validation/single-loop.md)。
+
+CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.md)。
+
+灭屏运行入口：[Termux SSH、依赖修复与持锁验收](guides/termux-ssh.md)。
+
+短Gap机制：[按成本有限等待与Cost-aware触发率](guides/pending-wait.md)。

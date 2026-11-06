@@ -1,5 +1,6 @@
 #pragma once
 #include <future>
+#include "scheduling/pending_wait.h"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -151,6 +152,15 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
             }
         }
         int pack_request=-1;cmd>>pack_request;require(pack_request>=-1 && pack_request<=1,"invalid pack request");
+        int cpu_prefill_threads=4;cmd>>cpu_prefill_threads;
+        int bounded_wait=0;double prepare_upper_ms=0,wait_cap_ms=0,wait_margin_ms=0;
+        if(cmd>>bounded_wait) {
+            require(bool(cmd>>prepare_upper_ms>>wait_cap_ms>>wait_margin_ms),"missing bounded wait costs");
+            require(bounded_wait==0 || bounded_wait==1,"invalid bounded wait mode");
+        }
+        require(cpu_prefill_threads>=1 && cpu_prefill_threads<=sysconf(_SC_NPROCESSORS_ONLN),"invalid CPU prefill threads");
+        // 单token decode 保持4线程，仅改变多token prefill线程；历史建立仍为4线程。
+        llama_set_n_threads(cpu.ctx,4,cpu_prefill_threads);
         require((std::find(input_lengths.begin(),input_lengths.end(),p)!=input_lengths.end()) && g>=0 && (strategy=="after_return"||strategy=="always"||strategy=="cost_aware") && (route=="CC"||route=="HC"||route=="router"),"invalid condition");
         require(h+p+64<=context_size,"oracle context too small");
         if(prepack) require(kv_control(reg,0,0,nullptr)==0,"prepack reset failed");
@@ -171,6 +181,10 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
         bool ready=worker.valid() && worker.wait_for(std::chrono::milliseconds(0))==std::future_status::ready;
         double obs_start=now_ms();auto suffix=tokens(vocab,body,false);require(suffix.size()==size_t(p),"real HTTP P mismatch");double obs_ms=now_ms()-obs_start;
         std::string selected=route;
+        PendingWaitPlan wait_plan;
+        bool wait_attempted=false,wait_succeeded=false,wait_timed_out=false;
+        double pending_wait_ms=0;
+        std::string route_reason="forced_path";
         if(route=="router") {
             CostRouter current;
             current.rows={{h,p,int(reference_ids.size()),3,"CC",cc,0}};
@@ -179,10 +193,22 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
             bool post_tool=strategy=="after_return" && args.count("--oracle-post-tool-routing") && get("--oracle-post-tool-routing")=="1";
             auto decision=current.choose(h,p,reference_ids.size(),post_tool?"ready":ready?"ready":early?"pending":"absent");
             selected=decision.backend=="htp"?"HC":"CC";
+            route_reason=decision.reason;
+            if(bounded_wait && early && !ready && !post_tool) {
+                wait_plan=plan_pending_wait(qualified,cc,hc,prepare_upper_ms,wait_cap_ms,wait_margin_ms);
+                route_reason=wait_plan.reason;
+                if(wait_plan.eligible) {
+                    wait_attempted=true;double t=now_ms();
+                    wait_succeeded=await_pending(worker,wait_plan);
+                    pending_wait_ms=now_ms()-t;wait_timed_out=!wait_succeeded;
+                    if(wait_succeeded) {selected="HC";route_reason="pending_ready_within_budget";}
+                    else {selected="CC";route_reason="pending_wait_timeout";}
+                }
+            }
         }
         double wait_start=now_ms();
         if(selected=="HC") {if(worker.valid())worker.get();else prepare();}
-        double wait_ms=now_ms()-wait_start;
+        double wait_ms=pending_wait_ms+now_ms()-wait_start;
         auto pre=selected=="HC"?htp.ctx:cpu.ctx;pos=h;
         start=now_ms();evaluate(pre,suffix,pos);double pre_ms=now_ms()-start;
         double pack_release_ms=0;
@@ -235,7 +261,14 @@ static int run_oracle(const std::map<std::string,std::string> & args) {
         bool legacy_numerical=cosine>=.999 && error<=.05;
         bool passed=eog && same;
         std::ostringstream row;row<<"{\"id\":"<<id<<",\"phase\":"<<json(phase)<<",\"H\":"<<h<<",\"P\":"<<p<<",\"D\":"<<ids.size()<<",\"gap_requested_ms\":"<<g
+          <<",\"cpu_prefill_threads\":"<<cpu_prefill_threads<<",\"cpu_decode_threads\":4"
           <<",\"strategy\":"<<json(strategy)<<",\"requested_route\":"<<json(route)<<",\"route\":"<<json(selected)<<",\"prepared_early\":"<<(early?"true":"false")<<",\"ready_at_return\":"<<(ready?"true":"false")
+          <<",\"want_prepare\":"<<(want?"true":"false")<<",\"wait_policy\":"<<json(bounded_wait?"bounded":"ready_only")
+          <<",\"route_reason\":"<<json(route_reason)<<",\"pending_wait_eligible\":"<<(wait_plan.eligible?"true":"false")
+          <<",\"pending_wait_attempted\":"<<(wait_attempted?"true":"false")<<",\"pending_wait_succeeded\":"<<(wait_succeeded?"true":"false")
+          <<",\"pending_wait_timed_out\":"<<(wait_timed_out?"true":"false")<<",\"pending_wait_budget_ms\":"<<std::fixed<<wait_plan.budget_ms
+          <<",\"pending_wait_ms\":"<<pending_wait_ms<<",\"calibrated_prepare_upper_ms\":"<<prepare_upper_ms
+          <<",\"calibrated_cc_ms\":"<<cc<<",\"calibrated_hc_ms\":"<<hc
           <<",\"http_issued_ms\":"<<std::fixed<<issued<<",\"http_returned_ms\":"<<returned<<",\"response_completed_ms\":"<<published<<",\"prepare_started_ms\":"<<prepare_start<<",\"prepare_completed_ms\":"<<prepare_end
           <<",\"actual_gap_ms\":"<<returned-issued<<",\"response_after_return_ms\":"<<published-returned<<",\"tool_to_response_ms\":"<<published-issued
           <<",\"active_actual_gap_ms\":"<<active_returned-active_issued<<",\"active_tool_to_response_ms\":"<<active_published-active_issued<<",\"suspend_during_tool_to_response_ms\":"<<(published-issued)-(active_published-active_issued)

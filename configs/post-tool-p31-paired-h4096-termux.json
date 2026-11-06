@@ -1,0 +1,42 @@
+{
+  "mode": "hybrid",
+  "history_tokens": 4096,
+  "new_tokens": [
+    31
+  ],
+  "gap_ms": [
+    0,
+    200
+  ],
+  "strategies": [
+    "after_return",
+    "always",
+    "cost_aware"
+  ],
+  "routes": [
+    "CC",
+    "HC"
+  ],
+  "repetitions": 20,
+  "context_size": 6144,
+  "batch_size": 128,
+  "htp_queue": 1,
+  "htp_opbatch": 1,
+  "kv_policy": "none",
+  "pre_move": false,
+  "cpu_repack": false,
+  "timeout_s": 600,
+  "seed": 2026110502,
+  "numeric_acceptance": {
+    "min_cosine": 0.99,
+    "max_nrmse": null
+  },
+  "input_fixture": "neutral_padding_v1",
+  "post_tool_routing": true,
+  "release_calibration_state": true,
+  "fixture_reference_run": "results/20261105-173045-235354-http-oracle-grid",
+  "history_fixture_reference": "results/20261105-173045-235354-http-oracle-grid/device/trials.jsonl.prefix.txt",
+  "require_awake": false,
+  "paired_post_tool": true,
+  "power_mode": "termux_wakelock"
+}

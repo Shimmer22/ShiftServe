@@ -1,0 +1,16 @@
+{
+  "created_at": "2026-11-05T18:58:52.739441+08:00",
+  "output": "/Users/hui/code/exp/2026-11-a2o-gap-profiling/results/20261105-xiaomi14pro-observation-main/xiaomi14pro-observation-report.pdf",
+  "pages": 7,
+  "figures": "原始PDF矢量嵌入，未栅格化",
+  "source_files_sha256": {
+    "01_backend_boundary.pdf": "b35e4eab6af97ff15fcf71c6e3c319fd29725106880674ccd686f5873a202891",
+    "02_cost_breakdown.pdf": "d7816ad53ad2e454dd15ef3ecf7f91c129ff0a4ce5a7f6d0618daeb1cbb99e94",
+    "03_actual_gap_overlap.pdf": "a00d4117b41ddc9d4d7663d90b0b3ac3d91c2121e7ee0ac74c842c3d81bb3694",
+    "04_end_to_end_policies.pdf": "66434755c14113345ae6ddd9784192b316aa188fa5999d0a7aa322d4fe238617",
+    "05_oracle_gap.pdf": "c09f08ee34f8bd13a3b73df68696ba8262cae41c0ca80571eaa0b6ba04123add",
+    "comparisons.json": "26b74648070371d5d2f7fa9f2e9d701100d9ca6783bb931afd4e383fd6a7ada2",
+    "plot-data.json": "edafe7aa2a8693f16fd20b83088d9f900b425b0ef027334ed1554cfd4e369041",
+    "acceptance.json": "fdd601db80a696d79a235bc40e7f3210ed7d883568278bf9cd32c811dc28e3da"
+  }
+}

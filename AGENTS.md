@@ -1,5 +1,7 @@
 # 项目约束
 
+- 今后手机操作默认使用 Termux SSH：`ssh -p 8022 -i ~/.ssh/a2o_xiaomi14pro_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/Users/hui/code/exp/2026-11-a2o-gap-profiling/configs/termux-known-hosts u0_a320@10.29.131.50`，实验期间持锁且不回退到 ADB。
+
 - 维护一个工程：代码放 src/，执行入口放 scripts/，配置放 configs/，场景放 scenarios/，每次结果放 results/ 的具名目录。历史实验保留在 archive/，不增加 EXP 编号目录。
 - src/a2o 按机制分包，原生代码放 native/ 并按 backend/state/scheduling/session/vision/profiling 划分。scripts 与 docs 的正文入口必须放二级目录；根目录只留 README.md 和 AGENTS.md，docs/README.md 作为文档索引。
 - 中文说明，复用 shared/ 下已有运行时、模型与工具链，不复制大资产。默认使用手机已有 Qwen2.5-VL-3B Q4_0 和 F16 mmproj。
