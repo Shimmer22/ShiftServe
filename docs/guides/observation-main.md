@@ -28,7 +28,7 @@
 - HC：返回后准备 HTP 历史，HTP prefill 后交接 CPU decode。
 - Post-tool Routing：返回后根据独立校准的 CC 与 HC+准备成本选择，可等待按需准备。
 - Always Prepare：发起 Tool 时准备，返回后根据实际 P、ready 和独立校准选路。
-- Cost-aware：发起时根据所有校准 P 是否有潜在收益决定准备，返回后按实际 P 和 ready 选路。
+- Cost-aware（历史存在性基线）：发起时根据所有校准 P 是否有潜在收益决定准备，返回后按实际 P 和 ready 选路。它不预测 P 分布；只要任一 P 有收益就可能与 Always Prepare 重合。新的[期望价值实验](../design/p-distribution-value.md)单独记录，不追改历史结果标签。
 
 后两策略沿用现有实现。当前规则只要校准域有一个 HC 可获益，就会提前准备，因此可能和 Always Prepare 实际完全重合；这是应报告的结果，不能通过改名制造策略差异。Post-tool 对照专用开关 `post_tool_routing` 只改变 after_return/router：把独立 HC 准备中位数计入校准成本，并允许选中后执行准备。设备记录的 ready_at_return 仍保持事实值，不伪报 ready。
 

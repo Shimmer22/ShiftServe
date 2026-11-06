@@ -26,3 +26,5 @@ CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.m
 灭屏运行入口：[Termux SSH、依赖修复与持锁验收](guides/termux-ssh.md)。
 
 短Gap机制：[按成本有限等待与Cost-aware触发率](guides/pending-wait.md)。
+
+- [P 分布与投机准备期望价值](design/p-distribution-value.md)

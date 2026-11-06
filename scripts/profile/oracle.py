@@ -24,6 +24,7 @@ from a2o.validation.contracts import check_response
 from a2o.validation.oracle import active_model_processes
 from a2o.validation.observation import measurement_grid
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.scheduling.speculative_value import PDistribution, expected_value
 
 
 def main():
@@ -47,6 +48,14 @@ def main():
                 or any(len(c) != 3 or c[0] not in config['new_tokens'] or c[1] not in config['gap_ms']
                        or c[2] not in ('always', 'cost_aware') for c in wait_cases)):
             raise ValueError('有限等待要求独立无profile配对、至少20个偶数块和显式预算参数')
+    if config.get('p_value_sequence'):
+        if (wait_cases or any(config.get(k) for k in ('paired_post_tool', 'observation_scan',
+                'prepack_comparison', 'cpu_thread_scan', 'calibration_only', 'htp_profile'))
+                or not config.get('post_tool_routing')
+                or any(p not in config['new_tokens'] for p in config['p_value_sequence'])
+                or config['p_value_gap_ms'] not in config['gap_ms']
+                or config['p_value_window'] < 1):
+            raise ValueError('P分布实验要求独立校准、无其他扫描、精确P覆盖与显式Gap')
     paired_post_tool = config.get('paired_post_tool', False)
     if paired_post_tool and (config['new_tokens'] != [31] or config['gap_ms'] != [0, 200]
             or not config.get('post_tool_routing') or config.get('observation_scan')
@@ -279,19 +288,26 @@ def main():
             if (out/'history-prefix.txt').read_bytes() != (ROOT/config['history_fixture_reference']).read_bytes():
                 raise ValueError('快速构造的历史输入与原夹具不同')
         costs = {}; qualified = {}; counter = 0
-        def trial(p, gap, strategy, route, phase, rep, pack=-1, cpu_threads=4, comparison_order=None, pending_mode=0):
+        def trial(p, gap, strategy, route, phase, rep, pack=-1, cpu_threads=4, comparison_order=None, pending_mode=0, prepare_decision=None):
             nonlocal counter
             cc, hc = costs.get(p, (0, 0))
-            if config.get('post_tool_routing') and strategy == 'after_return' and route == 'router':
-                hc += statistics.median(r['prepare_ms'] for r in rows
-                    if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC')
+            execution_strategy = ('after_return' if prepare_decision is not None and not prepare_decision['prepare'] else strategy)
+            if config.get('post_tool_routing') and execution_strategy == 'after_return' and route == 'router':
+                hc += (prepare_decision['prepare_cost_ms'] if prepare_decision is not None and 'prepare_cost_ms' in prepare_decision else statistics.median(r['prepare_ms'] for r in rows
+                    if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC'))
             prepare = any(qualified.get(key, False) and h < c for key, (c, h) in costs.items())
+            if prepare_decision is not None:
+                prepare = prepare_decision['prepare']
             upper = (max(r['prepare_ms'] for r in rows if r['phase'] == 'calibration' and r['P'] == p and r['route'] == 'HC')
                      * config['pending_wait_prepare_factor']) if pending_mode else 0
-            protocol.send('TRIAL', counter, p, gap, strategy, route, phase, cc, hc, int(prepare), int(qualified.get(p, False)), pack, cpu_threads,
+            protocol.send('TRIAL', counter, p, gap, execution_strategy, route, phase, cc, hc, int(prepare), int(qualified.get(p, False)), pack, cpu_threads,
                           pending_mode, upper, config.get('pending_wait_cap_ms', 0), config.get('pending_wait_margin_ms', 0))
             row = protocol.wait('trial_completed', counter, config['timeout_s'])['result']
             row['repetition'] = rep
+            if prepare_decision is not None:
+                row['speculative_value'] = prepare_decision
+                row['execution_strategy'] = execution_strategy
+                row['strategy'] = strategy
             if comparison_order is not None:
                 row['comparison_block'] = rep
                 row['comparison_order'] = comparison_order
@@ -316,6 +332,21 @@ def main():
         (out / 'candidate-qualification.json').write_text(json.dumps(qualified, indent=2))
         (out / 'full-response-costs.json').write_text(json.dumps(costs, indent=2))
         rng = random.Random(config['seed'])
+        if config.get('p_value_sequence'):
+            predictor = PDistribution(config.get('p_value_window', 16))
+            prep = max(r['prepare_ms'] for r in rows if r['phase']=='calibration' and r['route']=='HC')
+            table = {p: (*costs[p], qualified[p]) for p in costs}
+            for block, p in enumerate(config['p_value_sequence']):
+                # 两个策略共享同一到达过程；仅在两次反事实都完成后更新一次 P。
+                decision = expected_value(predictor.predict(), table, prep,
+                    config['p_value_gap_estimate_ms'], weight=config['p_value_weight'])
+                decision.setdefault('prepare_cost_ms', prep)
+                order = ['always', 'cost_aware']; rng.shuffle(order)
+                for pos, strategy in enumerate(order):
+                    trial(p, config['p_value_gap_ms'], strategy, 'router', 'measurement', block,
+                          comparison_order=pos, prepare_decision=decision if strategy=='cost_aware' else None)
+                predictor.observe(p)
+
         if wait_cases and not config.get('calibration_only'):
             if not all(qualified.values()):
                 raise RuntimeError('有限等待候选未全部通过独立校准，拒绝进入测量')
@@ -352,7 +383,7 @@ def main():
                 rng.shuffle(conditions)
                 for p,g,s,pack in conditions: trial(p,g,s,'HC','measurement',rep,pack)
 
-        for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison') or thread_scan or paired_post_tool or wait_cases) else config['repetitions']):
+        for rep in range(0 if (config.get('calibration_only') or config.get('prepack_comparison') or thread_scan or paired_post_tool or wait_cases or config.get('p_value_sequence')) else config['repetitions']):
             conditions = list(grid)
             rng.shuffle(conditions)
             for p, gap, strategy, route in conditions:
@@ -389,6 +420,8 @@ def main():
             'trials': len(rows), 'config': config, 'costs': costs,
             'response_and_state_passed': all(r['passed'] and r['response_check']['passed'] for r in rows)}
         (out / 'diagnostic-summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2))
+    elif config.get('p_value_sequence'):
+        subprocess.run([sys.executable, str(ROOT / 'scripts/analyze/p_value_device.py'), str(out), '--output', str(out)], check=True)
     elif not config.get('prepack_comparison') and not config.get('observation_scan') and not thread_scan and not paired_post_tool and not wait_cases:
         subprocess.run([sys.executable, str(ROOT / 'scripts/analyze/oracle.py'), str(out)], check=True)
 
