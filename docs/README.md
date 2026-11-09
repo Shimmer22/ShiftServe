@@ -28,3 +28,8 @@ CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.m
 短Gap机制：[按成本有限等待与Cost-aware触发率](guides/pending-wait.md)。
 
 - [P 分布与投机准备期望价值](design/p-distribution-value.md)
+
+- [工具返回格式、P 分组与共享前缀分析](validation/tool-return-structure.md)
+- [PromptWeaver 对照与前缀失效核对](validation/promptweaver-assessment.md)
+- [主机共享前缀验证：运行方法](guides/prompt-layout-host.md)
+- [18 个新增函数边界：四条件主机结果](validation/prompt-layout-host.md)

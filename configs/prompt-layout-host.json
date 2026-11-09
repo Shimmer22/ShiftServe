@@ -1,0 +1,19 @@
+{
+  "source": "results/20261108-bfcl-text-pilot",
+  "selection": "all 18 observed held_docs release requests",
+  "backend": "host CUDA0 BF16, Qwen3.5-9B, existing vLLM container",
+  "phone_changed": false,
+  "modes": {
+    "native": "original native template",
+    "rules_first": "move fixed tool-call instructions/system prose before the current tool catalogue",
+    "append_docs": "freeze initial catalogue; retain newly released docs in their original user release message",
+    "append_docs_stable_history": "append_docs plus preserving historical empty think tags"
+  },
+  "prefix_caching": true,
+  "cache_reset_per_condition": true,
+  "fixture": "prime transformed previous prompt plus identical saved generated token history; outside measurement",
+  "generation": {"temperature": 0, "seed": 20261108, "max_tokens": 1024},
+  "order": "rotate four conditions by case",
+  "quality_scope": "single-boundary canonical tool calls; enforce only currently released tools; no generated action execution",
+  "timing_scope": "actual cache counter deltas and server prefill metric; one observation per boundary/condition"
+}
