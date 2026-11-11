@@ -33,3 +33,7 @@ CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.m
 - [PromptWeaver 对照与前缀失效核对](validation/promptweaver-assessment.md)
 - [主机共享前缀验证：运行方法](guides/prompt-layout-host.md)
 - [18 个新增函数边界：四条件主机结果](validation/prompt-layout-host.md)
+
+固定历史分阶段扫描：[H=4096 的 CPU/HTP P 与 D 耗时曲线](guides/pd-stage-sweep.md)。
+
+CPU Prefill 最详尽扫描与锯齿调查：[47 个 P 点、940 条测量、源码与拟合证据](validation/cpu-prefill-sawtooth.md)。

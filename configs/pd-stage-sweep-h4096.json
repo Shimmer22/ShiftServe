@@ -1,0 +1,13 @@
+{
+  "name": "20261111-pd-stage-sweep-h4096",
+  "H": 4096,
+  "P": [16, 24, 26, 28, 30, 32, 34, 36, 38, 40, 48, 64, 80, 96, 112, 128, 192, 256],
+  "decode_P": 40,
+  "D": [1, 8, 16, 32, 48, 64, 96, 128, 192, 256, 320],
+  "rounds": 3,
+  "seed": 20261111,
+  "context_size": 8192,
+  "endpoint": "http://10.29.131.50:18780",
+  "source": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_15/t01-s00.response.json",
+  "scope": "真实轨迹token切片构造的固定长度微基准；H固定；逐token强制输出；不测完整任务质量或Tool Gap重叠"
+}

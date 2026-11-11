@@ -3,7 +3,8 @@
 struct Engine {
     llama_model * model = nullptr;
     llama_context * ctx = nullptr;
-    Engine(const std::string & path, bool npu, bool cpu_repack=true) {
+    Engine(const std::string & path, bool npu, bool cpu_repack=true, bool kv_offload=true, int threads=4) {
+        require(threads>0 && threads<=16,"invalid engine thread count");
         auto mp = llama_model_default_params();
         mp.n_gpu_layers = npu ? 99 : 0;
         mp.use_mmap = !npu;
@@ -18,8 +19,8 @@ struct Engine {
         require(model, "model load failed");
         auto cp = llama_context_default_params();
         cp.n_ctx = context_size; cp.n_batch = batch_size; cp.n_ubatch = batch_size;
-        cp.n_threads = 4; cp.n_threads_batch = 4;
-        cp.offload_kqv = npu;
+        cp.n_threads = threads; cp.n_threads_batch = threads;
+        cp.offload_kqv = npu && kv_offload;
         cp.type_k = GGML_TYPE_F16; cp.type_v = GGML_TYPE_F16;
         cp.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
         ctx = llama_init_from_model(model, cp);

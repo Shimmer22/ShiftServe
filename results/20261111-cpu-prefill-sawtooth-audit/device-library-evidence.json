@@ -1,0 +1,6 @@
+{
+  "observed_unix": 1794383040.928546,
+  "device": "u0_a320@10.29.131.50:8022",
+  "sha256sum": "aa9a89a1e2a6276a35d59266d9064fb9a4cd6062ccc8fc0b991dc58f9ddbbeec  /data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-cpu.so",
+  "matches_host_artifact": true
+}

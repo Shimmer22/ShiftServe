@@ -73,7 +73,7 @@ class DeviceTransport:
             return subprocess.CompletedProcess(args, 0, b'', b'')
         raise ValueError('unsupported device operation: ' + op)
 
-    def prepare_ssh(self, output):
+    def prepare_ssh(self, output, resume_lock=False):
         """先持锁并检查含挂起时钟；DUMP 权限缺失不伪报 Awake。"""
         subprocess.run(self.prefix + ['termux-wake-lock'], check=True, capture_output=True, timeout=30)
         self.call('shell', 'mkdir', '-p', self.remote_root)
@@ -91,8 +91,13 @@ class DeviceTransport:
         if not result['passed']:
             raise RuntimeError('SSH wake-lock/clock precondition failed')
         lock = self.remote_root + '/model.lock'
-        self.call('shell', 'mkdir ' + shlex.quote(lock) + ' && echo ' +
-                  shlex.quote(output.name) + ' > ' + shlex.quote(lock + '/owner'))
+        acquire = ('mkdir ' + shlex.quote(lock) + ' && echo ' +
+                   shlex.quote(output.name) + ' > ' + shlex.quote(lock + '/owner'))
+        if resume_lock:
+            acquire = ('if [ -d ' + shlex.quote(lock) + ' ]; then test "$(cat ' +
+                       shlex.quote(lock + '/owner') + ')" = ' + shlex.quote(output.name) +
+                       '; else ' + acquire + '; fi')
+        self.call('shell', acquire)
         self.lock_owner = output.name
         return result
 

@@ -1,0 +1,8 @@
+{
+  "rule": "每个P和后端单独计算线性插值Q1/Q3；仅剔除elapsed_s > Q3+1.5*IQR，保留低尾",
+  "input_rows": 940,
+  "excluded_rows": 9,
+  "kept_rows": 931,
+  "min_group_n": 9,
+  "max_group_n": 10
+}

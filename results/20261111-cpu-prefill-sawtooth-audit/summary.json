@@ -1,0 +1,18 @@
+{
+  "mechanism": "Q4_0 ARM I8MM双行vec_dot；全局ne11为奇数或chunk实际行/列数为奇数时回退单行",
+  "assumptions": "主导Q4投影nr0足够大且为16倍数，ne11=P，ne2=ne3=1；未覆盖其他算子或NUMA分支",
+  "formula": "time_s = intercept_s + fast_s_per_token*P + single_row_penalty_s_per_token*single_row_tokens",
+  "intercept_s": 0.15902766481035643,
+  "fast_s_per_token": 0.06378034319015141,
+  "single_row_penalty_s_per_token": 0.0290470003593126,
+  "full_single_row_s_per_token": 0.09282734354946401,
+  "fitted_r2": 0.998371508890096,
+  "fitted_mape": 0.010851268630989964,
+  "held_out": {
+    "train_P": "24..48",
+    "train_points": 25,
+    "test_points": 22,
+    "mape": 0.011281580364609271
+  },
+  "scope": "基于源码推导形状特征的统计交叉验证，尚未做改变切块规则的设备A/B因果干预；不评价质量或E2E收益"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "20261111-pd-prefill-dense-h4096",
+  "H": 4096,
+  "P": [26, 28, 30, 32, 34, 36, 38],
+  "decode_P": 40,
+  "D": [],
+  "rounds": 3,
+  "seed": 20261112,
+  "context_size": 8192,
+  "endpoint": "http://10.29.131.50:18780",
+  "source": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_15/t01-s00.response.json",
+  "replay_cache_source_run": "20261111-pd-stage-sweep-h4096-service",
+  "scope": "P26至38独立三轮复测；固定H4096；图中不按数值一致性区分，所有有效耗时均进入统计；不重测D"
+}

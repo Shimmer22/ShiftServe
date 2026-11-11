@@ -163,9 +163,10 @@ int main(int argc, char ** argv) { try {
         resources[stage]=std::move(value);
     };
     double t=now_ms();
-    Engine home(get("--model"), npu, cpu_repack);
+    const bool htp_kv_offload=get("--htp-kv-offload", "1")=="1";
+    Engine home(get("--model"), npu, cpu_repack, htp_kv_offload);
     std::unique_ptr<Engine> accelerator;
-    if(hybrid) accelerator=std::make_unique<Engine>(get("--model"), true, cpu_repack);
+    if(hybrid) accelerator=std::make_unique<Engine>(get("--model"), true, cpu_repack, htp_kv_offload);
     times["model_context_init_ms"]=now_ms()-t;
     sample("contexts_ready");
     Engine & pf=hybrid?*accelerator:home;
