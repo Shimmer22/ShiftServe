@@ -57,3 +57,5 @@ CPU Prefill 锯齿调查：[ARM 双行内核与列切块回退](validation/cpu-p
 HTP 平台探索：[HVX/HMX 切换、DeltaNet 64-token 分块与布局探针](validation/htp-platform-exploration.md)。
 
 31行补齐验证：[真实Q4权重下的31→32补零、裁剪与数值对照](validation/pad31-matmul.md)。
+
+设备内原型：[DSP小M选路与VTCM内部补齐](design/htp-device-small-m.md)。

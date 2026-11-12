@@ -1,0 +1,232 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "a15f8abf7f6554ea66c479da6c2c5411dcf82d5c47fd40ff6fdf37a49ac096cc",
+      "bytes": 1724
+    },
+    {
+      "path": "analysis.log",
+      "sha256": "817d222fbb4280303b293f160aae7226b490b1865228ecde3bfb95d506cd4675",
+      "bytes": 6910
+    },
+    {
+      "path": "baseline-a.json",
+      "sha256": "fac0fc4ccc05882f074f1287b3e956f693b8ad5d77b64c80a9688cbb827803b7",
+      "bytes": 34311
+    },
+    {
+      "path": "baseline-a.log",
+      "sha256": "d87193ea512e3f1eaf3c1d607750af022d27dd6f1dfe498e46a011a34f7f4898",
+      "bytes": 520
+    },
+    {
+      "path": "baseline-b.json",
+      "sha256": "63d5ed7d3b790ef46bdec09d014c1b5f652203f406b4e010e802b8b46690c400",
+      "bytes": 34318
+    },
+    {
+      "path": "baseline-b.log",
+      "sha256": "8d144f86dfdd66ef546048f4f337c1557189aa51c84494bb176f9a3270e33106",
+      "bytes": 520
+    },
+    {
+      "path": "build-bench/build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "build-bench/manifest.json",
+      "sha256": "49d3dc25cb53e3a6e9e490252ef390b1c1cfb164a85718308cef6c22f03ecd13",
+      "bytes": 943
+    },
+    {
+      "path": "build-force/completion.json",
+      "sha256": "a0b732a9749b111caf0c6c21b2e8e16b4f27a5167836f2571d0e2b18fd75ce3e",
+      "bytes": 395
+    },
+    {
+      "path": "build-force/dsp/CMakeCache.txt",
+      "sha256": "0fcf5309356bbf42657b290b5c77e20054412542fe788494cdf138e44598e7e2",
+      "bytes": 15745
+    },
+    {
+      "path": "build-force/dsp/build.log",
+      "sha256": "b67be8d6b57454c2e911c002dac859c3097c1c74a142c19297c34b65ca1e274b",
+      "bytes": 3310
+    },
+    {
+      "path": "build-force/dsp/compile_commands.json",
+      "sha256": "2c514219c4563acecfce2840f4127df4db861c199740799ab4d60192910adfe5",
+      "bytes": 28977
+    },
+    {
+      "path": "build-force/dsp/completion.json",
+      "sha256": "16cf099cd12ac7b926cac804d1820af2885a05a0b2c84930b620fd364b20e0b9",
+      "bytes": 231
+    },
+    {
+      "path": "build-force/dsp/manifest.json",
+      "sha256": "5cfc9f67af0995d4d68ad88df66ed873663580855f09c8d221f7a46c5ce34c53",
+      "bytes": 2252
+    },
+    {
+      "path": "build-force/dsp/probe.patch",
+      "sha256": "1a3326cbd7d8dbeeb0f1fa02fee1340ef7afdda86f082c7541a770f32bed1144",
+      "bytes": 2142
+    },
+    {
+      "path": "build-force/small-m.patch",
+      "sha256": "1a3326cbd7d8dbeeb0f1fa02fee1340ef7afdda86f082c7541a770f32bed1144",
+      "bytes": 2142
+    },
+    {
+      "path": "build-guarded/completion.json",
+      "sha256": "90067afe1ec948478498b7014eff6b4388e847ffea7e9b0e2d8bf088c51daf8e",
+      "bytes": 397
+    },
+    {
+      "path": "build-guarded/dsp/CMakeCache.txt",
+      "sha256": "0fcf5309356bbf42657b290b5c77e20054412542fe788494cdf138e44598e7e2",
+      "bytes": 15745
+    },
+    {
+      "path": "build-guarded/dsp/build.log",
+      "sha256": "c06b53e34743d04d6da3223b222ccddf1dcb3dcddfe6ce50a6ad6baf4ac48693",
+      "bytes": 3310
+    },
+    {
+      "path": "build-guarded/dsp/compile_commands.json",
+      "sha256": "2c514219c4563acecfce2840f4127df4db861c199740799ab4d60192910adfe5",
+      "bytes": 28977
+    },
+    {
+      "path": "build-guarded/dsp/completion.json",
+      "sha256": "4a9b72b66e3a1391486efb82cc3da111013fce3a300df3f4d714ee15d359658a",
+      "bytes": 231
+    },
+    {
+      "path": "build-guarded/dsp/manifest.json",
+      "sha256": "d902d4ec8c7ad1d7eba58a42e8cea629cdca67445124c55bc1751e2c60c944ee",
+      "bytes": 2254
+    },
+    {
+      "path": "build-guarded/dsp/probe.patch",
+      "sha256": "9db3781e474b34c6a519b5af13c6b64d910fa55bf9790b6d5463eb25e6cca6ff",
+      "bytes": 2142
+    },
+    {
+      "path": "build-guarded/small-m.patch",
+      "sha256": "9db3781e474b34c6a519b5af13c6b64d910fa55bf9790b6d5463eb25e6cca6ff",
+      "bytes": 2142
+    },
+    {
+      "path": "build-guarded-profile/completion.json",
+      "sha256": "6e930edd687e6ffc4607360f6c9f856db743a45904d8d6c4bc3a74a24694414a",
+      "bytes": 396
+    },
+    {
+      "path": "build-guarded-profile/dsp/CMakeCache.txt",
+      "sha256": "0fcf5309356bbf42657b290b5c77e20054412542fe788494cdf138e44598e7e2",
+      "bytes": 15745
+    },
+    {
+      "path": "build-guarded-profile/dsp/build.log",
+      "sha256": "1c1966a52ca477bf4b9d9578ddab1def70f6cdc1125a4e53ce32291d97ad0418",
+      "bytes": 3310
+    },
+    {
+      "path": "build-guarded-profile/dsp/compile_commands.json",
+      "sha256": "2c514219c4563acecfce2840f4127df4db861c199740799ab4d60192910adfe5",
+      "bytes": 28977
+    },
+    {
+      "path": "build-guarded-profile/dsp/completion.json",
+      "sha256": "1231aeb46f676144efd5ec67a9173dc0416b9817e47709bad886dbdf46e8c7fb",
+      "bytes": 231
+    },
+    {
+      "path": "build-guarded-profile/dsp/manifest.json",
+      "sha256": "933a56c4a8cb964520244aea44c591cd68f99d664333a56423668e2847fa3306",
+      "bytes": 2280
+    },
+    {
+      "path": "build-guarded-profile/dsp/probe.patch",
+      "sha256": "d331241130801a8ef8f0a35adf01623202842a29dc9051275bd5ee0194e98dc0",
+      "bytes": 7504
+    },
+    {
+      "path": "build-guarded-profile/small-m.patch",
+      "sha256": "d331241130801a8ef8f0a35adf01623202842a29dc9051275bd5ee0194e98dc0",
+      "bytes": 7504
+    },
+    {
+      "path": "force.json",
+      "sha256": "0a010b6850a4f2e56f0ff810d047a9fbd13b5fd3808e81b4b0eae70e0117919f",
+      "bytes": 32922
+    },
+    {
+      "path": "force.log",
+      "sha256": "46e4a15ca32b3911d20b196bbd22d6d01ed3ba615829142e9dfb52f1ebbd16f3",
+      "bytes": 520
+    },
+    {
+      "path": "guarded-a.json",
+      "sha256": "5e06eb611a78d37a35c04d96b6853468a8a371e1bee63178cfce7e359cd4f845",
+      "bytes": 33376
+    },
+    {
+      "path": "guarded-a.log",
+      "sha256": "4b7fe37b5bce7f26311176dbbf3820a42020716d3e5e6b88c9013230d602d9e4",
+      "bytes": 520
+    },
+    {
+      "path": "guarded-b.json",
+      "sha256": "15ebec9b9c23b21da8da82614fbda1b04c88bf50877851a1d997b4e92310160e",
+      "bytes": 33362
+    },
+    {
+      "path": "guarded-b.log",
+      "sha256": "53ff6bcdee5903a21d4ac8f56c4cae7f714dbd3c7c0c858be98919eab5dab5bf",
+      "bytes": 520
+    },
+    {
+      "path": "guarded-profile.json",
+      "sha256": "b81ad1a3bd28d344faaf70fefdca163372fcbb56bb050e130e7efa87d173dffa",
+      "bytes": 33377
+    },
+    {
+      "path": "guarded-profile.log",
+      "sha256": "d9a6fd3be2ff06da121e0c92591ec12c731dd6e4bed5a366166d09795c94c6af",
+      "bytes": 21930
+    },
+    {
+      "path": "local-tests.log",
+      "sha256": "673226f9450cae2596493b00253fb17f636cd9d503da891a8ebef3bf16f14a76",
+      "bytes": 1458
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "c3f2eba2b2d529fb13bb8e2794f02980ccf7e199154fb47b4fddae33d450b46f",
+      "bytes": 2197
+    },
+    {
+      "path": "ssh-clock-check.json",
+      "sha256": "377b1927db3123c4af7a445eb020400f7989a6affc16cfb5361c404ac29d5ae9",
+      "bytes": 232
+    },
+    {
+      "path": "status.json",
+      "sha256": "2efdca8b717d5bf4fa63e7a76238633ece5207227fdc954b07944f02cbfb5c09",
+      "bytes": 63
+    },
+    {
+      "path": "summary.json",
+      "sha256": "2dbdb573bdc0973b4adf893633783eb9eff06b3e93999f2082e707e8662aa3e0",
+      "bytes": 11364
+    }
+  ],
+  "archive_sha256": "d3d60d703ec97aac794537be4bc1299de1a4fab09a51a82ccb9036c99b3dcc93",
+  "float_outputs": "原始F32输出保留本地，全部SHA-256列在summary.json；不随归档提交",
+  "tests": "122项本地测试完成，1项缺少ToolSandbox依赖而跳过；DSP三版本编译与手机算子验证通过"
+}
