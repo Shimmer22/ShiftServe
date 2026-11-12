@@ -1,0 +1,157 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2722,
+      "sha256": "d9bd51d0eef5ee5a9e812ac06ca18ab2be2315bf666d3208f7981042da6dd9e6"
+    },
+    {
+      "path": "analysis.log",
+      "bytes": 1713,
+      "sha256": "3416373e2a8a143aa50c1b3a397ba7a24ad78d20f62410575c176a3449fd094f"
+    },
+    {
+      "path": "baseline-a.json",
+      "bytes": 5218,
+      "sha256": "28d4e2b9e854d41cb86fc7c214740a4bed142beeb57995c23360dd3a839a9eff"
+    },
+    {
+      "path": "baseline-a.json.forced.f32",
+      "bytes": 993280,
+      "sha256": "8293837f07e823142732dd9e8972111b46985fffe4ce54d294a224692ae7bcea"
+    },
+    {
+      "path": "baseline-a.json.prefill.f32",
+      "bytes": 993280,
+      "sha256": "c6ab13a020923c7cd02e233faf8fa2ac2d978bdbda6da13d97349c4781c9e719"
+    },
+    {
+      "path": "baseline-a.log",
+      "bytes": 41902,
+      "sha256": "22d3f1463043cba5cdac30f372e719f1da04fd82200beda787481ad99d56a9b8"
+    },
+    {
+      "path": "baseline-b.json",
+      "bytes": 5218,
+      "sha256": "5e64e9d512e8dd83bde316962b3413423288c48ff2c4f3a1ea01ae003fb9a935"
+    },
+    {
+      "path": "baseline-b.json.forced.f32",
+      "bytes": 993280,
+      "sha256": "8293837f07e823142732dd9e8972111b46985fffe4ce54d294a224692ae7bcea"
+    },
+    {
+      "path": "baseline-b.json.prefill.f32",
+      "bytes": 993280,
+      "sha256": "c6ab13a020923c7cd02e233faf8fa2ac2d978bdbda6da13d97349c4781c9e719"
+    },
+    {
+      "path": "baseline-b.log",
+      "bytes": 41902,
+      "sha256": "a31cdbb1a22b09533c126b8e4f4263b0ee0679468f37ec6fd65c0a133ac24a0a"
+    },
+    {
+      "path": "build-bench/build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build-bench/manifest.json",
+      "bytes": 5652,
+      "sha256": "907a0caa9f5ba0eaf0f891010f0df01b8d24d660c20b0546dbe71104f8fc0173"
+    },
+    {
+      "path": "build-bench-failed-include/build.log",
+      "bytes": 363,
+      "sha256": "c739dfc0d9c986a49b40f74dd6e196a56a6dd946cd7f6caf2ff42427ff0a75c4"
+    },
+    {
+      "path": "build-bench-preinit/build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "build-bench-preinit/manifest.json",
+      "bytes": 5652,
+      "sha256": "83e1e0945d68d95d721c800be35e1a695573054d03ee9906d1d8a34f0f99d0e6"
+    },
+    {
+      "path": "fixture.json",
+      "bytes": 22949,
+      "sha256": "91b0ec4a77a5db50eff44f4115feace096cae2e95f9b026a09fefc51fcc91281"
+    },
+    {
+      "path": "guarded-a.json",
+      "bytes": 5241,
+      "sha256": "2e73606afb941289bd326e4b8ff65b87ac0a479f30978ef1d3cd2007df7a1b29"
+    },
+    {
+      "path": "guarded-a.json.forced.f32",
+      "bytes": 993280,
+      "sha256": "abee104cf326332a7a7abcc9462cd9d985df30fce13a9d4790152921464d25c8"
+    },
+    {
+      "path": "guarded-a.json.prefill.f32",
+      "bytes": 993280,
+      "sha256": "e8640fa93d816ddea353e7d61409086fa8368b066b79810f00ee035f8d6ba68e"
+    },
+    {
+      "path": "guarded-a.log",
+      "bytes": 41902,
+      "sha256": "c88077c66a1b7fb412821a1b776380f74ea71590cb306b019b89e65fd711d7c0"
+    },
+    {
+      "path": "guarded-b.json",
+      "bytes": 5240,
+      "sha256": "af1dd14a3cb7793be21678c261cb33398fd711dc1f540b95f1986d35bb84adec"
+    },
+    {
+      "path": "guarded-b.json.forced.f32",
+      "bytes": 993280,
+      "sha256": "abee104cf326332a7a7abcc9462cd9d985df30fce13a9d4790152921464d25c8"
+    },
+    {
+      "path": "guarded-b.json.prefill.f32",
+      "bytes": 993280,
+      "sha256": "e8640fa93d816ddea353e7d61409086fa8368b066b79810f00ee035f8d6ba68e"
+    },
+    {
+      "path": "guarded-b.log",
+      "bytes": 41902,
+      "sha256": "6374de0ef398ffac2b69cdbb48c9603443fafbc8c54e5f976e33bfcab644f2db"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 1816,
+      "sha256": "7b2c35a0c29694a186237081ed9627b8cb22a84643235437a6b9ee821778e330"
+    },
+    {
+      "path": "runner.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "seed-metadata.json",
+      "bytes": 18818,
+      "sha256": "3012e3fca79455f08ba2ff263d8c85f03d7ca64a2e2742fcdb903ef4baa55a22"
+    },
+    {
+      "path": "ssh-clock-check.json",
+      "bytes": 233,
+      "sha256": "e02278b9f3ade7b4fcbd6298c2f217b14af1f93c045d316c05d48372e19e249d"
+    },
+    {
+      "path": "status.json",
+      "bytes": 62,
+      "sha256": "c6dce9a7b08c23a2d7a73e8bc1a4809bfba01d92e498b78e7a3c64aaac7f0914"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 7277,
+      "sha256": "32bf8e667ddf4eed893e070e1ca898cd7d07bfd01a22faf7d8054e88484d57e0"
+    }
+  ],
+  "archive_sha256": "9fae7bca5d6987dc5a401c5d5b0e9fb4b494d7f21deeb02dc9153765d03e5077",
+  "excludes": "模型、运行库、可执行文件、完整状态快照；保留全部logits原始F32、计时、日志、构建和失败记录",
+  "validation": "4个进程/40次正式测量；完整状态恢复与续写一致性通过；跨版本差异保留；两个版本各自独立进程logits逐位重复通过"
+}

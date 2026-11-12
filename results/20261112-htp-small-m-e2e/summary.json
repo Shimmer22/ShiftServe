@@ -1,0 +1,281 @@
+{
+  "H": 4096,
+  "P": 31,
+  "D": 16,
+  "samples_per_variant": 20,
+  "timing_ms": {
+    "baseline": {
+      "restore_work_ms": {
+        "mean": 17.531018203496934,
+        "median": 18.00127601623535,
+        "min": 14.899478912353516,
+        "max": 18.88854205608368
+      },
+      "prefill_ms": {
+        "mean": 3358.4467381477357,
+        "median": 3420.4258059859276,
+        "min": 2683.126196026802,
+        "max": 3958.0073939561844
+      },
+      "decode_ms": {
+        "mean": 4966.850118005275,
+        "median": 5086.077029585838,
+        "min": 4129.015362977982,
+        "max": 5299.694737911224
+      },
+      "prefill_decode_ms": {
+        "mean": 8325.29685615301,
+        "median": 8506.631481468678,
+        "min": 6814.514111995697,
+        "max": 9184.44390296936
+      },
+      "total_ms": {
+        "mean": 8342.827874356508,
+        "median": 8524.911194980145,
+        "min": 6829.6306220293045,
+        "max": 9202.35124695301
+      }
+    },
+    "guarded": {
+      "restore_work_ms": {
+        "mean": 18.065807390213013,
+        "median": 18.09737002849579,
+        "min": 17.395312070846558,
+        "max": 18.734166979789734
+      },
+      "prefill_ms": {
+        "mean": 3374.7133138120175,
+        "median": 3535.2180980443954,
+        "min": 2842.8455719947815,
+        "max": 3845.976091980934
+      },
+      "decode_ms": {
+        "mean": 5277.983328789473,
+        "median": 5234.706664919853,
+        "min": 4789.470519065857,
+        "max": 7347.118122935295
+      },
+      "prefill_decode_ms": {
+        "mean": 8652.69664260149,
+        "median": 8784.485881567001,
+        "min": 7640.050153017044,
+        "max": 11193.09421491623
+      },
+      "total_ms": {
+        "mean": 8670.762449991704,
+        "median": 8802.64754807949,
+        "min": 7657.72395503521,
+        "max": 11210.803798913956
+      }
+    }
+  },
+  "time_reduction": {
+    "restore_work_ms": -0.030505312384502714,
+    "prefill_ms": -0.0048434818035116844,
+    "decode_ms": -0.06264195685235419,
+    "prefill_decode_ms": -0.039325899376970064,
+    "total_ms": -0.03930736443013205
+  },
+  "block_time_reduction": {
+    "a": {
+      "restore_work_ms": -0.06528980350112623,
+      "prefill_ms": -0.13688119531900544,
+      "decode_ms": -0.09811506029589423,
+      "prefill_decode_ms": -0.11247437137771477,
+      "total_ms": -0.1123703846597699
+    },
+    "b": {
+      "restore_work_ms": 0.001523910370416548,
+      "prefill_ms": 0.0906354994656714,
+      "decode_ms": -0.029592671042791174,
+      "prefill_decode_ms": 0.02224674781020941,
+      "total_ms": 0.022204990636377597
+    }
+  },
+  "numerical": {
+    "prefill": {
+      "elements": 248320,
+      "bitwise_equal": false,
+      "max_abs": 0.7493791580200195,
+      "nrmse": 0.0592956857438863,
+      "cosine": 0.9982635790977076,
+      "allclose_1e_5": false,
+      "top1_equal": true,
+      "top10_overlap": 9
+    },
+    "forced": {
+      "elements": 248320,
+      "bitwise_equal": false,
+      "max_abs": 1.5729246139526367,
+      "nrmse": 0.07963581929046297,
+      "cosine": 0.9970089905871066,
+      "allclose_1e_5": false,
+      "top1_equal": true,
+      "top10_overlap": 10
+    }
+  },
+  "repeatability": {
+    "baseline": {
+      "prefill": {
+        "elements": 248320,
+        "bitwise_equal": true,
+        "max_abs": 0.0,
+        "nrmse": 0.0,
+        "cosine": 0.9999999999999999,
+        "allclose_1e_5": true,
+        "top1_equal": true,
+        "top10_overlap": 10
+      },
+      "forced": {
+        "elements": 248320,
+        "bitwise_equal": true,
+        "max_abs": 0.0,
+        "nrmse": 0.0,
+        "cosine": 1.0000000000000002,
+        "allclose_1e_5": true,
+        "top1_equal": true,
+        "top10_overlap": 10
+      }
+    },
+    "guarded": {
+      "prefill": {
+        "elements": 248320,
+        "bitwise_equal": true,
+        "max_abs": 0.0,
+        "nrmse": 0.0,
+        "cosine": 1.0,
+        "allclose_1e_5": true,
+        "top1_equal": true,
+        "top10_overlap": 10
+      },
+      "forced": {
+        "elements": 248320,
+        "bitwise_equal": true,
+        "max_abs": 0.0,
+        "nrmse": 0.0,
+        "cosine": 1.0,
+        "allclose_1e_5": true,
+        "top1_equal": true,
+        "top10_overlap": 10
+      }
+    }
+  },
+  "state_checks": {
+    "prefill": {
+      "baseline_a": "a2f6dc46a727af5b",
+      "guarded_a": "f25b5223f4ef5135",
+      "cross_variant_equal": false,
+      "within_variant_repeat_equal": true
+    },
+    "forced": {
+      "baseline_a": "81c95268583e985a",
+      "guarded_a": "baffd91ef73339a4",
+      "cross_variant_equal": false,
+      "within_variant_repeat_equal": true
+    }
+  },
+  "all_roundtrip_continuations_bitwise_passed": true,
+  "greedy_equal": false,
+  "greedy_first_difference_1based": 6,
+  "greedy": {
+    "baseline-a": {
+      "greedy_ids": [
+        64,
+        763,
+        5046,
+        1267,
+        763,
+        220,
+        16,
+        15,
+        11,
+        328,
+        4532,
+        763,
+        328,
+        5170,
+        1324,
+        1149
+      ],
+      "greedy_text": "a\": {\"type\": 10, \"description\": \"First number.\"",
+      "greedy_eog": false
+    },
+    "guarded-a": {
+      "greedy_ids": [
+        64,
+        763,
+        5046,
+        1267,
+        763,
+        1866,
+        3042,
+        11,
+        328,
+        4532,
+        763,
+        328,
+        5170,
+        1324,
+        10152,
+        328
+      ],
+      "greedy_text": "a\": {\"type\": max_value, \"description\": \"First number.\", \"",
+      "greedy_eog": false
+    },
+    "guarded-b": {
+      "greedy_ids": [
+        64,
+        763,
+        5046,
+        1267,
+        763,
+        1866,
+        3042,
+        11,
+        328,
+        4532,
+        763,
+        328,
+        5170,
+        1324,
+        10152,
+        328
+      ],
+      "greedy_text": "a\": {\"type\": max_value, \"description\": \"First number.\", \"",
+      "greedy_eog": false
+    },
+    "baseline-b": {
+      "greedy_ids": [
+        64,
+        763,
+        5046,
+        1267,
+        763,
+        220,
+        16,
+        15,
+        11,
+        328,
+        4532,
+        763,
+        328,
+        5170,
+        1324,
+        1149
+      ],
+      "greedy_text": "a\": {\"type\": 10, \"description\": \"First number.\"",
+      "greedy_eog": false
+    }
+  },
+  "logits_sha256": {
+    "baseline-a.json.forced.f32": "8293837f07e823142732dd9e8972111b46985fffe4ce54d294a224692ae7bcea",
+    "baseline-a.json.prefill.f32": "c6ab13a020923c7cd02e233faf8fa2ac2d978bdbda6da13d97349c4781c9e719",
+    "baseline-b.json.forced.f32": "8293837f07e823142732dd9e8972111b46985fffe4ce54d294a224692ae7bcea",
+    "baseline-b.json.prefill.f32": "c6ab13a020923c7cd02e233faf8fa2ac2d978bdbda6da13d97349c4781c9e719",
+    "guarded-a.json.forced.f32": "abee104cf326332a7a7abcc9462cd9d985df30fce13a9d4790152921464d25c8",
+    "guarded-a.json.prefill.f32": "e8640fa93d816ddea353e7d61409086fa8368b066b79810f00ee035f8d6ba68e",
+    "guarded-b.json.forced.f32": "abee104cf326332a7a7abcc9462cd9d985df30fce13a9d4790152921464d25c8",
+    "guarded-b.json.prefill.f32": "e8640fa93d816ddea353e7d61409086fa8368b066b79810f00ee035f8d6ba68e"
+  },
+  "scope": "完整模型固定历史后的prefill与HTP forced decode；不包含模型初始化、工具、网络、视觉与验证开销；非任务质量验收"
+}

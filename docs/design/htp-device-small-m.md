@@ -35,4 +35,22 @@ python scripts/run/htp_small_m.py --output results/20261112-htp-device-small-m
 
 主机测试直接编译实际C谓词，覆盖M1至128、三种模式、类型/batch与形状边界。手机测试使用真实layer0 Q4权重及固定合成激活，检查每次输出后方紧邻的128个F32哨兵。跨进程保存所有有效输出并校验：内部HMX与外部补32行的前31行应逐位一致；guarded中未选择的FFN Down应与原版逐位一致。内部HMX相对原HVX的差异单独记录，不当作数值不变。
 
-首次结果在 `results/20261112-htp-device-small-m/README.md` 与 `summary.json`。原始输出以SHA-256标识，日志、原始计时与构建清单保留。该原型尚未完成模型级logits、完整状态、后续decode和端到端性能验收，因此不安装到默认手机服务。
+首次算子结果在 `results/20261112-htp-device-small-m/README.md` 与 `summary.json`。原始输出以SHA-256标识，日志、原始计时与构建清单保留。算子验证不代表模型级通过；后续固定历史的完整模型验证见下一节。该原型不安装到默认手机服务。
+
+## 固定历史后的完整模型验证
+
+后续验证使用 `src/a2o/native/profiling/htp_small_m_e2e.cpp`，原版与guarded只更换私有DSP，其余可执行文件、模型及运行库完全一致。直接读取此前H4096、CPU6线程权威快照，检查模型路径/大小/mtime、前缀token、context、batch、状态字节数和checksum；不冒用旧可执行文件的缓存身份，也不重新计算不同历史。该快照187MB，完整恢复后重新导出并逐字节核验。
+
+固定P31真实输入、D16固定后续token，两阶段都在同一HTP上下文执行。四个进程按原版、guarded、guarded、原版运行；各进程完成状态/续写验证、预热一次，再计时10次。记录完整模型prefill、HTP decode，以及状态恢复工作时间。恢复中的完整字节核验、其余验证、模型初始化、日志及文件传输均在性能段之外。
+
+验证额外导出完整prefill状态，比较直接D16续写与恢复该状态后的D16续写；逐元素比较全部最终logits，并比较完整最终状态checksum。跨版本保存prefill和D16后的完整logits、状态checksum，以及16步自由greedy延续。固定token回放的速度与greedy延续的响应一致性分别报告，不能据此宣称整个BFCL任务或JSON语义通过。
+
+```bash
+python scripts/build/htp_small_m_bench.py --e2e --output results/20261112-htp-small-m-e2e/build-bench
+python scripts/run/htp_small_m_e2e.py --output results/20261112-htp-small-m-e2e
+/Users/hui/miniforge3/envs/data/bin/python scripts/analyze/htp_small_m_e2e.py --input results/20261112-htp-small-m-e2e
+```
+
+设备入口复用前面guarded构建结果；完整模型结果见 `results/20261112-htp-small-m-e2e/README.md`。这里的推理段总时间不包含工具、网络、视觉和冷启动，不等于整个Agent的用户等待时间。所有计时原样保留，不去长尾；ABBA只有两个进程对，不能把进程内20次重复当作20次独立设备环境。
+
+本轮40次正式计时没有观察到稳定的整体收益：合并prefill均值慢0.48%，恢复＋prefill＋D16均值慢3.93%；但两个进程对的总时间分别慢11.24%、快2.22%，存在明显顺序漂移，不能把合并均值解释为确定的机制因果减速。完整logits相对L2差异在prefill后为5.93%，D16后为7.96%；自由greedy从第6个token开始分叉。两版本各自重复结果一致，完整状态恢复后续写检查通过，但跨版本不等价，不作为无损优化启用。
