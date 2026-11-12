@@ -1,0 +1,15 @@
+{
+  "model": "/workspace/cache/pvst-vllm/qwen35-9b-bf16-20261016",
+  "bfcl_root": "/workspace/references/gorilla-bfcl/berkeley-function-call-leaderboard",
+  "categories": ["multi_turn_base", "multi_turn_miss_param", "multi_turn_miss_func"],
+  "tasks_per_category": 20,
+  "seed": 20261108,
+  "backend": "CUDA0",
+  "endpoint": "http://127.0.0.1:18767",
+  "concurrency": 1,
+  "context_limit": 32768,
+  "max_new_tokens": 1024,
+  "max_steps": 20,
+  "kv_policy": "none",
+  "pre_move": false
+}

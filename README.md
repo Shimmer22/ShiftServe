@@ -1,6 +1,6 @@
 # Tool Slack 感知的端侧异构推理
 
-围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。默认复用 shared 工具链和手机已有 Qwen2.5-VL-3B Q4_0，视觉投影为 F16；不执行模型生成的设备动作。
+围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。基础手机服务迁移为 Qwen3.5-9B Q4_0，wins 主机运行 ToolSandbox 并向手机发送请求，入口见 [手机服务与测评](docs/guides/toolsandbox-phone.md)。现有 CPU/HTP 机制实验仍保留 Qwen2.5-VL-3B Q4_0 与 F16 视觉投影的原始配置和证据；不执行模型生成的设备动作。
 
 主设备已切为小米 SM8650（默认地址见 `configs/device.json`）。[迁移验证](docs/validation/platform-migration.md)：运行库/模型哈希、状态迁移和三路径图像 JSON 已通过，历史文本响应仍未通过，暂不进入新平台性能比较。
 
@@ -19,6 +19,10 @@
 常用入口（均从仓库根目录执行）：
 
 ```bash
+# Qwen3.5-9B Q4_0 手机 CPU HTTP 服务（Termux SSH 控制）
+python3 scripts/run/phone_server.py start
+python3 scripts/run/phone_server.py status
+
 # 本地测试，不使用手机
 conda run --no-capture-output -n visiontrim-qwen25vl python -m unittest discover -s tests
 

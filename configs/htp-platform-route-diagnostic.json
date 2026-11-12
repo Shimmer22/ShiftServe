@@ -1,0 +1,26 @@
+{
+  "name": "20261111-htp-platform-route-diagnostic",
+  "H": 4096,
+  "P": [
+    31,
+    32,
+    63,
+    64,
+    65,
+    66,
+    68,
+    72
+  ],
+  "decode_P": 40,
+  "D": [],
+  "rounds": 1,
+  "cpu_threads": 6,
+  "seed": 20261117,
+  "context_size": 8192,
+  "endpoint": "http://10.29.131.50:18780",
+  "source": "results/20261111-prefill-p24-128-geometric-cpu6-t10/evidence/token-source.response.json",
+  "scope": "私有DSP布局探针诊断，PMU槽承载路径和mc/nc，不是真实硬件计数；耗时不混入原版正式比较",
+  "replay_cache_source_run": "20261111-pd-prefill-dense-h4096-cpu6-t10-service",
+  "balanced_backend_order": true,
+  "htp_probe_skel": "build/htp-route-probe/20261111-192734-236209/libggml-htp-v79.so"
+}

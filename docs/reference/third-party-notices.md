@@ -1,5 +1,7 @@
 # 第三方代码
 
+ToolSandbox 作为外部依赖安装在 wins，固定上游提交为 `c8571d7854316d2e1c5f288e59fe1e34e53f6dd1`，未将其源码复制进本工程 `src/`。工作负载适配器调用其官方场景、执行环境、消息转换和评分器；上游版权及许可保留在外部仓库 [LICENSE](https://github.com/apple/ToolSandbox/blob/c8571d7854316d2e1c5f288e59fe1e34e53f6dd1/LICENSE)。
+
 `src/a2o/vision/qnn_vendor.py` 复用 Qualcomm AI Hub Models 的 `vision_encoder_adaptations.py`，以及 `model_adaptations.py` 中的 `ConvInplaceLinear`。上游 commit：`2565a5b11b8ab98a6079477294d3930b6fdbb18d`。仅将该类的导入改为同文件定义，避免引入与视觉导出无关的完整依赖链。
 
 来源：[视觉适配](https://github.com/qualcomm/ai-hub-models/blob/2565a5b11b8ab98a6079477294d3930b6fdbb18d/src/qai_hub_models/models/templates/qwen2_vl/vision_encoder_adaptations.py)、[线性层转换](https://github.com/qualcomm/ai-hub-models/blob/2565a5b11b8ab98a6079477294d3930b6fdbb18d/src/qai_hub_models/models/templates/llm/model_adaptations.py)。固定位置/mask 包装参考同版本的 `vision_encoder.py`。

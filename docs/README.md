@@ -28,12 +28,32 @@ CPU基线补充：[图1的CPU线程实验（P≤64）](guides/cpu-thread-study.m
 短Gap机制：[按成本有限等待与Cost-aware触发率](guides/pending-wait.md)。
 
 - [P 分布与投机准备期望价值](design/p-distribution-value.md)
+- [BFCL 历史工具输出注意力试跑](guides/bfcl-attention.md)
+- [Qwen3.5-9B Q4_0 手机服务与 ToolSandbox](guides/toolsandbox-phone.md)
+- [ToolSandbox 五组手机实测](validation/toolsandbox-phone.md)
 
-- [工具返回格式、P 分组与共享前缀分析](validation/tool-return-structure.md)
-- [PromptWeaver 对照与前缀失效核对](validation/promptweaver-assessment.md)
-- [主机共享前缀验证：运行方法](guides/prompt-layout-host.md)
-- [18 个新增函数边界：四条件主机结果](validation/prompt-layout-host.md)
+- [Qwen3.5 手机三条件端到端比较](guides/toolsandbox-route-e2e.md)
+
+- [十题三条件审计：精度与人工干预](validation/toolsandbox-ten-audit.md)
+
+- [H/P 线性成本路由与实验接续](guides/linear-route.md)
+
+冻结边界实验优化：[BFCL 快照缓存、直连采集与串行接管](guides/bfcl-cached-replay.md)。
+
+工具返回与 Gap 扩展分析：[BFCL / ToolSandbox 格式、P 分组与共享前缀](validation/tool-return-structure.md)。
+
+PromptWeaver 对照：[长工具说明与短字段前缀的收益边界](validation/promptweaver-assessment.md)。
+
+主机共享前缀验证：[工具说明与历史布局的四条件检查](guides/prompt-layout-host.md)。
+
+布局共享实测：[18 个新增函数边界、四条件主机结果](validation/prompt-layout-host.md)。
+
+机制候选与失效审计：[输入稳定性、状态检查点与缓存损失分解](design/cache-stability-mechanism.md)。
 
 固定历史分阶段扫描：[H=4096 的 CPU/HTP P 与 D 耗时曲线](guides/pd-stage-sweep.md)。
 
-CPU Prefill 最详尽扫描与锯齿调查：[47 个 P 点、940 条测量、源码与拟合证据](validation/cpu-prefill-sawtooth.md)。
+CPU Prefill 锯齿调查：[ARM 双行内核与列切块回退](validation/cpu-prefill-sawtooth.md)。
+
+HTP 平台探索：[HVX/HMX 切换、DeltaNet 64-token 分块与布局探针](validation/htp-platform-exploration.md)。
+
+31行补齐验证：[真实Q4权重下的31→32补零、裁剪与数值对照](validation/pad31-matmul.md)。

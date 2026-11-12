@@ -1,0 +1,28 @@
+{
+  "endpoint": "http://10.29.131.50:18780",
+  "model": "Qwen3.5-9B-Q4_0.gguf",
+  "model_sha256": "12a6f2feaaf88846ceec79704479ef4237226d719145aaed08e749d7b503ca3b",
+  "backend": "CPU",
+  "server_binary_sha256": "7c45cf041d26345668d15a68b4be35f6676ebaf8bc995d08843f6103cd4447df",
+  "context_size": 16384,
+  "max_tokens": 768,
+  "request_timeout_s": 1800,
+  "seed": 20261106,
+  "kv_policy": "none",
+  "pre_move": false,
+  "concurrency": 1,
+  "collector_lock": "/workspace/outputs/a2o-gap-profiling/qwen35-phone-collector.lock",
+  "toolsandbox_revision": "c8571d7854316d2e1c5f288e59fe1e34e53f6dd1",
+  "scenarios": [
+    "get_wifi",
+    "search_phone_number_with_name",
+    "search_message_with_recency_latest",
+    "remove_contact_by_phone",
+    "send_message_with_contact_content_cellular_off",
+    "turn_on_wifi_low_battery_mode",
+    "update_contact_relationship_with_relationship",
+    "find_days_till_holiday",
+    "search_reminder_with_recency_upcoming",
+    "add_reminder_content_and_date_and_time"
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "scope": "single matrix microbenchmark; real weights, fixed synthetic activation; not model prefill/state equivalence",
+  "repetitions": 10,
+  "diagnostic_matrix_ops": 66,
+  "route_verified": true,
+  "cases": [
+    {
+      "tensor": "blk.0.attn_qkv.weight",
+      "K": 4096,
+      "N": 8192,
+      "timing_ms": {
+        "plain31": {
+          "compute_ms": 7.390255105495453,
+          "total_ms": 8.117489504814149,
+          "setup_upload_ms": 0.06723951101303101,
+          "read_crop_ms": 0.6596771955490113
+        },
+        "pad32_discard_last": {
+          "compute_ms": 7.148208194971085,
+          "total_ms": 7.951494807004929,
+          "setup_upload_ms": 0.11403130292892456,
+          "read_crop_ms": 0.6889270961284637
+        }
+      },
+      "total_time_reduction": 0.020449019085368114,
+      "compute_time_reduction": 0.03275217256632723,
+      "retained_output_comparison": {
+        "elements": 253952,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 2,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 1299,
+        "max_abs": 0.02329111099243164,
+        "nrmse": 0.003916275860731433,
+        "cosine": 0.9999924990016897
+      },
+      "plain31_vs_fp32_reference": {
+        "elements": 253952,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 2,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 1320,
+        "max_abs": 0.021561622619628906,
+        "nrmse": 0.003840641493642588,
+        "cosine": 0.9999926337941103
+      },
+      "pad32_vs_fp32_reference": {
+        "elements": 253952,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 4,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 6742,
+        "max_abs": 0.005260586738586426,
+        "nrmse": 0.000718741920548506,
+        "cosine": 0.9999998339197693
+      }
+    },
+    {
+      "tensor": "blk.0.ffn_up.weight",
+      "K": 4096,
+      "N": 12288,
+      "timing_ms": {
+        "pad32_discard_last": {
+          "compute_ms": 10.824479311704636,
+          "total_ms": 12.186239403486251,
+          "setup_upload_ms": 0.1261979043483734,
+          "read_crop_ms": 1.235182386636734
+        },
+        "plain31": {
+          "compute_ms": 11.3077811896801,
+          "total_ms": 12.562510496377945,
+          "setup_upload_ms": 0.057942599058151245,
+          "read_crop_ms": 1.1964114904403687
+        }
+      },
+      "total_time_reduction": 0.029951902766583216,
+      "compute_time_reduction": 0.042740646451183806,
+      "retained_output_comparison": {
+        "elements": 380928,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 4,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 2515,
+        "max_abs": 0.007594730705022812,
+        "nrmse": 0.003996398147843893,
+        "cosine": 0.9999921583139466
+      },
+      "plain31_vs_fp32_reference": {
+        "elements": 380928,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 4,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 2530,
+        "max_abs": 0.007667452096939087,
+        "nrmse": 0.003923947157240893,
+        "cosine": 0.9999923120880875
+      },
+      "pad32_vs_fp32_reference": {
+        "elements": 380928,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 10,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 14228,
+        "max_abs": 0.0016694068908691406,
+        "nrmse": 0.0007160633816510913,
+        "cosine": 0.9999998136271842
+      }
+    },
+    {
+      "tensor": "blk.0.ffn_down.weight",
+      "K": 12288,
+      "N": 4096,
+      "timing_ms": {
+        "pad32_discard_last": {
+          "compute_ms": 11.067255312204361,
+          "total_ms": 11.843843895196915,
+          "setup_upload_ms": 0.3366458058357239,
+          "read_crop_ms": 0.43959381580352785
+        },
+        "plain31": {
+          "compute_ms": 10.266281282901764,
+          "total_ms": 10.82659900188446,
+          "setup_upload_ms": 0.1480155885219574,
+          "read_crop_ms": 0.4119427978992462
+        }
+      },
+      "total_time_reduction": -0.09395793574098343,
+      "compute_time_reduction": -0.07801987956794054,
+      "retained_output_comparison": {
+        "elements": 126976,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 2,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 607,
+        "max_abs": 0.029669523239135742,
+        "nrmse": 0.00398543056380482,
+        "cosine": 0.9999921967992793
+      },
+      "plain31_vs_fp32_reference": {
+        "elements": 126976,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 1,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 550,
+        "max_abs": 0.030558109283447266,
+        "nrmse": 0.003915534307569375,
+        "cosine": 0.999992342955018
+      },
+      "pad32_vs_fp32_reference": {
+        "elements": 126976,
+        "bitwise_equal": false,
+        "bitwise_equal_elements": 1,
+        "allclose_atol_1e_5_rtol_1e_5": false,
+        "allclose_elements": 2991,
+        "max_abs": 0.007246971130371094,
+        "nrmse": 0.0007195022075257957,
+        "cosine": 0.9999998131447675
+      }
+    }
+  ],
+  "all_bitwise_equal": false,
+  "all_strict_allclose": false
+}

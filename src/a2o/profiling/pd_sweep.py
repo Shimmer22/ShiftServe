@@ -106,6 +106,9 @@ def main():
                     timing='纯阶段时间；完整状态恢复、logits检查、快照读写单独计时；decode逐token调用并同步',
                     backend=(f"CPU与HTP均显式加载；Qwen3.5-9B-Q4_0；F16状态；CPU {config['cpu_threads']}线程；HTP主机4线程；batch128；无整理/预搬移"
                              if 'cpu_threads' in config else 'CPU与HTP均显式加载；Qwen3.5-9B-Q4_0；F16状态；4线程；batch128；无整理/预搬移'))
+        if config.get('htp_probe_skel'):
+            plan['htp_probe_skel_sha256'] = hashlib.sha256((ROOT / config['htp_probe_skel']).read_bytes()).hexdigest()
+            plan['diagnostic_only'] = True
         if (out / 'plan.json').exists():
             assert json.loads((out / 'plan.json').read_text()) == plan, '禁止混合不同构建/配置'
         else:
@@ -114,12 +117,17 @@ def main():
             return
         service = out / (config['name'] + '-service')
         status('starting_service')
-        run([sys.executable, str(ROOT / 'scripts/run/route_phone.py'), 'start', '--condition', 'route',
+        launch = [sys.executable, str(ROOT / 'scripts/run/route_phone.py'), 'start', '--condition', 'route',
              '--binary', str(args.binary.resolve()), '--registry',
              str(ROOT / 'results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so'),
              '--output', str(service), '--context-size', str(config['context_size']),
              '--cpu-threads', str(config.get('cpu_threads', 4)),
-             '--replay-cache', '--retry-network'], 'service-launch.log')
+             '--replay-cache', '--retry-network']
+        if config.get('htp_probe_skel'):
+            launch += ['--probe-skel', str(ROOT / config['htp_probe_skel']), '--htp-profile', '2']
+        run(launch, 'service-launch.log')
+        trace_transport = DeviceTransport(ROOT, 'ssh', config=ROOT / 'configs/termux-ssh.json') if config.get('htp_probe_skel') else None
+        remote_log = trace_transport.remote_root + '/' + service.name + '/runtime.log' if trace_transport else None
         if config.get('replay_cache_source_run'):
             transport = DeviceTransport(ROOT, 'ssh', config=ROOT / 'configs/termux-ssh.json')
             remote = transport.remote_root + '/' + service.name
@@ -169,7 +177,13 @@ def main():
                 assert data['request'] == body
                 validate(body, data['response'])
                 return
+            offset = int(trace_transport.call('shell', 'wc -c < ' + shlex.quote(remote_log)).stdout) if trace_transport else 0
             result = post(body, path.stem)
+            if trace_transport:
+                trace = trace_transport.call('shell', 'tail -c +' + str(offset+1) + ' ' + shlex.quote(remote_log)).stdout
+                trace_path = path.with_suffix('.profile.log')
+                trace_path.write_bytes(trace)
+                meta['profile_trace'] = dict(file=trace_path.name, sha256=hashlib.sha256(trace).hexdigest(), start_byte=offset)
             raw = path.with_suffix('.raw.json')
             save(raw, dict(request=body, response=result, **meta))
             validate(body, result)

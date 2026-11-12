@@ -1,0 +1,6 @@
+{
+  "phone": "ba4df874646bd81182b4ffcbb2039f43cd45f54a543ebdbebb12c1c8879f92dc  /data/data/com.termux/files/home/.local/a2o/runtime/lib/libggml-htp-v75.so",
+  "host": "ba4df874646bd81182b4ffcbb2039f43cd45f54a543ebdbebb12c1c8879f92dc  /home/wins/ai-workspace/tools/llama.cpp-hexagon-build/build-snapdragon/ggml/src/ggml-hexagon/libggml-htp-v75.so",
+  "matches": true,
+  "checked_unix": 1794396822.751814
+}
