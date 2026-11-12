@@ -30,6 +30,12 @@ public:
         if (availability(version) != "ready") throw std::runtime_error("HTP lane is not claimable");
         task_->join(); task_.reset(); ++reaped_;
     }
+    bool wait_ready(uint64_t version,double budget_ms) {
+        poll();
+        if(!task_ || retired_ || task_->version!=version || budget_ms<=0)return false;
+        task_->wait_for_exit(budget_ms);
+        return availability(version)=="ready";
+    }
     void retire() { if (task_) { task_->cancel(); retired_ = true; } }
     void close() {
         retire();

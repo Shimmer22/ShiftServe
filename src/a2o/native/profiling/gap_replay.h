@@ -12,6 +12,9 @@ J gap_replay(const J &body) {
     double gap=body.at("gap_ms").get<double>();
     require(std::isfinite(gap) && gap>=0 && gap<120000,"invalid observed gap");
     const auto predicted=body.at("prediction");
+    const auto policy=body.value("return_policy",std::string("ready_only"));
+    require(policy=="ready_only" || policy=="greedy","unsupported return policy");
+    if(policy=="greedy")require(predicted.value("validated",false) || body.value("allow_unvalidated_prediction",false),"unvalidated prediction not explicitly enabled");
     const double cc=predicted.at("cpu_prefill_ms").get<double>()+predicted.value("cpu_restore_ms",0.0),hc=predicted.at("htp_prefill_handoff_ms");
     require(std::isfinite(cc) && std::isfinite(hc) && cc>0 && hc>0,"invalid replay prediction");
     lane.close();anchor={};anchor_ids.clear();
@@ -38,10 +41,29 @@ J gap_replay(const J &body) {
         double actual_gap=now_ms()-begin;
         double returned=now_ms();
         std::string availability=mode=="route"?lane.availability(generation):"not_applicable";
+        const auto availability_at_return=availability;
+        double wait_ms=0;J decision=nullptr;
         std::string route=mode=="htp"?"htp":"cpu",reason="fixed_backend";
         if(mode=="route") {
-            if(availability=="ready" && hc<cc){route="htp";reason="ready_and_lower_predicted_cost";lane.claim(generation);}
-            else {reason=availability=="ready"?"cpu_lower_predicted_cost":"preparation_"+availability;lane.retire();}
+            if(policy=="greedy") {
+                require(availability=="ready" || availability=="pending","invalid greedy candidate state");
+                auto plan=plan_greedy_return(availability=="ready",returned-begin,
+                    predicted.at("prepare_ms").get<double>(),cc,hc);
+                decision={{"cpu_cost_ms",cc},{"htp_cost_ms",hc},{"elapsed_prepare_ms",returned-begin},
+                    {"remaining_prepare_ms",plan.remaining_ms},{"continue_cost_ms",plan.continue_cost_ms},
+                    {"continue_prepare",plan.continue_prepare},{"wait_budget_ms",plan.wait_budget_ms}};
+                reason=plan.reason;
+                if(plan.continue_prepare && availability=="pending") {
+                    double start=now_ms();bool ready=lane.wait_ready(generation,plan.wait_budget_ms);
+                    wait_ms=now_ms()-start;availability=lane.availability(generation);
+                    if(!ready)reason="greedy_wait_timeout";
+                }
+                if(plan.continue_prepare && availability=="ready") {route="htp";lane.claim(generation);}
+                else lane.retire();
+            } else {
+                if(availability=="ready" && hc<cc){route="htp";reason="ready_and_lower_predicted_cost";lane.claim(generation);}
+                else {reason=availability=="ready"?"cpu_lower_predicted_cost":"preparation_"+availability;lane.retire();}
+            }
         }
         auto *pre=route=="htp"?htp->ctx:cpu->ctx;llama_pos pos=prefix.size();
         // 当前生产服务在返回时恢复上一输入锚点，回滚已经生成的 assistant。
@@ -57,12 +79,13 @@ J gap_replay(const J &body) {
         // 单边界夹具退出必须等后台线程结束；尾部单列，不能悄悄抹去准备工作。
         stage=now_ms();lane.close();double tail=now_ms()-stage;
         rows.push_back({{"condition",mode},{"route",route},{"route_reason",reason},{"availability",availability},
+            {"availability_at_return",availability_at_return},{"return_policy",policy},{"wait_ms",wait_ms},{"decision",decision},
             {"H",prefix.size()},{"P",input.size()},{"D",generated.size()},{"always_prepare_started",started},
             {"fixture_restore_ms",fixture},{"requested_gap_ms",gap},{"actual_gap_ms",actual_gap},
             {"prepare_ms",preparation_ms},{"restore_ms",restore},{"prefill_ms",prefill},{"handoff_ms",handoff},
             {"decode_ms",decode},{"post_return_ms",response_ms},{"retirement_tail_ms",tail},
             {"gap_to_response_ms",actual_gap+response_ms},{"serialized_total_ms",actual_gap+response_ms+tail}});
     }
-    return {{"mode","always_prepare_gap_replay_v1"},{"bootstrap_ms",bootstrap},{"cache",cache},{"results",rows},
+    return {{"mode",policy=="greedy"?"always_prepare_gap_replay_v2":"always_prepare_gap_replay_v1"},{"bootstrap_ms",bootstrap},{"cache",cache},{"results",rows},
         {"prediction",predicted},{"scope","teacher-forced replay with observed external gap duration; asynchronous prepare is real, external work is a timed wait; no task-quality or live E2E claim"}};
 }

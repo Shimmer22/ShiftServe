@@ -74,6 +74,10 @@ public:
     }
     // 只有线程真正退出才允许回收，不把 work 完成标记当作退出证明。
     bool exited() const { return exit_future_.wait_for(std::chrono::seconds(0)) == std::future_status::ready; }
+    bool wait_for_exit(double budget_ms) const {
+        bool complete=exit_future_.wait_for(std::chrono::duration<double,std::milli>(budget_ms))==std::future_status::ready;
+        check_error();return complete;
+    }
     void check_error() const {
         std::lock_guard<std::mutex> lock(mutex_);
         if (error_) std::rethrow_exception(error_);

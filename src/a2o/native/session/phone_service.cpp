@@ -10,6 +10,7 @@
 #include "nlohmann/json.hpp"
 using J=nlohmann::ordered_json;
 #include "replay_cache.h"
+#include "../scheduling/greedy_return.h"
 
 struct PhoneService {
     std::string condition;
