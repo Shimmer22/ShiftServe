@@ -42,3 +42,11 @@ CPU与Route在选择CPU时使用相同上下文、6线程、恢复助手、prefi
 完整验收：[acceptance.md](../../results/20261112-tau2-phone-pilot/acceptance.md)。机器可读复核：[acceptance.json](../../results/20261112-tau2-phone-pilot/acceptance.json)。独立复核入口：`python3 scripts/analyze/tau2_acceptance.py`。
 
 原始测量、成本模型、逐边界各轮耗时、状态与收尾记录全部保留。本次验收未启动新设备实验。
+
+## 本轮事后阶段oracle
+
+逐边界逐轮在CPU和HTP的实测prefill、decode中分别取较小值。18次均为HTP prefill＋CPU decode。CPU decode使用CPU条件实测值，不将Route作为第三个候选。
+
+Route纯prefill＋decode累计1426.387s，阶段oracle累计1201.268s，差225.119s，oracle耗时减少15.782%，比值1.187×；18/18次阶段oracle更快。若以独立M校准估计剩余准备3.199s与回迁5.202s，组合约1209.669s，相对本轮Route返回后总耗时1430.881s约少15.460%。该补成本组合是估算，不是已执行的HC路径。
+
+阶段oracle是观测拼接，不包含准备、恢复及迁移，也不构成严格物理下界。贪心接续已另轮实测，见[贪心继续准备实验](tau2-greedy-return.md)；不能直接比较两个批次的绝对时间来归因策略收益。

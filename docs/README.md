@@ -56,6 +56,8 @@ PromptWeaver 对照：[长工具说明与短字段前缀的收益边界](validat
 
 τ²-bench 验收：[54 次测量、短 Gap 未就绪与成本模型边界](validation/tau2-pilot.md)。
 
+τ²-bench 贪心接续：[18 次继续准备成功、HC 实测与阶段 Oracle](validation/tau2-greedy-return.md)。
+
 CPU Prefill 锯齿调查：[ARM 双行内核与列切块回退](validation/cpu-prefill-sawtooth.md)。
 
 HTP 平台探索：[HVX/HMX 切换、DeltaNet 64-token 分块与布局探针](validation/htp-platform-exploration.md)。
