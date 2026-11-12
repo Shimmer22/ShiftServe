@@ -192,6 +192,8 @@ struct PhoneService {
                 {"__verbose",{{"prompt",chat.prompt},{"tokens",generated},{"stop_type",eog?"eos":"limit"},{"truncated",false}}}};
     }
     #include "../profiling/stage_sweep.h"
+    #include "../profiling/state_cost_sweep.h"
+    #include "../profiling/gap_replay.h"
     // Frozen-trajectory replay: evaluate supplied prompt and force supplied output
     // tokens.  No sampling or tool parsing is performed; this is a measurement
     // endpoint for host-collected traces.
@@ -271,6 +273,8 @@ int main(int argc,char **argv){try{
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
     server.Post("/a2o/replay",handle([&](const J &b){return service.replay(b);}));
     server.Post("/a2o/stage-sweep",handle([&](const J &b){return service.stage_sweep(b);}));
+    server.Post("/a2o/state-cost-sweep",handle([&](const J &b){return service.state_cost_sweep(b);}));
+    server.Post("/a2o/gap-replay",handle([&](const J &b){return service.gap_replay(b);}));
     server.Post("/a2o/tool-start",handle([&](const J &){return service.start_prepare();}));
     server.Post("/a2o/calibrate",handle([&](const J &b){return service.calibrate(b);}));
     server.Post("/a2o/costs",handle([&](const J &b){

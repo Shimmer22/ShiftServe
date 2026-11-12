@@ -52,6 +52,10 @@ PromptWeaver 对照：[长工具说明与短字段前缀的收益边界](validat
 
 固定历史分阶段扫描：[H=4096 的 CPU/HTP P 与 D 耗时曲线](guides/pd-stage-sweep.md)。
 
+τ²-bench：[主机并发轨迹、M(H) 补测与 always-prepare 手机 pilot](guides/tau2.md)。
+
+τ²-bench 验收：[54 次测量、短 Gap 未就绪与成本模型边界](validation/tau2-pilot.md)。
+
 CPU Prefill 锯齿调查：[ARM 双行内核与列切块回退](validation/cpu-prefill-sawtooth.md)。
 
 HTP 平台探索：[HVX/HMX 切换、DeltaNet 64-token 分块与布局探针](validation/htp-platform-exploration.md)。

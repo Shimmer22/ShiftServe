@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
 from a2o.validation.oracle import active_model_processes
 from a2o.runtime.network_retry import retry_network
-p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['start','stop']);p.add_argument('--condition',choices=['cpu','htp','route'],required=True);p.add_argument('--binary',type=Path);p.add_argument('--output',type=Path,required=True);p.add_argument('--costs',type=Path);p.add_argument('--registry',type=Path);p.add_argument('--retry-network',action='store_true');p.add_argument('--context-size',type=int,default=4096);p.add_argument('--replay-cache',action='store_true');p.add_argument('--cpu-threads',type=int,default=4,choices=range(1,17));p.add_argument('--probe-skel',type=Path);p.add_argument('--htp-profile',type=int,choices=[0,2],default=0);a=p.parse_args()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['start','stop']);p.add_argument('--condition',choices=['cpu','htp','route'],required=True);p.add_argument('--binary',type=Path);p.add_argument('--output',type=Path,required=True);p.add_argument('--costs',type=Path);p.add_argument('--registry',type=Path);p.add_argument('--retry-network',action='store_true');p.add_argument('--context-size',type=int,default=4096);p.add_argument('--replay-cache',action='store_true');p.add_argument('--logs-only',action='store_true',help='停止时只收回日志和PID，大缓存与二进制保留在手机');p.add_argument('--cpu-threads',type=int,default=4,choices=range(1,17));p.add_argument('--probe-skel',type=Path);p.add_argument('--htp-profile',type=int,choices=[0,2],default=0);a=p.parse_args()
 if bool(a.probe_skel)!=(a.htp_profile==2):p.error('私有DSP探针必须同时使用--probe-skel与--htp-profile 2')
 t=DeviceTransport(ROOT,'ssh',config=ROOT/'configs/termux-ssh.json');out=a.output.resolve();out.mkdir(parents=True,exist_ok=True);remote=t.remote_root+'/'+out.name;q=shlex.quote
 def retry(operation):
@@ -54,5 +54,15 @@ else:
  t.lock_owner=out.name
  command='if [ -d '+q(t.remote_root+'/model.lock')+' ]; then '+owner_check+' && { if '+pid_alive+'; then kill "$p"; else :; fi; }; fi'
  t.call('shell',command)
- t.call('pull',remote+'/.',str(out/'device'));t.release_lock()
+ for _ in range(30):
+  state=t.call('shell','if '+pid_alive+'; then echo running; else echo stopped; fi').stdout.decode().strip()
+  if state=='stopped':break
+  time.sleep(1)
+ else:raise RuntimeError('私有服务未退出，保留锁；禁止并行启动下一模型')
+ if a.logs_only:
+  device=out/'device';device.mkdir(exist_ok=True)
+  for name in ['runtime.log','pid']:t.call('pull',remote+'/'+name,str(device/name))
+  (out/'remote-artifacts.json').write_text(json.dumps(dict(remote=remote,replay_cache=remote+'/replay-cache',retained_on_phone=True,downloaded=['runtime.log','pid']),indent=2)+'\n')
+ else:t.call('pull',remote+'/.',str(out/'device'))
+ t.release_lock()
  retry(lambda:subprocess.run(t.prefix+['termux-wake-unlock'],check=True,capture_output=True,timeout=30))
