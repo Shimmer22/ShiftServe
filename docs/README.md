@@ -71,3 +71,5 @@ NPU decode慢因：[CPU/HTP拆图、融合DeltaNet与批量提交实测](validat
 NPU decode组合优化：[充分预热对照、JSON记忆与检查点验收](validation/npu-decode-combined.md)。
 
 第二机制探索入口：[NPU草稿、CPU验证：设想、证据与未完成项](design/second-mechanism.md)。
+
+NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](validation/npu-decode-stacked-sparse.md)。

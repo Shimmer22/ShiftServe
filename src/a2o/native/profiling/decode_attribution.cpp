@@ -36,8 +36,17 @@ int main(int argc,char **argv){try{
     start=now_ms();restore_session(ctx,history);result["history_restore_ms"]=now_ms()-start;pos=prefix.size();
     start=now_ms();evaluate(ctx,input,pos);result["full_prefill_ms"]=now_ms()-start;
     SessionSnapshot frozen;frozen.state=export_seq(ctx);frozen.next_pos=pos;result["state_bytes"]=frozen.state.size();result["state_restore_verified"]=true;
-    CompactProbe pack(engine.model);double keep=cfg.value("keep_ratio",1.0);pack.install(model,keep,htp,true);
-    require(keep==0||keep==1,"attribution uses only dense or no-FFN diagnostic");
+    double keep=cfg.value("keep_ratio",1.0);require(keep>=0&&keep<=1,"invalid FFN keep ratio");
+    CompactProbe pack(engine.model);start=now_ms();pack.install(model,keep,htp,true);
+    result["ffn_compaction"]={{"keep_ratio",keep},{"packing_ms",now_ms()-start},{"packed_bytes",pack.packed_bytes},{"layers",pack.shapes},
+        {"scope","fixed contiguous channels; no importance selection or acceptance claim"}};
+    // Prefill使用完整FFN。替换后先用不同于prefill的batch形状重建图，
+    // 再恢复原状态；后续单token图可正常复用，避免测到旧dense图。
+    if(keep!=1){
+        require(input.size()>2&&output.size()>=2,"sparse graph rebuild requires distinct batch shapes");
+        pos=frozen.next_pos;evaluate(ctx,{output[0],output[1]},pos);
+        restore_session(ctx,frozen);result["ffn_compaction"]["graph_rebuilt_with_batch2_before_single_token"]=true;
+    }
     save_probe(path,result);std::vector<float> reference;
     int formal=0,warm=0;bool warming=true;double warm_ms=0;
     while(warming||formal<cfg.at("rounds").get<int>()){

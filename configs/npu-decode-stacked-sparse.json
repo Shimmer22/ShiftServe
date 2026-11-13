@@ -1,0 +1,71 @@
+{
+  "name": "20261113-npu-decode-stacked-sparse",
+  "fixture": "results/20261113-npu-draft-key-probe/fixture.json",
+  "build": "results/20261113-decode-attribution/build-stacked-sparse",
+  "D": 16,
+  "rounds": 3,
+  "cases": [
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "name": "cpu-before",
+      "backend": "cpu"
+    },
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "name": "optimized-dense-before",
+      "backend": "htp"
+    },
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "name": "optimized-keep50",
+      "backend": "htp",
+      "keep_ratio": 0.5
+    },
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "name": "optimized-keep25",
+      "backend": "htp",
+      "keep_ratio": 0.25
+    },
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "name": "optimized-dense-after",
+      "backend": "htp"
+    },
+    {
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "name": "cpu-after",
+      "backend": "cpu"
+    }
+  ]
+}
