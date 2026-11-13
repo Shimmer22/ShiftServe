@@ -1,0 +1,13 @@
+{
+  "name": "20261113-decode-attribution",
+  "fixture": "results/20261113-npu-draft-key-probe/fixture.json",
+  "D": 4,
+  "rounds": 3,
+  "cases": [
+    {"name": "htp-reuse", "backend": "htp", "graph_reuse_disable": false},
+    {"name": "cpu-reuse", "backend": "cpu", "graph_reuse_disable": false},
+    {"name": "htp-rebuild", "backend": "htp", "graph_reuse_disable": true},
+    {"name": "htp-host-timing", "backend": "htp", "graph_reuse_disable": false, "host_instrumentation": true},
+    {"name": "htp-dsp-route", "backend": "htp", "graph_reuse_disable": false, "profile": 2, "private_dsp": true, "D": 2, "rounds": 1}
+  ]
+}

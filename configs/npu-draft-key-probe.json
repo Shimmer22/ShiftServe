@@ -1,0 +1,26 @@
+{
+  "name": "20261113-npu-draft-key-probe",
+  "source": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_15/t01-s00.response.json",
+  "normal_source": "results/20261111-pd-stage-sweep-h4096/normal-response.json",
+  "backends": [
+    "htp"
+  ],
+  "H": 4096,
+  "P": 40,
+  "context_size": 8192,
+  "verify_k": [],
+  "measure_rollback": false,
+  "keep_ratios": [
+    1.0,
+    0.5,
+    0.25,
+    0.0,
+    1.0
+  ],
+  "sparse_D": 8,
+  "rounds": 3,
+  "seed": 20261112,
+  "history_cache_metadata": "/data/data/com.termux/files/home/.local/a2o/runs/20261111-pd-prefill-dense-h4096-cpu6-t10-service/replay-cache/7a6d633cad63502d.json",
+  "expected_libllama_sha256": "89dbf30d32b2586221fce0f494bc9ae41c602339b0858a9e5e1b98d7beef40b5",
+  "inplace_compaction": true
+}

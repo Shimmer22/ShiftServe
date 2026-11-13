@@ -1,0 +1,14 @@
+{
+  "name": "20261112-ffn-sparse-feasibility",
+  "source": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_15/t01-s00.response.json",
+  "normal_source": "results/20261111-pd-stage-sweep-h4096/normal-response.json",
+  "backends": ["cpu", "htp"],
+  "H": 4096,
+  "P": 40,
+  "context_size": 8192,
+  "verify_k": [1, 2, 4, 8, 16, 32],
+  "keep_ratios": [1.0, 0.75, 0.5, 0.25, 0.0, 1.0],
+  "sparse_D": 16,
+  "rounds": 3,
+  "seed": 20261112
+}

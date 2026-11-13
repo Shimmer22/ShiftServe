@@ -1,0 +1,12 @@
+{
+  "name":"20261113-npu-decode-combined",
+  "fixture":"results/20261113-npu-draft-key-probe/fixture.json",
+  "build":"results/20261113-decode-attribution/build-combined",
+  "D":16,
+  "rounds":3,
+  "cases":[
+    {"name":"original", "backend":"htp", "graph_reuse_disable":false, "save_logits":true, "check_checkpoint_replay":true, "check_json_memory":true},
+    {"name":"optimized", "backend":"htp", "graph_reuse_disable":false, "cpu_fused_gdn":true, "opbatch":1024, "opqueue":16, "save_logits":true, "check_checkpoint_replay":true, "check_json_memory":true},
+    {"name":"cpu", "backend":"cpu", "graph_reuse_disable":false, "save_logits":true, "check_checkpoint_replay":true, "check_json_memory":true}
+  ]
+}

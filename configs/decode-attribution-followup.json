@@ -1,0 +1,14 @@
+{
+  "name": "20261113-decode-attribution-followup",
+  "fixture": "results/20261113-npu-draft-key-probe/fixture.json",
+  "build": "results/20261113-decode-attribution/build-followup",
+  "D": 4,
+  "rounds": 3,
+  "cases": [
+    {"name":"baseline", "backend":"htp", "graph_reuse_disable":false, "host_instrumentation":true, "save_logits":true},
+    {"name":"cpu-fused-gdn", "backend":"htp", "graph_reuse_disable":false, "host_instrumentation":true, "cpu_fused_gdn":true, "save_logits":true},
+    {"name":"host-one-thread", "backend":"htp", "graph_reuse_disable":false, "host_instrumentation":true, "htp_threads":1, "save_logits":true},
+    {"name":"batched-submit", "backend":"htp", "graph_reuse_disable":false, "host_instrumentation":true, "opbatch":1024, "opqueue":16, "save_logits":true},
+    {"name":"baseline-after", "backend":"htp", "graph_reuse_disable":false, "host_instrumentation":true, "rounds":1, "save_logits":true}
+  ]
+}

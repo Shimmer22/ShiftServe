@@ -1,0 +1,12 @@
+{
+  "name":"20261113-npu-decode-combined-warm",
+  "fixture":"results/20261113-npu-draft-key-probe/fixture.json",
+  "build":"results/20261113-decode-attribution/build-combined-warm",
+  "D":16,
+  "rounds":3,
+  "cases":[
+    {"name":"original-before", "backend":"htp", "graph_reuse_disable":false, "minimum_warmup_seconds":40, "observe_cpu_state":true},
+    {"name":"optimized", "backend":"htp", "graph_reuse_disable":false, "cpu_fused_gdn":true, "opbatch":1024, "opqueue":16, "minimum_warmup_seconds":40, "observe_cpu_state":true},
+    {"name":"original-after", "backend":"htp", "graph_reuse_disable":false, "minimum_warmup_seconds":40, "observe_cpu_state":true}
+  ]
+}

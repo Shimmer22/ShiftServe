@@ -63,3 +63,11 @@ CPU Prefill 锯齿调查：[ARM 双行内核与列切块回退](validation/cpu-p
 HTP 平台探索：[HVX/HMX 切换、DeltaNet 64-token 分块与布局探针](validation/htp-platform-exploration.md)。
 
 31行补齐验证：[真实Q4权重下的31→32补零、裁剪与数值对照](validation/pad31-matmul.md)。
+
+NPU草稿成本检查：[固定FFN宽度、CPU验证与recurrent回滚](validation/npu-draft-key-probe.md)。
+
+NPU decode慢因：[CPU/HTP拆图、融合DeltaNet与批量提交实测](validation/decode-attribution.md)。
+
+NPU decode组合优化：[充分预热对照、JSON记忆与检查点验收](validation/npu-decode-combined.md)。
+
+第二机制探索入口：[NPU草稿、CPU验证：设想、证据与未完成项](design/second-mechanism.md)。
