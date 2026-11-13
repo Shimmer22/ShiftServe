@@ -35,6 +35,7 @@ def main():
         for local,name in [(build/'probe','probe'),(build/'libggml-base.so','instrumented/libggml-base.so'),
             (ROOT/'results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so','libggml.so')]:t.call('push',str(local),remote+'/'+name)
         if (build/'libllama.so').exists():t.call('push',str(build/'libllama.so'),remote+'/diagnostic/libllama.so')
+        if (build/'libggml-cpu.so').exists():t.call('push',str(build/'libggml-cpu.so'),remote+'/instrumented/libggml-cpu.so')
         dsp=json.loads((ROOT/'results/20261111-htp-platform-exploration/probe-build-v75/completion.json').read_text())
         t.call('push',dsp['binary'],remote+'/probe-dsp/libggml-htp-v75.so');t.call('shell','chmod','755',remote+'/probe')
         identities=t.call('shell','sha256sum '+shlex.join([remote+'/probe',remote+'/instrumented/libggml-base.so',remote+'/probe-dsp/libggml-htp-v75.so',t.config['runtime_library_dir']+'/libllama.so',t.config['runtime_library_dir']+'/libggml-base.so',t.config['runtime_library_dir']+'/libggml-hexagon.so',t.config['runtime_library_dir']+'/libggml-htp-v75.so'])).stdout.decode()

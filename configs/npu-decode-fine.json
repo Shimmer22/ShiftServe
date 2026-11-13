@@ -1,0 +1,85 @@
+{
+  "name": "20261113-npu-decode-fine",
+  "fixture": "results/20261113-npu-draft-key-probe/fixture.json",
+  "build": "results/20261113-decode-attribution/build-fine",
+  "D": 8,
+  "rounds": 3,
+  "cases": [
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "name": "control-before"
+    },
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "host_instrumentation": true,
+      "profile": 1,
+      "name": "fine-h4096"
+    },
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "host_instrumentation": true,
+      "profile": 1,
+      "name": "fine-keep25-h4096",
+      "keep_ratio": 0.25
+    },
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "host_instrumentation": true,
+      "profile": 1,
+      "name": "fine-h512",
+      "history_tokens": 512
+    },
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "host_instrumentation": true,
+      "profile": 1,
+      "name": "fine-h4096-after"
+    },
+    {
+      "backend": "htp",
+      "cpu_fused_gdn": true,
+      "opbatch": 1024,
+      "opqueue": 16,
+      "graph_reuse_disable": false,
+      "minimum_warmup_seconds": 40,
+      "observe_cpu_state": true,
+      "weight_inventory": true,
+      "name": "control-after"
+    }
+  ]
+}

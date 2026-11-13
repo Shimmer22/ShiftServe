@@ -15,6 +15,7 @@ class FrozenReplayCache {
     }
 public:
     explicit FrozenReplayCache(std::string identity):identity_(std::move(identity)) {}
+    bool matches(const std::vector<llama_token> &ids) const {return ids==ids_ && !snapshot_.state.empty();}
     SessionSnapshot get(llama_context *ctx,const std::vector<llama_token> &ids,
                         const std::string &directory,J &report) {
         double begin=now_ms();

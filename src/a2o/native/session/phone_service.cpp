@@ -26,18 +26,51 @@ struct PhoneService {
     J cost_model=nullptr;
     uint64_t version=0;
     int cpu_threads=4;
+    bool htp_kv_offload=false, flash_attention=false;
+    bool single_resident=false;
+    std::string model_path;
+    std::string model_id="qwen35-9b-q4_0";
     std::unique_ptr<FrozenReplayCache> replay_cache;
     PhoneService(const std::string &model,const std::string &which):condition(which) {
+        model_path=model;
         if(const char *value=std::getenv("A2O_CPU_THREADS"))cpu_threads=std::stoi(value);
         require(cpu_threads>0 && cpu_threads<=16,"invalid CPU thread count");
+        if(const char *value=std::getenv("A2O_HTP_KV_OFFLOAD")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV offload flag");htp_kv_offload=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_FLASH_ATTN")){require(std::string(value)=="0"||std::string(value)=="1","invalid flash attention flag");flash_attention=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_MODEL_ID"))model_id=value;
+        if(const char *value=std::getenv("A2O_SINGLE_RESIDENT")){require(std::string(value)=="0"||std::string(value)=="1","invalid residency flag");single_resident=std::string(value)=="1";}
         replay_cache=std::make_unique<FrozenReplayCache>(model+":"+std::to_string(std::filesystem::file_size(model))+":"+std::to_string(static_cast<long long>(std::filesystem::last_write_time(model).time_since_epoch().count()))+":"+__DATE__+":"+__TIME__+":cpu_threads="+std::to_string(cpu_threads));
         double start=now_ms();
-        if(which!="htp")cpu=std::make_unique<Engine>(model,false,false,true,cpu_threads);
-        if(which!="cpu")htp=std::make_unique<Engine>(model,true,false,false);
+        if(which!="htp")cpu=std::make_unique<Engine>(model,false,false,true,cpu_threads,flash_attention);
+        if(which!="cpu" && !single_resident)htp=std::make_unique<Engine>(model,true,false,htp_kv_offload,4,flash_attention);
+        require(cpu||htp,"single residency requires route or cpu startup");
         auto *m=cpu?cpu->model:htp->model;vocab=llama_model_get_vocab(m);
         templates=common_chat_templates_init(m,"");init_ms=now_ms()-start;
     }
     Engine &home(){return cpu?*cpu:*htp;}
+    J select_stage_backend(const std::string &backend,const std::vector<llama_token> &warm_ids) {
+        require(backend=="cpu"||backend=="htp","invalid stage backend");
+        if(!single_resident || (backend=="cpu"?bool(cpu):bool(htp)))return {{"switched",false},{"model_context_init_ms",0},{"warmup_ms",0}};
+        lane.close();anchor={};anchor_ids.clear();templates.reset();vocab=nullptr;
+        double begin=now_ms();cpu.reset();htp.reset();double release=now_ms()-begin;
+        auto released=resource_sample();begin=now_ms();
+        if(backend=="cpu")cpu=std::make_unique<Engine>(model_path,false,false,true,cpu_threads,flash_attention);
+        else htp=std::make_unique<Engine>(model_path,true,false,htp_kv_offload,4,flash_attention);
+        double initialize=now_ms()-begin;vocab=llama_model_get_vocab(home().model);
+        templates=common_chat_templates_init(home().model,"");
+        begin=now_ms();llama_pos pos=0;
+        evaluate(home().ctx,std::vector<llama_token>(warm_ids.begin(),warm_ids.begin()+std::min(size_t(32),warm_ids.size())),pos);
+        double warmup=now_ms()-begin;
+        return {{"switched",true},{"release_ms",release},{"resources_after_release",released},
+            {"model_context_init_ms",initialize},{"warmup_ms",warmup},{"warmup_tokens",pos}};
+    }
+    J enable_dual_state() {
+        lane.close();anchor={};anchor_ids.clear();double begin=now_ms();
+        if(!cpu)cpu=std::make_unique<Engine>(model_path,false,false,true,cpu_threads,flash_attention);
+        if(!htp)htp=std::make_unique<Engine>(model_path,true,false,htp_kv_offload,4,flash_attention);
+        single_resident=false;vocab=llama_model_get_vocab(cpu->model);templates=common_chat_templates_init(cpu->model,"");
+        return {{"mode","dual_state_cost_only"},{"setup_ms",now_ms()-begin},{"resources",resource_sample()}};
+    }
     common_chat_params render(const J &body) {
         common_chat_templates_inputs in;
         in.messages=common_chat_msgs_parse_oaicompat(body.at("messages"));
@@ -186,7 +219,7 @@ struct PhoneService {
                   {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
-        return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model","qwen35-9b-q4_0"},
+        return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
                 {"choices",J::array({{{"index",0},{"message",message},{"finish_reason",!eog?"length":msg.tool_calls.empty()?"stop":"tool_calls"}}})},
                 {"usage",{{"prompt_tokens",ids.size()},{"completion_tokens",generated.size()},{"total_tokens",ids.size()+generated.size()},
                           {"prompt_tokens_details",{{"cached_tokens",h}}}}},{"timings",timing},
@@ -194,6 +227,7 @@ struct PhoneService {
     }
     #include "../profiling/stage_sweep.h"
     #include "../profiling/state_cost_sweep.h"
+    #include "../profiling/model_preflight.h"
     #include "../profiling/gap_replay.h"
     // Frozen-trajectory replay: evaluate supplied prompt and force supplied output
     // tokens.  No sampling or tool parsing is performed; this is a measurement
@@ -268,13 +302,15 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
     server.Post("/a2o/replay",handle([&](const J &b){return service.replay(b);}));
     server.Post("/a2o/stage-sweep",handle([&](const J &b){return service.stage_sweep(b);}));
     server.Post("/a2o/state-cost-sweep",handle([&](const J &b){return service.state_cost_sweep(b);}));
+    server.Post("/a2o/state-residency",handle([&](const J &b){require(b.at("mode")=="dual","invalid residency mode");return service.enable_dual_state();}));
+    server.Post("/a2o/model-preflight",handle([&](const J &b){return service.model_preflight(b);}));
     server.Post("/a2o/gap-replay",handle([&](const J &b){return service.gap_replay(b);}));
     server.Post("/a2o/tool-start",handle([&](const J &){return service.start_prepare();}));
     server.Post("/a2o/calibrate",handle([&](const J &b){return service.calibrate(b);}));

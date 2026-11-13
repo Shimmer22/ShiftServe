@@ -1,5 +1,11 @@
 # 文档索引
 
+当前默认文本模型：**Qwen3-8B Q4_0**，见[模型准入与关键成本扫描](guides/qwen3-model-costs.md)。旧模型文档保留其实际实验身份；HTP均需按具体配置区分offload与算子覆盖。
+
+新模型实测：[准入、双驻留换页诊断与单驻留正式扫描](validation/qwen3-model-preflight.md)。
+
+本轮完成：[Qwen3-8B固定配置成本表验收与绘图](validation/qwen3-key-costs.md)。
+
 命令均从仓库根目录执行。`results/`、`archive/` 中的历史路径与原始 manifest 不改写，复现旧版本时按其 Git 提交查看。
 
 | 分类 | 文档 |
@@ -73,3 +79,5 @@ NPU decode组合优化：[充分预热对照、JSON记忆与检查点验收](val
 第二机制探索入口：[NPU草稿、CPU验证：设想、证据与未完成项](design/second-mechanism.md)。
 
 NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](validation/npu-decode-stacked-sparse.md)。
+
+优化后decode细分：[CPU逐节点、HTP逐算子与KV历史长度对照](validation/npu-decode-fine.md)。

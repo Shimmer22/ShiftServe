@@ -1,8 +1,8 @@
 # Tool Slack 感知的端侧异构推理
 
-围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。基础手机服务迁移为 Qwen3.5-9B Q4_0，wins 主机运行 ToolSandbox 并向手机发送请求，入口见 [手机服务与测评](docs/guides/toolsandbox-phone.md)。现有 CPU/HTP 机制实验仍保留 Qwen2.5-VL-3B Q4_0 与 F16 视觉投影的原始配置和证据；不执行模型生成的设备动作。
+围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。默认文本实验切换为 **Qwen3-8B Q4_0**，模型身份见 `configs/model-default.json`，准入与关键成本采集见[新模型指南](docs/guides/qwen3-model-costs.md)。HTP 条件明确称为 **HTP offload**，不能由阶段名称推断全部算子在 DSP 上执行。Qwen3.5-9B 与 Qwen2.5-VL-3B 的历史配置、日志和结论原样保留，不把旧成本表套到新模型；纯文本 Qwen3-8B 不提供图像能力。
 
-主设备已切为小米 SM8650（默认地址见 `configs/device.json`）。[迁移验证](docs/validation/platform-migration.md)：运行库/模型哈希、状态迁移和三路径图像 JSON 已通过，历史文本响应仍未通过，暂不进入新平台性能比较。
+主设备为小米 SM8650，手机控制统一使用 `configs/termux-ssh.json`。历史Qwen2.5-VL的[平台迁移验证](docs/validation/platform-migration.md)保留其图像与文本限制；新默认模型使用独立准入与成本表，不继承旧模型的通过状态。
 
 [手机单闭环](docs/validation/single-loop.md)已通过：两轮同一进程，模型真实点击测试页，基于新截图确认完成并回忆任务码；当前为 CPU 执行路径的功能基线，尚未接入投机调度。
 
@@ -19,9 +19,8 @@
 常用入口（均从仓库根目录执行）：
 
 ```bash
-# Qwen3.5-9B Q4_0 手机 CPU HTTP 服务（Termux SSH 控制）
-python3 scripts/run/phone_server.py start
-python3 scripts/run/phone_server.py status
+# Qwen3-8B Q4_0：模型安装校验→四路径准入→关键成本表
+python3 scripts/run/model_migration_campaign.py
 
 # 本地测试，不使用手机
 conda run --no-capture-output -n visiontrim-qwen25vl python -m unittest discover -s tests

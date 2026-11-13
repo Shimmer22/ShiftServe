@@ -1,6 +1,6 @@
 // 独立 P/D 扫描；包含在 PhoneService 内，复用完整历史缓存。
 J stage_sweep(const J &body) {
-    require(cpu && htp,"stage sweep requires explicit CPU and HTP");
+    require((cpu && htp)||single_resident,"stage sweep requires explicit CPU/HTP support");
     auto prefix=body.at("prefix_ids").get<std::vector<llama_token>>();
     auto input=body.at("input_ids").get<std::vector<llama_token>>();
     auto output=body.at("generated_ids").get<std::vector<llama_token>>();
@@ -15,13 +15,17 @@ J stage_sweep(const J &body) {
     require(output.empty()?points.empty():!points.empty() && points.front()>0 && points.back()==output.size(),"decode shape mismatch");
     lane.close();anchor={};anchor_ids.clear();
     J cache;double boot=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
-    auto frozen=replay_cache->get(cpu->ctx,prefix,dir?dir:"",cache);
+    if(single_resident && !replay_cache->matches(prefix))select_stage_backend("cpu",prefix);
+    auto frozen=replay_cache->get(home().ctx,prefix,dir?dir:"",cache);
     double bootstrap=now_ms()-boot;
     J rows=J::array();std::vector<float> reference;double cosine=1,nrmse=0;
     for(const auto &backend:order) {
+        J setup=select_stage_backend(backend,prefix);
         auto *ctx=backend=="cpu"?cpu->ctx:htp->ctx;
         double start=now_ms();restore_session(ctx,frozen);double restore=now_ms()-start;
+        auto resources_before=resource_sample();
         llama_pos pos=prefix.size();start=now_ms();evaluate(ctx,input,pos);double prefill=now_ms()-start;
+        auto resources_after_prefill=resource_sample();
         auto *logits=llama_get_logits_ith(ctx,-1);require(logits,"missing sweep logits");
         std::vector<float> values(logits,logits+llama_vocab_n_tokens(vocab));
         for(auto value:values)require(std::isfinite(value),"nonfinite sweep logits");
@@ -49,7 +53,9 @@ J stage_sweep(const J &body) {
         rows.push_back({{"backend",backend},{"H",prefix.size()},{"P",input.size()},
             {"D",output.size()},{"n_threads",backend=="cpu"?cpu_threads:4},
             {"n_threads_batch",backend=="cpu"?cpu_threads:4},{"restore_ms",restore},{"prefill_ms",prefill},
-            {"decode_checkpoints",checkpoints},{"state_restore_verified",true},{"finite_logits",true}});
+            {"decode_checkpoints",checkpoints},{"state_restore_verified",true},{"finite_logits",true},
+            {"resources_before",resources_before},{"resources_after_prefill",resources_after_prefill},{"resources_after_decode",resource_sample()},
+            {"backend_setup",setup},{"single_resident",single_resident}});
     }
     return {{"mode","stage_sweep_v1"},{"bootstrap_ms",bootstrap},{"cache",cache},{"rows",rows},
         {"logit_comparison",{{"cosine",cosine},{"nrmse",nrmse},{"passed",cosine>=0.99}}},

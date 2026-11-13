@@ -25,6 +25,11 @@ int main(int argc,char **argv){try{
     std::string text;bool eog=false;for(int i=0;i<16;++i){auto tok=greedy(ctx,nv);if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}text+=piece(vocab,tok);evaluate(ctx,{tok},pos);}
     result["normal_response"]={{"text",text},{"passed",eog&&text.find("OK")!=std::string::npos}};save_probe(path,result);require(result["normal_response"]["passed"],"normal response failed");
     auto prefix=cfg.at("prefix_ids").get<std::vector<llama_token>>(),input=cfg.at("input_ids").get<std::vector<llama_token>>(),output=cfg.at("generated_ids").get<std::vector<llama_token>>();
+    if(cfg.contains("history_tokens")){
+        int h=cfg.at("history_tokens");require(h>0&&h<=int(prefix.size()),"invalid diagnostic history length");prefix.resize(h);
+        llama_memory_clear(llama_get_memory(ctx),true);pos=0;start=now_ms();evaluate(ctx,prefix,pos);
+        result["history_build_ms"]=now_ms()-start;result["history_source"]="fresh exact prefix slice; recurrent state recomputed";
+    }else{
     std::string cache_path=cfg.at("history_cache_metadata");auto stored=J::parse(read(cache_path));auto meta=stored.at("metadata");
     require(meta.at("prefix_ids").get<std::vector<llama_token>>()==prefix,"history exact tokens");
     require(meta.at("context").get<int>()==context_size&&meta.at("batch").get<int>()==batch_size,"history context/batch");
@@ -34,6 +39,8 @@ int main(int argc,char **argv){try{
     require(bytes.size()==stored.at("state_bytes").get<size_t>()&&digest.str()==stored.at("state_checksum").get<std::string>(),"history size/checksum");
     SessionSnapshot history;history.state.assign(bytes.begin(),bytes.end());history.next_pos=prefix.size();
     start=now_ms();restore_session(ctx,history);result["history_restore_ms"]=now_ms()-start;pos=prefix.size();
+    }
+    result["actual_H"]=prefix.size();result["actual_P"]=input.size();
     start=now_ms();evaluate(ctx,input,pos);result["full_prefill_ms"]=now_ms()-start;
     SessionSnapshot frozen;frozen.state=export_seq(ctx);frozen.next_pos=pos;result["state_bytes"]=frozen.state.size();result["state_restore_verified"]=true;
     double keep=cfg.value("keep_ratio",1.0);require(keep>=0&&keep<=1,"invalid FFN keep ratio");
@@ -46,6 +53,15 @@ int main(int argc,char **argv){try{
         require(input.size()>2&&output.size()>=2,"sparse graph rebuild requires distinct batch shapes");
         pos=frozen.next_pos;evaluate(ctx,{output[0],output[1]},pos);
         restore_session(ctx,frozen);result["ffn_compaction"]["graph_rebuilt_with_batch2_before_single_token"]=true;
+    }
+    if(cfg.value("weight_inventory",false)){
+        J weights=J::array();for(auto &entry:engine.model->tensors_by_name){auto *w=entry.second;
+            if(entry.first.find(".ffn_")!=std::string::npos){for(auto &layer:engine.model->layers){
+                for(auto *active:{layer.ffn_up,layer.ffn_gate,layer.ffn_down})if(active&&entry.first==active->name)w=active;
+            }}
+            weights.push_back({{"name",entry.first},{"type",ggml_type_name(w->type)},{"ne",{w->ne[0],w->ne[1],w->ne[2],w->ne[3]}},
+                {"logical_bytes",ggml_nbytes(w)},{"buffer",w->buffer?ggml_backend_buffer_name(w->buffer):"none"}});
+        }result["weight_inventory"]=weights;
     }
     save_probe(path,result);std::vector<float> reference;
     int formal=0,warm=0;bool warming=true;double warm_ms=0;

@@ -18,6 +18,7 @@
 | 正常响应、JSON、两轮记忆、检查点恢复 | 组合候选的有限用例通过；内部检查点重放最终状态逐字节一致 |
 | 跨版本严格输出一致 | 未通过。16个位置greedy一致15/16，不宣称严格无损 |
 | 优化运行时＋稀疏 | 已联合测量。保留50%/25%为176.22/166.40 ms/token，同轮CPU为143.88–158.48；仍慢于CPU，打包另需约2.5秒 |
+| 优化后细粒度归因 | 已测CPU逐节点、DSP逐算子与H512/4096对照；4K下KV核心约11ms，非主导；输出投影、小算子/调度、其他权重投影仍突出。未分离真实DRAM流量与算术时间 |
 | prefill重要性提取、迁移与真实接受率 | 尚未验证 |
 | τ²任务E2E与任务准确率 | 尚未验证 |
 
@@ -35,6 +36,7 @@
 - [decode归因及独立干预](../validation/decode-attribution.md)：`configs/decode-attribution.json`、`configs/decode-attribution-followup.json`。
 - [组合优化及状态验收](../validation/npu-decode-combined.md)：`configs/npu-decode-combined.json`、`configs/npu-decode-combined-warm.json`。
 - [运行时优化叠加稀疏](../validation/npu-decode-stacked-sparse.md)：`configs/npu-decode-stacked-sparse.json`。
+- [优化后细粒度归因](../validation/npu-decode-fine.md)：`configs/npu-decode-fine.json`。
 
 执行脚本位于`scripts/build/`、`scripts/run/`、`scripts/analyze/`；原生探针位于`src/a2o/native/profiling/`，可重建的融合策略补丁位于`src/a2o/native/backend/cpu-fused-gdn.patch`。复用shared工具链、手机模型和已有完整历史快照；新检出需要按配置提供本地夹具/缓存，不能仅凭仓库文件直接复现实机数字。
 
