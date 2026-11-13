@@ -1,0 +1,25 @@
+{
+  "name": "20261113-qwen3-spec-oracle",
+  "fixture": "results/20261113-qwen3-expanded-sparse/fixture-cached.json",
+  "build": "results/20261113-decode-attribution/build-qwen3-spec-oracle",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-8B-Q4_0.gguf",
+  "model_sha256": "7578dd44850f97bea0f89d6553a2b3260de07185aa363852dbbe582539ce8066",
+  "model_id": "qwen3-8b-q4_0",
+  "D": 16,
+  "rounds": 3,
+  "cases": [
+    {
+      "name": "dual-resident-oracle",
+      "backend": "htp",
+      "spec_oracle": true,
+      "oracle_k": [
+        4,
+        8,
+        16
+      ],
+      "oracle_warmup_seconds": 5,
+      "opbatch": 1024,
+      "opqueue": 16
+    }
+  ]
+}

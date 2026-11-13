@@ -20,24 +20,31 @@ def save(path,value):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,default=ROOT/'configs/decode-attribution.json');p.add_argument('--output',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--config',type=Path,default=ROOT/'configs/decode-attribution.json');p.add_argument('--output',type=Path);p.add_argument('--resume',action='store_true');a=p.parse_args()
     plan=json.loads(a.config.read_text());out=(a.output or ROOT/'results'/plan['name']).resolve();out.mkdir(parents=True,exist_ok=True)
     if (out/'completion.json').exists():raise RuntimeError('禁止覆盖已完成结果')
     build=ROOT/plan.get('build','results/20261113-decode-attribution/build');fixture=json.loads((ROOT/plan['fixture']).read_text())
+    model=plan.get('model_path','/data/data/com.termux/files/home/.local/a2o/models/Qwen3.5-9B-Q4_0.gguf')
     t=DeviceTransport(ROOT,'ssh',config=ROOT/'configs/termux-ssh.json');q=shlex.quote;remote=t.remote_root+'/'+out.name
     def status(phase,**kw):save(out/'status.json',dict(phase=phase,pid=os.getpid(),updated_unix=time.time(),**kw))
     held=False;running=False
     try:
         ps=t.call('shell','ps -A -o PID,ARGS').stdout.decode();(out/'processes-before.txt').write_text(ps)
         active=[s for s in ps.splitlines() if len(s.split())>1 and s.split()[1].rsplit('/',1)[-1] in ['probe','agent','service','llama-server']]
-        if active:raise RuntimeError('已有模型进程：'+str(active))
-        status('acquiring_lock');t.prepare_ssh(out);held=True;t.call('shell','mkdir','-p',remote+'/instrumented',remote+'/probe-dsp',remote+'/diagnostic')
-        for local,name in [(build/'probe','probe'),(build/'libggml-base.so','instrumented/libggml-base.so'),
-            (ROOT/'results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so','libggml.so')]:t.call('push',str(local),remote+'/'+name)
-        if (build/'libllama.so').exists():t.call('push',str(build/'libllama.so'),remote+'/diagnostic/libllama.so')
-        if (build/'libggml-cpu.so').exists():t.call('push',str(build/'libggml-cpu.so'),remote+'/instrumented/libggml-cpu.so')
+        if active and (not a.resume or any(remote+'/' not in line for line in active)):raise RuntimeError('已有模型进程：'+str(active))
+        running=bool(active)
         dsp=json.loads((ROOT/'results/20261111-htp-platform-exploration/probe-build-v75/completion.json').read_text())
-        t.call('push',dsp['binary'],remote+'/probe-dsp/libggml-htp-v75.so');t.call('shell','chmod','755',remote+'/probe')
+        status('acquiring_lock');t.prepare_ssh(out,resume_lock=a.resume);held=True
+        if plan.get('model_sha256'):
+            actual=t.call('shell','sha256sum '+q(model)).stdout.decode().split()[0]
+            if actual!=plan['model_sha256']:raise RuntimeError('模型SHA-256不匹配')
+        t.call('shell','mkdir','-p',remote+'/instrumented',remote+'/probe-dsp',remote+'/diagnostic')
+        if not a.resume:
+            for local,name in [(build/'probe','probe'),(build/'libggml-base.so','instrumented/libggml-base.so'),
+                (ROOT/'results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so','libggml.so')]:t.call('push',str(local),remote+'/'+name)
+            if (build/'libllama.so').exists():t.call('push',str(build/'libllama.so'),remote+'/diagnostic/libllama.so')
+            if (build/'libggml-cpu.so').exists():t.call('push',str(build/'libggml-cpu.so'),remote+'/instrumented/libggml-cpu.so')
+            t.call('push',dsp['binary'],remote+'/probe-dsp/libggml-htp-v75.so');t.call('shell','chmod','755',remote+'/probe')
         identities=t.call('shell','sha256sum '+shlex.join([remote+'/probe',remote+'/instrumented/libggml-base.so',remote+'/probe-dsp/libggml-htp-v75.so',t.config['runtime_library_dir']+'/libllama.so',t.config['runtime_library_dir']+'/libggml-base.so',t.config['runtime_library_dir']+'/libggml-hexagon.so',t.config['runtime_library_dir']+'/libggml-htp-v75.so'])).stdout.decode()
         (out/'device-identities.txt').write_text(identities)
         assert identities.split()[0]==hashlib.sha256((build/'probe').read_bytes()).hexdigest()
@@ -60,11 +67,13 @@ def main():
             adsp=remote+'/probe-dsp' if case.get('private_dsp') else t.config['runtime_library_dir']
             env=dict(LD_LIBRARY_PATH=lib,ADSP_LIBRARY_PATH=adsp,GGML_HEXAGON_EXPERIMENTAL='1',GGML_HEXAGON_OPQUEUE=str(case.get('opqueue',1)),GGML_HEXAGON_OPBATCH=str(case.get('opbatch',1)),GGML_HEXAGON_USE_HMX='1',GGML_HEXAGON_PROFILE=str(case.get('profile',0)))
             if case.get('cpu_fused_gdn'):env['A2O_DIAG_CPU_FUSED_GDN']='1'
-            command='export '+' '.join(k+'='+q(v) for k,v in env.items())+'; '+shlex.join([remote+'/probe','/data/data/com.termux/files/home/.local/a2o/models/Qwen3.5-9B-Q4_0.gguf',remote+'/'+label+'.config.json',case['backend'],remote+'/'+label+'.json'])+'; rc=$?; echo "$rc" > '+q(remote+'/'+label+'.exit')
+            command='export '+' '.join(k+'='+q(v) for k,v in env.items())+'; '+shlex.join([remote+'/probe',model,remote+'/'+label+'.config.json',case['backend'],remote+'/'+label+'.json'])+'; rc=$?; echo "$rc" > '+q(remote+'/'+label+'.exit')
             save(folder/'command.json',dict(command=command,environment=env));status('running',case=label)
-            t.call('shell','test ! -f '+q(remote+'/'+label+'.exit'))
-            t.call('shell','nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/'+label+'.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid'))
-            running=True;begin=time.monotonic();mapped=False
+            already=t.call('shell','test -f '+q(remote+'/'+label+'.log')+' && echo yes || echo no').stdout.decode().strip()=='yes'
+            if not (a.resume and already):
+                t.call('shell','test ! -f '+q(remote+'/'+label+'.exit'))
+                t.call('shell','nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/'+label+'.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid'))
+            running=True;begin=time.monotonic();mapped=False;d=None
             while True:
                 rc=t.call('shell','if [ -f '+q(remote+'/'+label+'.exit')+' ]; then cat '+q(remote+'/'+label+'.exit')+'; else echo running; fi').stdout.decode().strip()
                 exists=t.call('shell','test -f '+q(remote+'/'+label+'.json')+' && echo yes || echo no').stdout.decode().strip()
@@ -77,6 +86,9 @@ def main():
                     running=False;t.call('pull',remote+'/'+label+'.log',str(folder/'runtime.log'));save(folder/'exit.json',dict(exit_code=int(rc)))
                     if rc!='0':raise RuntimeError(label+'失败，退出码'+rc)
                     assert d['completed'] and d['normal_response']['passed'] and d['state_restore_verified']
+                    if cfg.get('spec_oracle'):
+                        assert len([r for r in d['rows'] if not r['warmup']])==len(cfg['oracle_k'])*len(cfg.get('oracle_modes',['cpu_decode','verify_only','draft_only','serial','overlap']))*cfg['rounds']
+                        break
                     assert len([r for r in d['rows'] if not r['warmup']])==cfg['rounds']
                     assert d.get('warmup_elapsed_ms',0)>=1000.*cfg.get('minimum_warmup_seconds',0)
                     if cfg['host_instrumentation']:assert all(r['backend_timing'] for r in d['rows'])

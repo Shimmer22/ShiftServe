@@ -39,6 +39,7 @@ static std::vector<std::vector<float>> block_probe(llama_context *ctx,const std:
     for(size_t i=0;i<ids.size();++i){auto *p=llama_get_logits_ith(ctx,i);require(p,"missing per-position verify logits");logits.emplace_back(p,p+nv);}
     return logits;
 }
+#include "prefill_prior.h"
 struct CompactProbe {
     struct Layer {ggml_tensor *up,*gate,*down;};
     llama_model *model;
@@ -58,7 +59,7 @@ struct CompactProbe {
             ggml_backend_tensor_set(w,raw.data(),0,raw.size());
         }gguf_free(uf);
     }
-    void install(const std::string &path,double ratio,bool htp,bool inplace){
+    void install(const std::string &path,double ratio,bool htp,bool inplace,const PrefillPrior *prior=nullptr){
         if(ratio==1)return;
         if(ratio==0){for(auto &l:model->layers){l.ffn_up=nullptr;l.ffn_gate=nullptr;l.ffn_down=nullptr;}return;}
         auto *uf=gguf_init_from_file(path.c_str(),{true,nullptr});require(uf,"GGUF metadata open");
@@ -93,18 +94,22 @@ struct CompactProbe {
                     require(ggml_backend_dev_supports_op(dev,ggml_mul_mat(test,w,x)),"compact matrix unsupported on HTP");}
                 ggml_free(test);
             }
+            std::vector<int> channels;
+            if(prior)channels=prior->select_ffn(i,old.up->ne[1],keep);else for(int j=0;j<keep;++j)channels.push_back(j);
             for(int j=0;j<3;++j){
                 int64_t id=gguf_find_tensor(uf,source[j]->name);require(id>=0,"missing FFN GGUF weight");
                 std::vector<uint8_t> raw(ggml_nbytes(source[j]));
                 file.seekg(gguf_get_data_offset(uf)+gguf_get_tensor_offset(uf,id));file.read(reinterpret_cast<char*>(raw.data()),raw.size());require(bool(file),"FFN weight read");
                 std::vector<uint8_t> compact(ggml_nbytes(target[j]));
-                if(j<2)std::copy_n(raw.begin(),compact.size(),compact.begin());
-                else for(int64_t row=0;row<target[j]->ne[1];++row)
-                    std::memcpy(compact.data()+row*target[j]->nb[1],raw.data()+row*source[j]->nb[1],target[j]->nb[1]);
+                if(j<2){for(size_t r=0;r<channels.size();++r)std::memcpy(compact.data()+r*target[j]->nb[1],raw.data()+channels[r]*source[j]->nb[1],target[j]->nb[1]);}
+                else {size_t bs=ggml_blck_size(source[j]->type),bytes=ggml_type_size(source[j]->type);
+                    for(int64_t row=0;row<target[j]->ne[1];++row)for(size_t c=0;c<channels.size();c+=bs)
+                        std::memcpy(compact.data()+row*target[j]->nb[1]+c/bs*bytes,raw.data()+row*source[j]->nb[1]+channels[c]/bs*bytes,bytes);
+                }
                 ggml_backend_tensor_set(target[j],compact.data(),0,compact.size());packed_bytes+=compact.size();
             }
             l.ffn_up=target[0];l.ffn_gate=target[1];l.ffn_down=target[2];
-            shapes.push_back({{"layer",i},{"original_ffn",old.up->ne[1]},{"kept_ffn",keep},{"buffer",buffer_name}});
+            shapes.push_back({{"layer",i},{"original_ffn",old.up->ne[1]},{"kept_ffn",keep},{"selected_channels",channels},{"buffer",buffer_name}});
         }
         gguf_free(uf);
     }

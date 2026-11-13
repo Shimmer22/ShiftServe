@@ -81,3 +81,13 @@ NPU decode组合优化：[充分预热对照、JSON记忆与检查点验收](val
 NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](validation/npu-decode-stacked-sparse.md)。
 
 优化后decode细分：[CPU逐节点、HTP逐算子与KV历史长度对照](validation/npu-decode-fine.md)。
+
+[HTP默认attention排查（已停止）](validation/htp-kv-mapping-investigation.md)：失败记录保留；专用代码与配置归档至`archive/diagnostics/20261113-default-htp-abandoned/`。
+
+[Qwen3扩展激活裁剪与接受率](validation/qwen3-expanded-sparse.md)：FFN＋Query heads的计算量、实测速度及greedy前缀验证。
+
+[Qwen3激进稀疏单token与输出质量](validation/qwen3-sparse-token-profile.md)：CPU/DSP耗时分解及实际输出。
+
+[Qwen3串行全接受Oracle](validation/qwen3-spec-oracle-serial.md)：双驻留实测与排除换页的分项乐观估算。
+
+[CPU批验证repack修正复测](validation/qwen3-verify-repack.md)：优化CPU配置、纯forward计时与更新后的串行全接受估算。

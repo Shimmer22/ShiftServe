@@ -1,0 +1,35 @@
+{
+  "name": "20261113-qwen3-default-attention-short-smoke",
+  "model": "Qwen3-8B-Q4_0.gguf",
+  "model_id": "qwen3-8b-q4_0",
+  "model_sha256": "7578dd44850f97bea0f89d6553a2b3260de07185aa363852dbbe582539ce8066",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-8B-Q4_0.gguf",
+  "context_size": 512,
+  "H": 128,
+  "P": [
+    8
+  ],
+  "decode_P": 40,
+  "D": [
+    1,
+    8
+  ],
+  "rounds": 1,
+  "decode_rounds": 1,
+  "state_H": [
+    128
+  ],
+  "state_repetitions": 5,
+  "cpu_threads": 6,
+  "htp_threads": 4,
+  "opbatch": 1024,
+  "opqueue": 16,
+  "kv_offload": true,
+  "flash_attention": "auto",
+  "seed": 20261113,
+  "endpoint": "http://10.29.131.50:18780",
+  "source_prompt": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_62/t00-s03.prompt.txt",
+  "source_response": "results/20261108-bfcl-text-pilot/multi_turn_miss_func_62/t00-s03.response.json",
+  "scope": "仅诊断默认offload_kqv=true/Flash Attention=AUTO的短上下文功能，不替代context4608/H4096同款473次扫描",
+  "single_resident": true
+}

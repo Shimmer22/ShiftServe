@@ -69,3 +69,7 @@ python3 scripts/run/model_migration_campaign.py
 单驻留短检查的CPU/HTP窗口均为0新增major faults、0 swap；H4096仍须独立验收，不由短检查外推。单驻留阶段表不能直接当成两个模型常驻的在线路由成本表，更不能把反复重载模型的初始化耗时从完整E2E中隐藏。
 
 P/D表完成后先落盘`stage-summary.json`和阶段CSV，再显式切换双驻留测状态交接并重验HC/CH。转换记录在`state-residency.json`；状态请求前后另存进程资源边界，包含该请求的bootstrap/预热，不冒充逐重复的资源计数。两种驻留条件不混为一种成本口径。
+
+## 默认attention排查已停止
+
+开启KV offload的原H4096、短上下文、双HTP会话和缩小映射块均未通过准入，未启动新的473次扫描。失败日志保留在原results目录，调查见[映射排查记录](../validation/htp-kv-mapping-investigation.md)。2026-11-13将专用入口、配置和补丁移至`archive/diagnostics/20261113-default-htp-abandoned/`；主线继续使用单会话、KV offload关闭及FA关闭的已验证基线。Qwen3迁移与已完成成本表保留。

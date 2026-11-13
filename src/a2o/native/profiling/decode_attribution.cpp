@@ -2,6 +2,8 @@
 #define A2O_SPARSE_PROBE_NO_MAIN
 #include "sparse_feasibility.cpp"
 #include <dlfcn.h>
+#include "query_head_probe.h"
+#include "spec_oracle.h"
 
 static J observe_cpu_state(){
     J j;for(int core:{0,4,7}){std::string p="/sys/devices/system/cpu/cpu"+std::to_string(core)+"/cpufreq/scaling_cur_freq";std::ifstream f(p);long hz=0;if(f>>hz)j["cpu"+std::to_string(core)+"_kHz"]=hz;}
@@ -15,11 +17,14 @@ int main(int argc,char **argv){try{
     require(backend=="cpu"||backend=="htp","explicit backend");bool htp=backend=="htp";
     setenv("LLAMA_GRAPH_REUSE_DISABLE",cfg.value("graph_reuse_disable",false)?"1":"0",1);
     batch_size=128;context_size=cfg.at("context_size");ggml_backend_load_all();
+    if(cfg.value("spec_oracle",false)){run_spec_oracle(model,cfg,path);return 0;}
     auto begin=reinterpret_cast<void(*)(int)>(dlsym(RTLD_DEFAULT,"a2o_attr_begin"));
     auto finish=reinterpret_cast<const char*(*)()>(dlsym(RTLD_DEFAULT,"a2o_attr_end"));
     bool instrument=cfg.value("host_instrumentation",false);require(!instrument||(begin&&finish),"missing private attribution API");
     J result={{"config",cfg},{"backend",backend},{"rows",J::array()}};double start=now_ms();
-    Engine engine(model,htp,false,false,htp?cfg.value("htp_threads",4):6);auto *ctx=engine.ctx;auto *vocab=llama_model_get_vocab(engine.model);int nv=llama_vocab_n_tokens(vocab);
+    PrefillPrior prior;bool use_prior=cfg.value("prefill_prior",false);
+    Engine engine(model,htp,cfg.value("cpu_repack",false),false,htp?cfg.value("htp_threads",4):6,false,use_prior?PrefillPrior::callback:nullptr,&prior);auto *ctx=engine.ctx;auto *vocab=llama_model_get_vocab(engine.model);int nv=llama_vocab_n_tokens(vocab);
+    result["cpu_repack_requested"]=cfg.value("cpu_repack",false);
     result["model_context_init_ms"]=now_ms()-start;
     auto normal=tokens(vocab,cfg.at("normal_prompt"),true);llama_pos pos=0;evaluate(ctx,normal,pos);
     std::string text;bool eog=false;for(int i=0;i<16;++i){auto tok=greedy(ctx,nv);if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}text+=piece(vocab,tok);evaluate(ctx,{tok},pos);}
@@ -41,15 +46,18 @@ int main(int argc,char **argv){try{
     start=now_ms();restore_session(ctx,history);result["history_restore_ms"]=now_ms()-start;pos=prefix.size();
     }
     result["actual_H"]=prefix.size();result["actual_P"]=input.size();
-    start=now_ms();evaluate(ctx,input,pos);result["full_prefill_ms"]=now_ms()-start;
+    prior.enabled=use_prior;start=now_ms();evaluate(ctx,input,pos);prior.enabled=false;result["full_prefill_ms"]=now_ms()-start;
     SessionSnapshot frozen;frozen.state=export_seq(ctx);frozen.next_pos=pos;result["state_bytes"]=frozen.state.size();result["state_restore_verified"]=true;
     double keep=cfg.value("keep_ratio",1.0);require(keep>=0&&keep<=1,"invalid FFN keep ratio");
-    CompactProbe pack(engine.model);start=now_ms();pack.install(model,keep,htp,true);
+    CompactProbe pack(engine.model);start=now_ms();pack.install(model,keep,htp,true,use_prior?&prior:nullptr);
     result["ffn_compaction"]={{"keep_ratio",keep},{"packing_ms",now_ms()-start},{"packed_bytes",pack.packed_bytes},{"layers",pack.shapes},
         {"scope","fixed contiguous channels; no importance selection or acceptance claim"}};
     // Prefill使用完整FFN。替换后先用不同于prefill的batch形状重建图，
     // 再恢复原状态；后续单token图可正常复用，避免测到旧dense图。
-    if(keep!=1){
+    QueryHeadProbe query(engine.model);double qkeep=cfg.value("query_keep_ratio",1.0);
+    start=now_ms();query.install(model,qkeep,htp,use_prior?&prior:nullptr);
+    result["query_compaction"]={{"keep_ratio",qkeep},{"packing_ms",now_ms()-start},{"packed_bytes",query.packed_bytes},{"layers",query.shapes},{"kv_unchanged",true}};
+    if(keep!=1||qkeep!=1){
         require(input.size()>2&&output.size()>=2,"sparse graph rebuild requires distinct batch shapes");
         pos=frozen.next_pos;evaluate(ctx,{output[0],output[1]},pos);
         restore_session(ctx,frozen);result["ffn_compaction"]["graph_rebuilt_with_batch2_before_single_token"]=true;
@@ -82,6 +90,21 @@ int main(int argc,char **argv){try{
         if(warming){warm_ms+=elapsed;if(warm_ms>=1000.*cfg.value("minimum_warmup_seconds",0.))warming=false;}
         result["warmup_elapsed_ms"]=warm_ms;result["warmup_runs"]=warm;save_probe(path,result);
     }
+    if(cfg.contains("verify_benchmark_k")){
+        J checks=J::array();
+        for(int k:cfg.at("verify_benchmark_k").get<std::vector<int>>())for(int rep=-1;rep<3;++rep){
+            restore_session(ctx,frozen);pos=frozen.next_pos;auto before=resource_sample();double forward=0,diagnostic=0;
+            for(size_t offset=0;offset<output.size();offset+=k){
+                int count=std::min(size_t(k),output.size()-offset);auto batch=llama_batch_init(count,0,1);batch.n_tokens=count;
+                for(int i=0;i<count;++i){batch.token[i]=output[offset+i];batch.pos[i]=pos+i;batch.n_seq_id[i]=1;batch.seq_id[i][0]=0;batch.logits[i]=1;}
+                double t=now_ms();int rc=llama_decode(ctx,batch);llama_synchronize(ctx);forward+=now_ms()-t;
+                require(rc==0,"verify batch decode failed");pos+=count;
+                t=now_ms();for(int i=0;i<count;++i){auto *values=llama_get_logits_ith(ctx,i);require(values,"verify missing logits");for(int j=0;j<nv;++j)require(std::isfinite(values[j]),"verify finite");}diagnostic+=now_ms()-t;llama_batch_free(batch);
+            }
+            checks.push_back({{"k",k},{"repetition",rep},{"warmup",rep<0},{"D",output.size()},{"elapsed_ms",forward},{"diagnostic_ms",diagnostic},{"resources_before",before},{"resources_after",resource_sample()}});
+            result["verify_benchmark"]=checks;save_probe(path,result);
+        }
+    }
     if(cfg.value("save_logits",false)){
         restore_session(ctx,frozen);pos=frozen.next_pos;std::ofstream f(path+".logits.f32",std::ios::binary);J ids=J::array();
         for(auto tok:output){evaluate(ctx,{tok},pos);auto values=last_probe(ctx,nv);f.write(reinterpret_cast<const char*>(values.data()),values.size()*sizeof(float));ids.push_back(std::max_element(values.begin(),values.end())-values.begin());}
@@ -113,5 +136,39 @@ int main(int argc,char **argv){try{
         }
         result["json_memory"]["passed"]=true;
     }
+    if(cfg.contains("acceptance_anchors")){
+        auto trajectory=cfg.at("acceptance_reference_ids").get<std::vector<llama_token>>();
+        int k=cfg.value("acceptance_k",8);J blocks=J::array();
+        for(int anchor:cfg.at("acceptance_anchors").get<std::vector<int>>()){
+            require(anchor>=0&&anchor<=int(trajectory.size()),"invalid acceptance anchor");
+            restore_session(ctx,frozen);pos=frozen.next_pos;
+            for(int i=0;i<anchor;++i)evaluate(ctx,{trajectory[i]},pos);
+            J block={{"anchor",anchor}};
+            if(cfg.contains("verify_blocks")){
+                auto supplied=cfg.at("verify_blocks");auto found=std::find_if(supplied.begin(),supplied.end(),[&](const J &v){return v.at("anchor")==anchor;});require(found!=supplied.end(),"verify anchor missing");
+                auto proposals=found->at("draft_ids").get<std::vector<llama_token>>();J target=J::array();int accepted=0;bool matching=true;
+                for(auto candidate:proposals){auto prediction=greedy(ctx,nv);target.push_back(prediction);if(matching&&candidate==prediction)++accepted;else matching=false;evaluate(ctx,{candidate},pos);}
+                block["draft_ids"]=proposals;block["target_argmax_ids"]=target;block["accepted_prefix"]=accepted;block["proposed"]=proposals.size();
+            }else{
+                J proposals=J::array();double t=now_ms();
+                for(int i=0;i<k;++i){auto tok=greedy(ctx,nv);proposals.push_back(tok);evaluate(ctx,{tok},pos);if(llama_vocab_is_eog(vocab,tok))break;}
+                block["draft_ids"]=proposals;block["draft_elapsed_ms"]=now_ms()-t;
+            }
+            blocks.push_back(block);result["acceptance_blocks"]=blocks;save_probe(path,result);
+        }
+        result["acceptance_scope"]="greedy speculative prefix acceptance at fixed teacher-forced anchors; CPU verifier must be a separate condition; not sampled rejection acceptance or E2E speedup";
+    }
+    if(cfg.contains("quality_prompts")){
+        J samples=J::array();
+        for(const auto &prompt:cfg.at("quality_prompts")){
+            llama_memory_clear(llama_get_memory(ctx),true);pos=0;
+            auto content=prompt.get<std::string>();evaluate(ctx,tokens(vocab,content,true),pos);
+            std::string text;J ids=J::array();bool stopped=false;
+            for(int i=0;i<cfg.value("quality_max_tokens",64);++i){auto tok=greedy(ctx,nv);ids.push_back(tok);if(llama_vocab_is_eog(vocab,tok)){stopped=true;break;}text+=piece(vocab,tok);evaluate(ctx,{tok},pos);}
+            samples.push_back({{"prompt",content},{"text",text},{"ids",ids},{"eog",stopped}});
+            result["quality_samples"]=samples;save_probe(path,result);
+        }
+    }
+    if(result.contains("acceptance_blocks"))for(auto &block:result["acceptance_blocks"]){std::string text;for(auto id:block["draft_ids"].get<std::vector<llama_token>>())text+=piece(vocab,id);block["draft_text"]=text;}
     result["completed"]=true;save_probe(path,result);return 0;
 }catch(const std::exception&e){std::cerr<<"ATTRIBUTION_FAILURE "<<e.what()<<'\n';return 1;}}

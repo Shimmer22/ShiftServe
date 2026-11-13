@@ -1,0 +1,199 @@
+diff --git a/docs/README.md b/docs/README.md
+index b34435f..e4c4d74 100644
+--- a/docs/README.md
++++ b/docs/README.md
+@@ -81,3 +81,5 @@ NPU decode组合优化：[充分预热对照、JSON记忆与检查点验收](val
+ NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](validation/npu-decode-stacked-sparse.md)。
+ 
+ 优化后decode细分：[CPU逐节点、HTP逐算子与KV历史长度对照](validation/npu-decode-fine.md)。
++
++[HTP KV offload 映射失败调查](validation/htp-kv-mapping-investigation.md)：单会话、FastRPC错误码与IOVA布局证据及后续验证方向。
+diff --git a/docs/guides/qwen3-model-costs.md b/docs/guides/qwen3-model-costs.md
+index 56c4e40..3100f77 100644
+--- a/docs/guides/qwen3-model-costs.md
++++ b/docs/guides/qwen3-model-costs.md
+@@ -69,3 +69,23 @@ python3 scripts/run/model_migration_campaign.py
+ 单驻留短检查的CPU/HTP窗口均为0新增major faults、0 swap；H4096仍须独立验收，不由短检查外推。单驻留阶段表不能直接当成两个模型常驻的在线路由成本表，更不能把反复重载模型的初始化耗时从完整E2E中隐藏。
+ 
+ P/D表完成后先落盘`stage-summary.json`和阶段CSV，再显式切换双驻留测状态交接并重验HC/CH。转换记录在`state-residency.json`；状态请求前后另存进程资源边界，包含该请求的bootstrap/预热，不冒充逐重复的资源计数。两种驻留条件不混为一种成本口径。
++
++
++## 默认 Attention 参数复测（2026-11-13）
++
++`configs/qwen3-8b-key-costs-default-attention.json`保留上一轮473个配对请求的输入、采样顺序、CPU6/HTP4线程、OPBATCH1024/OPQUEUE16和单驻留方式，仅改为`offload_kqv=true`、`flash_attention="auto"`。这两个值与当前安装库对应源码的`llama_context_default_params()`一致，不表示其他实验参数均为CLI默认值。启动入口用`--flash-attention -1`表示AUTO，健康信息和manifest保留字符串`auto`，不会误记为强制开启；实际算子落点须查日志。
++
++私有构建为`results/20261113-qwen3-8b-default-attention-build/agent`，未修改共享库。准入命令：
++
++```sh
++python3 scripts/collect/model_cost_campaign.py \
++  --config configs/qwen3-8b-key-costs-default-attention.json \
++  --binary results/20261113-qwen3-8b-default-attention-build/agent \
++  --phase preflight
++```
++
++本轮context4608/H4096在HTP上下文创建阶段失败，尚未通过准入，也未启动全量采样。CPU自由生成JSON/两轮记忆通过；HTP日志显示权重HTP0-REPACK约3726.02MiB，KV缓存648MiB映射报`fastrpc_mmap failed`。全新HTP单后端进程同样失败，不能归因于CPU切换后的残留。容量限制是待进一步确认的解释，错误本身没有给出精确上限。原始失败与清理记录分别在`results/20261113-qwen3-8b-key-costs-default-attention/`和`results/20261113-qwen3-default-attention-htp-direct/`。不得通过关闭KV offload或缩短H后继续冒充本轮同款测试。
++
++短上下文诊断独立使用`configs/qwen3-default-attention-short-smoke.json`和`results/20261113-qwen3-default-attention-short-smoke/`，context512/H128。HTP成功映射72MiB KV，日志确认`Flash Attention was auto, set to enabled`；随后25431040字节的HTP计算缓冲区映射失败，仍未通过HH准入。三次尝试均已停止服务并释放各自锁。下一步若降低HTP卸载层数，必须作为显式混合配置另建条件，不能宣称与旧全层offload仅有两个attention参数差别。
++
++用户允许关闭FA后，使用`configs/qwen3-8b-key-costs-kv-offload-fa-off.json`独立补验`offload_kqv=true/FA关闭`。context4608仍在648MiB HTP KV映射阶段失败，尚未进入attention计算，因此关闭FA未解决原尺寸初始化失败。原始日志及清理记录在`results/20261113-qwen3-8b-key-costs-kv-offload-fa-off/`；未启动473次正式扫描。
+diff --git a/scripts/run/route_phone.py b/scripts/run/route_phone.py
+index 366685a..c43fdf3 100644
+--- a/scripts/run/route_phone.py
++++ b/scripts/run/route_phone.py
+@@ -10,10 +10,13 @@ p=argparse.ArgumentParser(description=__doc__)
+ p.add_argument('--model',default='/data/data/com.termux/files/home/.local/a2o/models/Qwen3.5-9B-Q4_0.gguf')
+ p.add_argument('--model-id',default='qwen35-9b-q4_0')
+ p.add_argument('--model-sha256')
++p.add_argument('--exclude-vendor-library-path',action='store_true',help='独立诊断：LD_LIBRARY_PATH不加入/vendor目录')
++p.add_argument('--htp-sessions',type=int,choices=[1,2],default=1)
++p.add_argument('--htp-max-buffer-mib',type=int,choices=range(16,1025),default=1024)
+ p.add_argument('--opbatch',type=int,default=1)
+ p.add_argument('--opqueue',type=int,default=1)
+ p.add_argument('--kv-offload',type=int,choices=[0,1],default=0)
+-p.add_argument('--flash-attention',type=int,choices=[0,1],default=0)
++p.add_argument('--flash-attention',type=int,choices=[-1,0,1],default=0)
+ p.add_argument('--single-resident',action='store_true')
+ p.add_argument('action',choices=['start','stop'])
+ p.add_argument('--condition',choices=['cpu','htp','route'],required=True)
+@@ -54,18 +57,21 @@ if a.action=='start':
+  if a.model_sha256:
+   digest=t.call('shell','sha256sum '+q(model)).stdout.decode().split()[0]
+   if digest!=a.model_sha256:raise RuntimeError('模型SHA-256不匹配，拒绝启动')
+- lib=remote+':'+t.remote_root+'/a2o_oracle_20261106-143411-669461:'+t.config['runtime_library_dir']+':/vendor/lib64:/vendor/lib64/egl'
++ lib=remote+':'+t.remote_root+'/a2o_oracle_20261106-143411-669461:'+t.config['runtime_library_dir']+('' if a.exclude_vendor_library_path else ':/vendor/lib64:/vendor/lib64/egl')
+  cache_env=(' A2O_REPLAY_CACHE_DIR='+q(remote+'/replay-cache')) if a.replay_cache else ''
+- command='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(remote if a.probe_skel else t.config['runtime_library_dir'])+' GGML_HEXAGON_PROFILE='+str(a.htp_profile)+' GGML_HEXAGON_USE_HMX=1 A2O_CPU_THREADS='+str(a.cpu_threads)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE='+str(a.opqueue)+' GGML_HEXAGON_OPBATCH='+str(a.opbatch)+' A2O_HTP_KV_OFFLOAD='+str(a.kv_offload)+' A2O_FLASH_ATTN='+str(a.flash_attention)+' A2O_SINGLE_RESIDENT='+str(int(a.single_resident))+' A2O_MODEL_ID='+q(a.model_id)+cache_env+'; exec '+shlex.join([remote+'/service',model,a.condition,str(a.context_size),'18780',costs])
++ command='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(remote if a.probe_skel else t.config['runtime_library_dir'])+' GGML_HEXAGON_NDEV='+str(a.htp_sessions)+' A2O_HTP_SESSIONS='+str(a.htp_sessions)+' GGML_HEXAGON_MBUF='+str(a.htp_max_buffer_mib)+' GGML_HEXAGON_PROFILE='+str(a.htp_profile)+' GGML_HEXAGON_USE_HMX=1 A2O_CPU_THREADS='+str(a.cpu_threads)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE='+str(a.opqueue)+' GGML_HEXAGON_OPBATCH='+str(a.opbatch)+' A2O_HTP_KV_OFFLOAD='+str(a.kv_offload)+' A2O_FLASH_ATTN='+str(a.flash_attention)+' A2O_SINGLE_RESIDENT='+str(int(a.single_resident))+' A2O_MODEL_ID='+q(a.model_id)+cache_env+'; exec '+shlex.join([remote+'/service',model,a.condition,str(a.context_size),'18780',costs])
+  launch='nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/runtime.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid')
+  t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else '+launch+'; fi; }')
+- (out/'manifest.json').write_text(json.dumps(dict(condition=a.condition,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model=model,model_id=a.model_id,model_sha256=a.model_sha256,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy='none',pre_move=False,costs=str(a.costs)),indent=2)+'\n')
++ (out/'manifest.json').write_text(json.dumps(dict(condition=a.condition,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model=model,model_id=a.model_id,model_sha256=a.model_sha256,opbatch=a.opbatch,opqueue=a.opqueue,exclude_vendor_library_path=a.exclude_vendor_library_path,htp_sessions=a.htp_sessions,htp_max_buffer_mib=a.htp_max_buffer_mib,flash_attention="auto" if a.flash_attention==-1 else bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy='none',pre_move=False,costs=str(a.costs)),indent=2)+'\n')
+  deadline=time.monotonic()+300
+  while time.monotonic()<deadline:
+   try:
+    with urllib.request.urlopen('http://10.29.131.50:18780/health',timeout=3) as r:health=json.load(r)
++   if health.get('htp_sessions',1)!=a.htp_sessions:raise RuntimeError('HTP会话数不一致')
++   if health.get('htp_max_buffer_mib',1024)!=a.htp_max_buffer_mib:raise RuntimeError('HTP映射块配置不一致')
+    if health.get('cpu_threads',4)!=a.cpu_threads:raise RuntimeError('CPU线程数与请求不一致')
+    if 'model' in health and health['model']!=a.model_id:raise RuntimeError('模型身份与请求不一致')
++   if health.get('flash_attention') != ('auto' if a.flash_attention==-1 else bool(a.flash_attention)):raise RuntimeError('Flash Attention配置不一致')
+    if 'htp_kv_offload' in health and health['htp_kv_offload']!=bool(a.kv_offload):raise RuntimeError('KV offload配置不一致')
+    (out/'health.json').write_text(json.dumps(health));print(health);break
+   except OSError:
+diff --git a/src/a2o/native/backend/engine.h b/src/a2o/native/backend/engine.h
+index a7556d5..9bdcc4e 100644
+--- a/src/a2o/native/backend/engine.h
++++ b/src/a2o/native/backend/engine.h
+@@ -3,16 +3,27 @@
+ struct Engine {
+     llama_model * model = nullptr;
+     llama_context * ctx = nullptr;
+-    Engine(const std::string & path, bool npu, bool cpu_repack=true, bool kv_offload=true, int threads=4, bool flash_attention=false) {
++    Engine(const std::string & path, bool npu, bool cpu_repack=true, bool kv_offload=true, int threads=4, int flash_attention=0) {
+         require(threads>0 && threads<=16,"invalid engine thread count");
+         auto mp = llama_model_default_params();
+         mp.n_gpu_layers = npu ? 99 : 0;
+         mp.use_mmap = !npu;
+         mp.use_extra_bufts = cpu_repack;
+-        ggml_backend_dev_t devices[2] = {nullptr, nullptr};
++        ggml_backend_dev_t devices[3] = {nullptr, nullptr, nullptr};
++        float split[2] = {1, 1};
+         if (npu) {
+-            devices[0] = ggml_backend_dev_by_name("HTP0");
+-            require(devices[0], "HTP0 is unavailable");
++            int sessions = 1;
++            if (const char *value = std::getenv("A2O_HTP_SESSIONS")) {
++                require(std::string(value)=="1" || std::string(value)=="2", "invalid HTP session count");
++                sessions = std::stoi(value);
++            }
++            for (int i=0; i<sessions; ++i) {
++                const auto name = "HTP" + std::to_string(i);
++                devices[i] = ggml_backend_dev_by_name(name.c_str());
++                require(devices[i], name + " is unavailable");
++            }
++            mp.split_mode = LLAMA_SPLIT_MODE_LAYER;
++            if (sessions == 2) mp.tensor_split = split;
+             mp.devices = devices;
+         }
+         model = llama_model_load_from_file(path.c_str(), mp);
+@@ -20,9 +31,10 @@ struct Engine {
+         auto cp = llama_context_default_params();
+         cp.n_ctx = context_size; cp.n_batch = batch_size; cp.n_ubatch = batch_size;
+         cp.n_threads = threads; cp.n_threads_batch = threads;
+-        cp.offload_kqv = npu && kv_offload;
++        cp.offload_kqv = kv_offload;
+         cp.type_k = GGML_TYPE_F16; cp.type_v = GGML_TYPE_F16;
+-        cp.flash_attn_type = flash_attention ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
++        require(flash_attention>=-1 && flash_attention<=1,"invalid flash attention mode");
++        cp.flash_attn_type = static_cast<llama_flash_attn_type>(flash_attention);
+         ctx = llama_init_from_model(model, cp);
+         require(ctx, "context creation failed");
+     }
+diff --git a/src/a2o/native/session/phone_service.cpp b/src/a2o/native/session/phone_service.cpp
+index 176455f..6558c05 100644
+--- a/src/a2o/native/session/phone_service.cpp
++++ b/src/a2o/native/session/phone_service.cpp
+@@ -26,17 +26,22 @@ struct PhoneService {
+     J cost_model=nullptr;
+     uint64_t version=0;
+     int cpu_threads=4;
+-    bool htp_kv_offload=false, flash_attention=false;
++    int htp_sessions=1, htp_max_buffer_mib=1024;
++    bool htp_kv_offload=false;
++    int flash_attention=0;
+     bool single_resident=false;
+     std::string model_path;
+     std::string model_id="qwen35-9b-q4_0";
+     std::unique_ptr<FrozenReplayCache> replay_cache;
+     PhoneService(const std::string &model,const std::string &which):condition(which) {
+         model_path=model;
++        if(const char *value=std::getenv("A2O_HTP_SESSIONS"))htp_sessions=std::stoi(value);
++        require(htp_sessions==1 || htp_sessions==2,"invalid HTP session count");
++        if(const char *value=std::getenv("GGML_HEXAGON_MBUF"))htp_max_buffer_mib=std::stoi(value);
+         if(const char *value=std::getenv("A2O_CPU_THREADS"))cpu_threads=std::stoi(value);
+         require(cpu_threads>0 && cpu_threads<=16,"invalid CPU thread count");
+         if(const char *value=std::getenv("A2O_HTP_KV_OFFLOAD")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV offload flag");htp_kv_offload=std::string(value)=="1";}
+-        if(const char *value=std::getenv("A2O_FLASH_ATTN")){require(std::string(value)=="0"||std::string(value)=="1","invalid flash attention flag");flash_attention=std::string(value)=="1";}
++        if(const char *value=std::getenv("A2O_FLASH_ATTN")){require(std::string(value)=="-1"||std::string(value)=="0"||std::string(value)=="1","invalid flash attention flag");flash_attention=std::stoi(value);}
+         if(const char *value=std::getenv("A2O_MODEL_ID"))model_id=value;
+         if(const char *value=std::getenv("A2O_SINGLE_RESIDENT")){require(std::string(value)=="0"||std::string(value)=="1","invalid residency flag");single_resident=std::string(value)=="1";}
+         replay_cache=std::make_unique<FrozenReplayCache>(model+":"+std::to_string(std::filesystem::file_size(model))+":"+std::to_string(static_cast<long long>(std::filesystem::last_write_time(model).time_since_epoch().count()))+":"+__DATE__+":"+__TIME__+":cpu_threads="+std::to_string(cpu_threads));
+@@ -302,7 +307,7 @@ int main(int argc,char **argv){try{
+         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
+         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
+     };};
+-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
++    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention==-1?J("auto"):J(bool(service.flash_attention))},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"htp_sessions",service.htp_sessions},{"htp_max_buffer_mib",service.htp_max_buffer_mib},{"build_id",__DATE__ " " __TIME__}};}));
+     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
+     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
+     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
+diff --git a/src/a2o/profiling/model_cost_campaign.py b/src/a2o/profiling/model_cost_campaign.py
+index 5ac6371..c0a26c9 100644
+--- a/src/a2o/profiling/model_cost_campaign.py
++++ b/src/a2o/profiling/model_cost_campaign.py
+@@ -100,9 +100,13 @@ class Campaign:
+                 '--output', str(self.service), '--context-size', str(cfg['context_size']),
+                 '--cpu-threads', str(cfg['cpu_threads']), '--model', cfg['model_path'],
+                 '--model-id', cfg['model_id'], '--model-sha256', cfg['model_sha256'],
++                '--htp-sessions',str(cfg.get('htp_sessions',1)),
++                '--htp-max-buffer-mib',str(cfg.get('htp_max_buffer_mib',1024)),
+                 '--opbatch', str(cfg['opbatch']), '--opqueue', str(cfg['opqueue']),
+                 '--kv-offload', str(int(cfg['kv_offload'])),
+-                '--flash-attention', str(int(cfg['flash_attention'])), '--replay-cache', '--logs-only', '--retry-network']
++                '--flash-attention', str(-1 if cfg['flash_attention']=='auto' else int(cfg['flash_attention'])), '--replay-cache', '--logs-only', '--retry-network']
++        if cfg.get('exclude_vendor_library_path'):
++            args.append('--exclude-vendor-library-path')
+         if cfg.get('single_resident'):
+             args.append('--single-resident')
+         with (self.out / ('service-' + action + '.log')).open('a') as log:
+@@ -116,6 +120,10 @@ class Campaign:
+                               ('htp_kv_offload', cfg['kv_offload']), ('flash_attention', cfg['flash_attention'])]:
+             if identity.get(key) != expected:
+                 raise RuntimeError(f'服务配置不一致：{key}: {identity.get(key)} != {expected}')
++        for key, expected in [('htp_sessions',cfg.get('htp_sessions',1)),
++                              ('htp_max_buffer_mib',cfg.get('htp_max_buffer_mib',1024))]:
++            if identity.get(key,1 if key=='htp_sessions' else 1024) != expected:
++                raise RuntimeError(f'HTP映射配置不一致：{key}')
+         if identity.get('single_resident',False)!=cfg.get('single_resident',False):
+             raise RuntimeError('模型驻留配置不一致')
+         prior = self.out / 'health.json'
