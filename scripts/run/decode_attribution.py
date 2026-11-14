@@ -96,7 +96,7 @@ def main():
                     if cfg.get('check_checkpoint_replay'):assert d['checkpoint_replay']['final_state_bitwise_equal']
                     if cfg.get('check_json_memory'):assert d['json_memory']['passed']
                     break
-                if time.monotonic()-begin>600:raise RuntimeError('超时，保留进程和锁')
+                if time.monotonic()-begin>case.get('timeout_seconds',plan.get('timeout_seconds',600)):raise RuntimeError('超时，保留进程和锁')
                 time.sleep(3)
         status('complete');save(out/'completion.json',dict(completed=True,cases=[c['name'] for c in plan['cases']]))
     except Exception as exc:status('failed',error=str(exc),process_may_be_running=running);raise

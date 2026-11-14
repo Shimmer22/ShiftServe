@@ -91,3 +91,9 @@ NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](valid
 [Qwen3串行全接受Oracle](validation/qwen3-spec-oracle-serial.md)：双驻留实测与排除换页的分项乐观估算。
 
 [CPU批验证repack修正复测](validation/qwen3-verify-repack.md)：优化CPU配置、纯forward计时与更新后的串行全接受估算。
+
+[输出头探索停止记录](validation/output-head-abandoned.md)：候选词表与低维残差界未获得安全跳过收益，实现已清理。
+
+[Qwen3保留50%–75%结构的接受率](validation/qwen3-pruning-acceptance.md)：FFN与Query保留比例初筛，仅评价greedy连续接受前缀。
+
+[Qwen3历史长度与Decode成本](validation/qwen3-history-decode.md)：128至8192 token，CPU/HTP串行实测、双横轴图与描述性拟合。
