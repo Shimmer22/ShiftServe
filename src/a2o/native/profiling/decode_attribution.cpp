@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include "query_head_probe.h"
 #include "spec_oracle.h"
+#include "kv_reduce_probe.h"
 
 static J observe_cpu_state(){
     J j;for(int core:{0,4,7}){std::string p="/sys/devices/system/cpu/cpu"+std::to_string(core)+"/cpufreq/scaling_cur_freq";std::ifstream f(p);long hz=0;if(f>>hz)j["cpu"+std::to_string(core)+"_kHz"]=hz;}
@@ -22,16 +23,42 @@ int main(int argc,char **argv){try{
     auto finish=reinterpret_cast<const char*(*)()>(dlsym(RTLD_DEFAULT,"a2o_attr_end"));
     bool instrument=cfg.value("host_instrumentation",false);require(!instrument||(begin&&finish),"missing private attribution API");
     J result={{"config",cfg},{"backend",backend},{"rows",J::array()}};double start=now_ms();
-    PrefillPrior prior;bool use_prior=cfg.value("prefill_prior",false);
-    Engine engine(model,htp,cfg.value("cpu_repack",false),false,htp?cfg.value("htp_threads",4):6,false,use_prior?PrefillPrior::callback:nullptr,&prior);auto *ctx=engine.ctx;auto *vocab=llama_model_get_vocab(engine.model);int nv=llama_vocab_n_tokens(vocab);
+    PrefillPrior prior;
+    prior.collect_ffn=cfg.value("collect_ffn_prior",true);
+    prior.collect_kv=cfg.value("collect_kv_prior",false);
+    prior.record_n_kv=cfg.value("record_n_kv",true);
+    prior.kv_tail_tokens=cfg.value("kv_tail_tokens",0);
+    bool use_prior=cfg.value("prefill_prior",false)||prior.collect_kv;
+    bool kv_offload=cfg.value("kv_offload",false),flash_attention=cfg.value("flash_attention",false);
+    Engine engine(model,htp,cfg.value("cpu_repack",false),kv_offload,htp?cfg.value("htp_threads",4):6,flash_attention,(use_prior||prior.record_n_kv)?PrefillPrior::callback:nullptr,&prior);auto *ctx=engine.ctx;auto *vocab=llama_model_get_vocab(engine.model);int nv=llama_vocab_n_tokens(vocab);
     result["cpu_repack_requested"]=cfg.value("cpu_repack",false);
+    result["kv_offload_requested"]=kv_offload;
+    result["flash_attention_requested"]=flash_attention;
     result["model_context_init_ms"]=now_ms()-start;
     auto normal=tokens(vocab,cfg.at("normal_prompt"),true);llama_pos pos=0;evaluate(ctx,normal,pos);
     std::string text;bool eog=false;for(int i=0;i<16;++i){auto tok=greedy(ctx,nv);if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}text+=piece(vocab,tok);evaluate(ctx,{tok},pos);}
     result["normal_response"]={{"text",text},{"passed",eog&&text.find("OK")!=std::string::npos}};save_probe(path,result);require(result["normal_response"]["passed"],"normal response failed");
     auto prefix=cfg.at("prefix_ids").get<std::vector<llama_token>>(),input=cfg.at("input_ids").get<std::vector<llama_token>>(),output=cfg.at("generated_ids").get<std::vector<llama_token>>();
+    int needle_begin=-1,needle_end=-1;
     if(cfg.contains("history_tokens")){
         int h=cfg.at("history_tokens");require(h>0&&h<=int(prefix.size()),"invalid diagnostic history length");prefix.resize(h);
+        if(cfg.contains("kv_needle")){
+            const auto &nd=cfg.at("kv_needle");
+            if(nd.contains("filler")){
+                auto head=tokens(vocab,nd.at("system_prefix").get<std::string>(),true);
+                auto pad=tokens(vocab,nd.at("filler").get<std::string>(),false);
+                auto tail=tokens(vocab,nd.value("closing",std::string()),false);
+                require(!pad.empty()&&int(head.size()+tail.size())<h,"invalid needle filler lengths");
+                prefix=std::move(head);
+                while(int(prefix.size()+tail.size())<h)prefix.push_back(pad[prefix.size()%pad.size()]);
+                prefix.insert(prefix.end(),tail.begin(),tail.end());
+            }
+            auto fact=tokens(vocab,nd.at("fact").get<std::string>(),false);
+            needle_begin=nd.at("pos").get<int>();needle_end=needle_begin+int(fact.size());
+            require(needle_begin>=4&&needle_end<h,"needle range out of history bounds");
+            for(size_t i=0;i<fact.size();++i)prefix[size_t(needle_begin)+i]=fact[i];
+            input=tokens(vocab,nd.at("question").get<std::string>(),false);
+        }
         llama_memory_clear(llama_get_memory(ctx),true);pos=0;start=now_ms();evaluate(ctx,prefix,pos);
         result["history_build_ms"]=now_ms()-start;result["history_source"]="fresh exact prefix slice; recurrent state recomputed";
     }else{
@@ -47,7 +74,11 @@ int main(int argc,char **argv){try{
     }
     result["actual_H"]=prefix.size();result["actual_P"]=input.size();
     prior.enabled=use_prior;start=now_ms();evaluate(ctx,input,pos);prior.enabled=false;result["full_prefill_ms"]=now_ms()-start;
+    llama_token prefill_first_tok=cfg.value("kv_eval_quality",false)?greedy(ctx,nv):-1;
     SessionSnapshot frozen;frozen.state=export_seq(ctx);frozen.next_pos=pos;result["state_bytes"]=frozen.state.size();result["state_restore_verified"]=true;
+    if(J kv_info=run_kv_reduction(ctx,frozen,cfg,prior,int(input.size()),needle_begin,needle_end);!kv_info.is_null()){
+        result["kv_reduction"]=kv_info;result["state_bytes"]=frozen.state.size();
+    }
     double keep=cfg.value("keep_ratio",1.0);require(keep>=0&&keep<=1,"invalid FFN keep ratio");
     CompactProbe pack(engine.model);start=now_ms();pack.install(model,keep,htp,true,use_prior?&prior:nullptr);
     result["ffn_compaction"]={{"keep_ratio",keep},{"packing_ms",now_ms()-start},{"packed_bytes",pack.packed_bytes},{"layers",pack.shapes},
@@ -84,7 +115,7 @@ int main(int argc,char **argv){try{
         std::cerr<<"A2O_DECODE_END rep="<<rep<<" elapsed_ms="<<elapsed<<"\n";
         auto perf=llama_perf_context(ctx);auto values=last_probe(ctx,nv);if(reference.empty())reference=values;
         result["rows"].push_back({{"repetition",rep},{"warmup",rep<0},{"D",output.size()},{"elapsed_ms",elapsed},{"token_ms",per_token},
-            {"backend_timing",attribution},{"llama_eval_ms",perf.t_eval_ms},{"graph_reused",perf.n_reused},
+            {"backend_timing",attribution},{"llama_eval_ms",perf.t_eval_ms},{"graph_reused",perf.n_reused},{"decode_n_kv",prior.last_n_kv},
             {"logits_vs_first_repeat",compare_probe(reference,values)},{"resources_before",before},{"resources_after",resource_sample()},
             {"cpu_state_before",observed_before},{"cpu_state_after",cfg.value("observe_cpu_state",false)?observe_cpu_state():J(nullptr)}});
         if(warming){warm_ms+=elapsed;if(warm_ms>=1000.*cfg.value("minimum_warmup_seconds",0.))warming=false;}
@@ -168,6 +199,38 @@ int main(int argc,char **argv){try{
             samples.push_back({{"prompt",content},{"text",text},{"ids",ids},{"eog",stopped}});
             result["quality_samples"]=samples;save_probe(path,result);
         }
+    }
+    if(cfg.value("kv_eval_quality",false)){
+        if(output.size()>=2&&!cfg.contains("kv_needle")){
+            restore_session(ctx,frozen);pos=frozen.next_pos;
+            J step_nll=J::array(),argmax_ids=J::array();double nll_sum=0.0;
+            for(size_t i=0;i+1<output.size();++i){
+                evaluate(ctx,{output[i]},pos);auto vals=last_probe(ctx,nv);
+                float mx=*std::max_element(vals.begin(),vals.end());double z=0.0;for(float v:vals)z+=std::exp(double(v-mx));
+                double nll=std::log(z)-double(vals[size_t(output[i+1])]-mx);
+                nll_sum+=nll;step_nll.push_back(nll);argmax_ids.push_back(std::max_element(vals.begin(),vals.end())-vals.begin());
+            }
+            result["kv_nll"]={{"steps",step_nll},{"mean_nll",nll_sum/double(output.size()-1)},{"argmax_ids",argmax_ids}};
+        }
+        restore_session(ctx,frozen);pos=frozen.next_pos;
+        std::string gen_text;J gen_ids=J::array();bool gen_eog=false;int max_gen=cfg.value("kv_generate_max_tokens",64);
+        if(prefill_first_tok>=0){
+            gen_ids.push_back(prefill_first_tok);
+            if(llama_vocab_is_eog(vocab,prefill_first_tok)){gen_eog=true;}
+            else{
+                gen_text+=piece(vocab,prefill_first_tok);evaluate(ctx,{prefill_first_tok},pos);
+                for(int i=1;i<max_gen;++i){auto tok=greedy(ctx,nv);gen_ids.push_back(tok);if(llama_vocab_is_eog(vocab,tok)){gen_eog=true;break;}gen_text+=piece(vocab,tok);evaluate(ctx,{tok},pos);}
+            }
+        }
+        J gen={{"first_tok",prefill_first_tok},{"text",gen_text},{"ids",gen_ids},{"eog",gen_eog}};
+        if(cfg.contains("kv_needle")){
+            const auto &nd=cfg.at("kv_needle");
+            J parsed=J::parse(gen_text,nullptr,false);
+            if(parsed.is_discarded()){auto l=gen_text.find('{'),r=gen_text.rfind('}');if(l!=std::string::npos&&r!=std::string::npos&&r>l)parsed=J::parse(gen_text.substr(l,r-l+1),nullptr,false);}
+            bool ok=!parsed.is_discarded()&&parsed.is_object()&&parsed.value("code",-1)==nd.at("expected_code").get<int>()&&parsed.value("codename",std::string())==nd.at("expected_codename").get<std::string>();
+            gen["parsed"]=parsed.is_discarded()?J(nullptr):parsed;gen["needle_passed"]=ok;
+        }
+        result["kv_generation"]=gen;save_probe(path,result);
     }
     if(result.contains("acceptance_blocks"))for(auto &block:result["acceptance_blocks"]){std::string text;for(auto id:block["draft_ids"].get<std::vector<llama_token>>())text+=piece(vocab,id);block["draft_text"]=text;}
     result["completed"]=true;save_probe(path,result);return 0;

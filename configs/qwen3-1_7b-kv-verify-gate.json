@@ -1,0 +1,71 @@
+{
+  "name": "20261114-qwen3-1_7b-kv-verify-gate",
+  "fixture": "results/20261114-qwen3-history-decode/fixture.json",
+  "build": "results/20261113-decode-attribution/build-qwen3-1-7b",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-1.7B-Q4_0.gguf",
+  "model_sha256": "5c71ea792028698598657d8f3e13fcf1980fcb2e1887c4931c5a129a5c8b488f",
+  "model_id": "qwen3-1.7b-q4_0",
+  "D": 16,
+  "rounds": 3,
+  "timeout_seconds": 600,
+  "cases": [
+    {
+      "name": "cpu-h256",
+      "backend": "cpu",
+      "cpu_repack": true,
+      "kv_offload": false,
+      "flash_attention": false,
+      "history_tokens": 256,
+      "keep_ratio": 1,
+      "minimum_warmup_seconds": 10,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "check_json_memory": false,
+      "graph_reuse_disable": false
+    },
+    {
+      "name": "cpu-h512",
+      "backend": "cpu",
+      "cpu_repack": true,
+      "kv_offload": false,
+      "flash_attention": false,
+      "history_tokens": 512,
+      "keep_ratio": 1,
+      "minimum_warmup_seconds": 10,
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "check_json_memory": false,
+      "graph_reuse_disable": false
+    },
+    {
+      "name": "cpu-h4096",
+      "backend": "cpu",
+      "cpu_repack": true,
+      "kv_offload": false,
+      "flash_attention": false,
+      "history_tokens": 4096,
+      "keep_ratio": 1,
+      "minimum_warmup_seconds": 10,
+      "verify_benchmark_k": [4, 8, 16],
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "check_json_memory": false,
+      "graph_reuse_disable": false
+    },
+    {
+      "name": "cpu-h8192",
+      "backend": "cpu",
+      "cpu_repack": true,
+      "kv_offload": false,
+      "flash_attention": false,
+      "history_tokens": 8192,
+      "keep_ratio": 1,
+      "minimum_warmup_seconds": 10,
+      "verify_benchmark_k": [4, 8, 16],
+      "observe_cpu_state": true,
+      "check_checkpoint_replay": true,
+      "check_json_memory": false,
+      "graph_reuse_disable": false
+    }
+  ]
+}

@@ -96,4 +96,6 @@ NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](valid
 
 [Qwen3保留50%–75%结构的接受率](validation/qwen3-pruning-acceptance.md)：FFN与Query保留比例初筛，仅评价greedy连续接受前缀。
 
+[Qwen3-1.7B Prefill先验指导CPU KV Reduce](validation/qwen3-1_7b-kv-reduce.md)：验证直接以`kq_soft_max`先验指导KV裁剪与紧凑重排，实测`decode_n_kv`收缩、CPU解码提速与`pos=1024/4146`纯JSON记忆`100%`召回。
+
 [Qwen3历史长度与Decode成本](validation/qwen3-history-decode.md)：128至8192 token，CPU/HTP串行实测、双横轴图与描述性拟合。
