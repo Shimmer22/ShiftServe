@@ -11,6 +11,8 @@
 using J=nlohmann::ordered_json;
 #include "replay_cache.h"
 #include "../scheduling/greedy_return.h"
+#include "../profiling/prefill_prior.h"
+#include "../profiling/kv_reduce_probe.h"
 
 struct PhoneService {
     std::string condition;
@@ -26,8 +28,11 @@ struct PhoneService {
     J cost_model=nullptr;
     uint64_t version=0;
     int cpu_threads=4;
-    bool htp_kv_offload=false, flash_attention=false;
+    bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false;
     bool single_resident=false;
+    int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16;
+    std::string kv_policy="prefill_prior";
+    PrefillPrior prior;
     std::string model_path;
     std::string model_id="qwen35-9b-q4_0";
     std::unique_ptr<FrozenReplayCache> replay_cache;
@@ -35,14 +40,28 @@ struct PhoneService {
         model_path=model;
         if(const char *value=std::getenv("A2O_CPU_THREADS"))cpu_threads=std::stoi(value);
         require(cpu_threads>0 && cpu_threads<=16,"invalid CPU thread count");
+        if(const char *value=std::getenv("A2O_CPU_REPACK")){require(std::string(value)=="0"||std::string(value)=="1","invalid CPU repack flag");cpu_repack=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_HTP_KV_OFFLOAD")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV offload flag");htp_kv_offload=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_FLASH_ATTN")){require(std::string(value)=="0"||std::string(value)=="1","invalid flash attention flag");flash_attention=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_KV_REDUCE")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV reduce flag");kv_reduce=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_KV_KEEP_TOKENS"))kv_keep_tokens=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_SINK_TOKENS"))kv_sink_tokens=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_RECENT_TOKENS"))kv_recent_tokens=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_POOL_WINDOW"))kv_pool_window=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_TAIL_TOKENS"))kv_tail_tokens=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_POLICY"))kv_policy=value;
+        require(!kv_reduce || which=="cpu" || which=="route","kv_reduce requires cpu or route condition");
+        require(!kv_reduce || !flash_attention,"kv_reduce requires flash_attention=0");
+        require(kv_policy=="prefill_prior" || kv_policy=="recent","unsupported A2O_KV_POLICY");
+        bool need_prior_cb=kv_reduce && kv_policy=="prefill_prior";
+        prior.collect_ffn=false;prior.collect_kv=need_prior_cb;prior.kv_tail_tokens=kv_tail_tokens;
         if(const char *value=std::getenv("A2O_MODEL_ID"))model_id=value;
         if(const char *value=std::getenv("A2O_SINGLE_RESIDENT")){require(std::string(value)=="0"||std::string(value)=="1","invalid residency flag");single_resident=std::string(value)=="1";}
         replay_cache=std::make_unique<FrozenReplayCache>(model+":"+std::to_string(std::filesystem::file_size(model))+":"+std::to_string(static_cast<long long>(std::filesystem::last_write_time(model).time_since_epoch().count()))+":"+__DATE__+":"+__TIME__+":cpu_threads="+std::to_string(cpu_threads));
         double start=now_ms();
-        if(which!="htp")cpu=std::make_unique<Engine>(model,false,false,true,cpu_threads,flash_attention);
-        if(which!="cpu" && !single_resident)htp=std::make_unique<Engine>(model,true,false,htp_kv_offload,4,flash_attention);
+        // route(HC) 模式下不在 CPU Engine 上挂载 cb_eval，确保 CPU decode 与基线保持零回调开销。
+        if(which!="htp")cpu=std::make_unique<Engine>(model,false,cpu_repack,true,cpu_threads,flash_attention,(need_prior_cb && which=="cpu")?&PrefillPrior::callback:nullptr,(need_prior_cb && which=="cpu")?&prior:nullptr);
+        if(which!="cpu" && !single_resident)htp=std::make_unique<Engine>(model,true,false,htp_kv_offload,4,flash_attention,(need_prior_cb && which=="route")?&PrefillPrior::callback:nullptr,(need_prior_cb && which=="route")?&prior:nullptr);
         require(cpu||htp,"single residency requires route or cpu startup");
         auto *m=cpu?cpu->model:htp->model;vocab=llama_model_get_vocab(m);
         templates=common_chat_templates_init(m,"");init_ms=now_ms()-start;
@@ -175,23 +194,58 @@ struct PhoneService {
         }
         double restore_ms=now_ms()-restore_start;
         std::vector<llama_token> suffix(ids.begin()+h,ids.end());llama_pos pos=h;
-        double pf_start=now_ms();evaluate(pre,suffix,pos);double prefill_ms=now_ms()-pf_start;
+        // 剥离末尾空 <think> 块作为多轮锚点分界，避免下一轮渲染清除空 <think> 后 H_anchor 回退到 0。
+        std::vector<llama_token> anchor_toks=ids;
+        const std::string empty_think="<think>\n\n</think>\n\n";
+        if(chat.prompt.size()>empty_think.size() && chat.prompt.compare(chat.prompt.size()-empty_think.size(),empty_think.size(),empty_think)==0){
+            auto cand=tokens(vocab,chat.prompt.substr(0,chat.prompt.size()-empty_think.size()),true);
+            if(cand.size()>h && cand.size()<ids.size() && std::equal(cand.begin(),cand.end(),ids.begin()))anchor_toks=std::move(cand);
+        }
+        bool collect_prior=kv_reduce && kv_policy=="prefill_prior" && ids.size()>size_t(kv_keep_tokens);
+        size_t anchor_split_in_suffix=anchor_toks.size()-h;
+        SessionSnapshot next;double prefill_ms=0,snapshot_ms=0;
+        if(anchor_split_in_suffix<suffix.size()){
+            std::vector<llama_token> head_suf(suffix.begin(),suffix.begin()+anchor_split_in_suffix);
+            std::vector<llama_token> tail_suf(suffix.begin()+anchor_split_in_suffix,suffix.end());
+            double pf0=now_ms();evaluate(pre,head_suf,pos);prefill_ms+=now_ms()-pf0;
+            double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
+            double pf1=now_ms();evaluate_with_prior_tail(pre,tail_suf,pos,prior,collect_prior,kv_tail_tokens);prefill_ms+=now_ms()-pf1;
+        }else{
+            double pf_start=now_ms();evaluate_with_prior_tail(pre,suffix,pos,prior,collect_prior,kv_tail_tokens);prefill_ms=now_ms()-pf_start;
+            double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
+        }
         std::vector<float> first_logits(llama_get_logits_ith(pre,-1),llama_get_logits_ith(pre,-1)+llama_vocab_n_tokens(vocab));
+        J kv_info=nullptr;double kv_reduce_ms=0;
         double handoff_start=now_ms();
         if(condition=="route" && route=="htp") {
-            transfer(pre,cpu->ctx);
+            if(kv_reduce && int(pos)>kv_keep_tokens){
+                double kv_start=now_ms();
+                J kv_cfg={{"kv_reduce_policy",kv_policy},{"kv_keep_tokens",kv_keep_tokens},{"kv_sink_tokens",kv_sink_tokens},
+                          {"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window}};
+                kv_info=evict_kv_by_prior(pre,int(pos),kv_cfg,prior,int(suffix.size()));
+                kv_reduce_ms=now_ms()-kv_start;
+                llama_memory_clear(llama_get_memory(cpu->ctx),true);
+            }
+            size_t hbytes=transfer(pre,cpu->ctx);
+            if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=hbytes;}
             auto *destination=llama_get_logits_ith(cpu->ctx,-1);
             require(destination,"missing destination logits after state migration");
             std::copy(first_logits.begin(),first_logits.end(),destination);
         }
-        double handoff_ms=now_ms()-handoff_start;
+        double handoff_ms=now_ms()-handoff_start-kv_reduce_ms;
         auto *decode=home().ctx;
-        // 保存完整 prompt 的 recurrent+conv+KV 状态。下一轮以此为稳定锚点，
-        // 重评估 assistant 工具调用的规范化文本；不尝试裁剪不可逆的 DeltaNet 状态。
-        double snapshot_start=now_ms();
-        SessionSnapshot next;next.state=export_seq(decode);next.next_pos=pos;
-        next.evaluated_tokens=ids.size();next.version=++version;
-        double snapshot_ms=now_ms()-snapshot_start;
+        if(kv_reduce && !(condition=="route" && route=="htp") && int(pos)>kv_keep_tokens){
+            double kv_start=now_ms();
+            SessionSnapshot working;working.next_pos=pos;
+            J kv_cfg={{"kv_reduce_policy",kv_policy},{"kv_keep_tokens",kv_keep_tokens},{"kv_sink_tokens",kv_sink_tokens},
+                      {"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
+            kv_info=run_kv_reduction(decode,working,kv_cfg,prior,int(suffix.size()));
+            kv_info["state_bytes_before"]=next.state.size();
+            auto *destination=llama_get_logits_ith(decode,-1);
+            require(destination,"missing destination logits after kv reduction");
+            std::copy(first_logits.begin(),first_logits.end(),destination);
+            kv_reduce_ms=now_ms()-kv_start;
+        }
         common_params_sampling sampling;sampling.temp=0;sampling.seed=body.value("seed",20261107);
         if(!chat.grammar.empty())sampling.grammar={COMMON_GRAMMAR_TYPE_TOOL_CALLS,chat.grammar};
         sampling.grammar_lazy=chat.grammar_lazy;
@@ -212,11 +266,11 @@ struct PhoneService {
         if(!chat.parser.empty())parser.parser.load(chat.parser);
         auto msg=common_chat_parse(raw,false,parser);msg.role="assistant";
         for(size_t i=0;i<msg.tool_calls.size();++i)msg.tool_calls[i].id="a2o_"+std::to_string(version)+"_"+std::to_string(i);
-        lane.retire();lane.poll();anchor=std::move(next);anchor_ids=ids;
+        lane.retire();lane.poll();anchor=std::move(next);anchor_ids=std::move(anchor_toks);
         auto message=msg.to_json_oaicompat();
         J timing={{"prompt_ms",prefill_ms},{"predicted_ms",decode_ms},{"prompt_n",suffix.size()},
                   {"predicted_n",generated.size()},{"observation_ms",observation_ms},{"restore_ms",restore_ms},
-                  {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"total_ms",now_ms()-start},
+                  {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
         return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
@@ -302,7 +356,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));

@@ -1,0 +1,54 @@
+{
+  "name": "20261115-tau2-qwen3-1_7b-hc-kv",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-1.7B-Q4_0.gguf",
+  "model_id": "qwen3-1.7b-q4_0",
+  "model_sha256": "5c71ea792028698598657d8f3e13fcf1980fcb2e1887c4931c5a129a5c8b488f",
+  "binary": "results/20261115-tau2-qwen3-1_7b-hc-kv/build-service/agent",
+  "registry": "results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so",
+  "requests": "results/20261115-tau2-qwen3-1_7b-hc-kv/tau2-1_7b-requests.json",
+  "output_dir": "results/20261115-tau2-qwen3-1_7b-hc-kv/campaign",
+  "context_size": 12288,
+  "cpu_threads": 6,
+  "cpu_repack": 1,
+  "opbatch": 1024,
+  "opqueue": 16,
+  "kv_offload": 0,
+  "flash_attention": 0,
+  "rounds": 2,
+  "ready_gap_ms": 2000.0,
+  "free_tokens": 128,
+  "kv_keep_tokens": 1024,
+  "kv_sink_tokens": 4,
+  "kv_recent_tokens": 256,
+  "kv_pool_window": 5,
+  "kv_tail_tokens": 64,
+  "services": [
+    {
+      "name": "baseline_a",
+      "label": "CPU + HC Baseline",
+      "kv_reduce": 0,
+      "kv_policy": "prefill_prior",
+      "kv_recent_tokens": 256,
+      "modes": ["cpu", "route"],
+      "include_real_gap": false
+    },
+    {
+      "name": "prior_b",
+      "label": "HC + PrefillPrior",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_recent_tokens": 256,
+      "modes": ["route"],
+      "include_real_gap": true
+    },
+    {
+      "name": "recent_c",
+      "label": "HC + Recent Ablation",
+      "kv_reduce": 1,
+      "kv_policy": "recent",
+      "kv_recent_tokens": 1020,
+      "modes": ["route"],
+      "include_real_gap": false
+    }
+  ]
+}

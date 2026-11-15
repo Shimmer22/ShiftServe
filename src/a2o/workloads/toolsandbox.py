@@ -66,7 +66,7 @@ def run_case(name, scenario, cfg, out):
         def model_inference(self, openai_messages, openai_tools):
             nonlocal state_ids, task_started_ns, final_response_ns
             idx = len(steps)
-            body = dict(model='qwen35-9b-q4_0', messages=openai_messages,
+            body = dict(model=cfg.get('model_id', 'qwen35-9b-q4_0'), messages=openai_messages,
                         tools=list(openai_tools), temperature=0, seed=cfg['seed'],
                         max_tokens=cfg['max_tokens'], stream=False, cache_prompt=True,
                         parallel_tool_calls=False, return_tokens=True,
@@ -247,7 +247,7 @@ def main():
                  'G_ms':'host tool issue to result available after official execution environment',
                  'D':'server usage.completion_tokens; raw sampled IDs and count also saved'},
         timing='host CLOCK_MONOTONIC; G excludes tokenizer/profiling preparation before next request',
-        backend=cfg['backend'], kv_policy='none', pre_move=False, vision='text-only; not exercised'))
+        backend=cfg['backend'], kv_policy=cfg.get('kv_policy', 'none'), pre_move=False, vision='text-only; not exercised'))
     results = []
     for name in cfg['scenarios']:
         result = run_case(name, copy.deepcopy(scenarios[name]), cfg, args.output)

@@ -99,3 +99,5 @@ NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](valid
 [Qwen3-1.7B Prefill先验指导CPU KV Reduce](validation/qwen3-1_7b-kv-reduce.md)：验证直接以`kq_soft_max`先验指导KV裁剪与紧凑重排，实测`decode_n_kv`收缩、CPU解码提速与`pos=1024/4146`纯JSON记忆`100%`召回。
 
 [Qwen3历史长度与Decode成本](validation/qwen3-history-decode.md)：128至8192 token，CPU/HTP串行实测、双横轴图与描述性拟合。
+
+[Qwen3-1.7B τ²-bench 双驻留 HC + PrefillPrior KV Reduce](validation/tau2-qwen3-1_7b-hc-kv.md)：修复多轮`H_anchor`、隔离CPU `cb_eval`税并在6个真实`τ²-bench`长历史边界（`H=5046–7960`）实测状态回迁缩小`7.15×`、CPU Decode提速`1.774×`与端到端`1.321×`加速。

@@ -10,18 +10,16 @@ static std::vector<double> pool_kv_scores(const std::vector<double> &scores,int 
     return out;
 }
 
-static J run_kv_reduction(llama_context *ctx,SessionSnapshot &frozen,const J &cfg,const PrefillPrior &prior,
+// 仅计算保留掩码并在上下文中执行 seq_rm 裁剪；供离线/在线与 HC 回迁前复用。
+static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const PrefillPrior &prior,
         int input_len,int needle_begin=-1,int needle_end=-1){
     const std::string policy=cfg.value("kv_reduce_policy","none");
     if(policy=="none")return nullptr;
     require(policy=="recent"||policy=="prefill_prior","unsupported kv_reduce_policy: "+policy);
-    const int total=int(frozen.next_pos);
     const int keep_target=cfg.at("kv_keep_tokens");
     const int sink=std::min(total,cfg.value("kv_sink_tokens",4));
     const int recent_min=std::min(total-sink,cfg.value("kv_recent_tokens",std::max(input_len,64)));
-    const bool do_compact=cfg.value("kv_compact",true);
     const int pool_window=cfg.value("kv_pool_window",1);
-    const size_t bytes_before=frozen.state.size();
 
     std::vector<uint8_t> keep(size_t(total),0);
     if(total<=keep_target){
@@ -62,6 +60,27 @@ static J run_kv_reduction(llama_context *ctx,SessionSnapshot &frozen,const J &cf
     }
     double evict_ms=now_ms()-t0;
 
+    J info={{"policy",policy},{"keep_target",keep_target},{"sink_tokens",sink},{"recent_tokens",recent_min},
+        {"pool_window",pool_window},{"before_pos_count",total},{"kept_count",kept},
+        {"evicted_count",rm_tokens},{"rm_spans",rm_spans},{"evict_ms",evict_ms},
+        {"max_pos_preserved",llama_memory_seq_pos_max(mem,0)}};
+    if(needle_total>0){
+        info["needle_range"]={needle_begin,needle_end};
+        info["needle_kept"]=needle_kept;
+        info["needle_total"]=needle_total;
+        info["needle_recall_ratio"]=double(needle_kept)/double(needle_total);
+    }
+    return info;
+}
+
+static J run_kv_reduction(llama_context *ctx,SessionSnapshot &frozen,const J &cfg,const PrefillPrior &prior,
+        int input_len,int needle_begin=-1,int needle_end=-1){
+    J info=evict_kv_by_prior(ctx,int(frozen.next_pos),cfg,prior,input_len,needle_begin,needle_end);
+    if(info.is_null())return nullptr;
+    const bool do_compact=cfg.value("kv_compact",true);
+    const size_t bytes_before=frozen.state.size();
+    auto *mem=llama_get_memory(ctx);
+
     double t1=now_ms();
     if(do_compact){
         auto compacted=export_seq(ctx);
@@ -74,16 +93,10 @@ static J run_kv_reduction(llama_context *ctx,SessionSnapshot &frozen,const J &cf
     }
     double compact_ms=now_ms()-t1;
 
-    J info={{"policy",policy},{"keep_target",keep_target},{"sink_tokens",sink},{"recent_tokens",recent_min},
-        {"pool_window",pool_window},{"compacted",do_compact},{"before_pos_count",total},{"kept_count",kept},
-        {"evicted_count",rm_tokens},{"rm_spans",rm_spans},{"evict_ms",evict_ms},{"compact_ms",compact_ms},
-        {"state_bytes_before",bytes_before},{"state_bytes_after",frozen.state.size()},
-        {"max_pos_preserved",llama_memory_seq_pos_max(mem,0)}};
-    if(needle_total>0){
-        info["needle_range"]={needle_begin,needle_end};
-        info["needle_kept"]=needle_kept;
-        info["needle_total"]=needle_total;
-        info["needle_recall_ratio"]=double(needle_kept)/double(needle_total);
-    }
+    info["compacted"]=do_compact;
+    info["compact_ms"]=compact_ms;
+    info["state_bytes_before"]=bytes_before;
+    info["state_bytes_after"]=frozen.state.size();
+    info["max_pos_preserved"]=llama_memory_seq_pos_max(mem,0);
     return info;
 }

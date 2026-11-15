@@ -5,8 +5,25 @@ J gap_replay(const J &body) {
     auto input=body.at("input_ids").get<std::vector<llama_token>>();
     auto generated=body.at("generated_ids").get<std::vector<llama_token>>();
     auto order=body.at("order").get<std::vector<std::string>>();
-    auto sorted=order;std::sort(sorted.begin(),sorted.end());
-    require(sorted==std::vector<std::string>({"cpu","htp","route"}),"invalid gap replay order");
+    bool allow_partial_order=body.value("allow_partial_order",false);
+    if(allow_partial_order){
+        require(!order.empty(),"empty gap replay order");
+        for(const auto &m:order)require(m=="cpu"||m=="htp"||m=="route","invalid gap replay mode: "+m);
+    }else{
+        auto sorted=order;std::sort(sorted.begin(),sorted.end());
+        require(sorted==std::vector<std::string>({"cpu","htp","route"}),"invalid gap replay order");
+    }
+    const bool kv_reduce_req=body.value("kv_reduce",false);
+    const bool kv_reduce_cpu=body.value("kv_reduce_on_cpu",false);
+    const std::string kv_pol=body.value("kv_reduce_policy",kv_policy);
+    const int kv_keep=body.value("kv_keep_tokens",kv_keep_tokens);
+    const int kv_sink=body.value("kv_sink_tokens",kv_sink_tokens);
+    const int kv_recent=body.value("kv_recent_tokens",kv_recent_tokens);
+    const int kv_pool=body.value("kv_pool_window",kv_pool_window);
+    const int kv_tail=body.value("kv_tail_tokens",kv_tail_tokens);
+    const bool verify_free=body.value("verify_free_generation",false);
+    const int free_tokens=body.value("free_tokens",128);
+    if(kv_reduce_req && kv_pol=="prefill_prior")require(kv_reduce,"gap_replay prefill_prior requires service A2O_KV_REDUCE=1");
     require(!prefix.empty() && !input.empty() && !generated.empty() &&
         prefix.size()+input.size()+generated.size()<size_t(context_size),"invalid gap replay shape");
     double gap=body.at("gap_ms").get<double>();
@@ -65,26 +82,82 @@ J gap_replay(const J &body) {
                 else {reason=availability=="ready"?"cpu_lower_predicted_cost":"preparation_"+availability;lane.retire();}
             }
         }
+        auto res_before=resource_sample();
         auto *pre=route=="htp"?htp->ctx:cpu->ctx;llama_pos pos=prefix.size();
         // 当前生产服务在返回时恢复上一输入锚点，回滚已经生成的 assistant。
         // ready HC 的恢复已在 G 内完成；CPU 与 Full HTP 的真实恢复仍计入响应。
         double stage=now_ms();
         if(!(mode=="route" && route=="htp"))restore_session(pre,frozen);
         double restore=now_ms()-stage;
-        stage=now_ms();evaluate(pre,input,pos);double prefill=now_ms()-stage;
-        stage=now_ms();if(mode=="route" && route=="htp")transfer(htp->ctx,cpu->ctx);double handoff=now_ms()-stage;
-        auto *dec=mode=="htp"?htp->ctx:cpu->ctx;stage=now_ms();
+        bool collect_prior=kv_reduce_req && mode=="route" && route=="htp" && kv_pol=="prefill_prior" && int(prefix.size()+input.size())>kv_keep;
+        stage=now_ms();evaluate_with_prior_tail(pre,input,pos,prior,collect_prior,kv_tail);double prefill=now_ms()-stage;
+        std::vector<float> first_logits;
+        if(verify_free || (kv_reduce_req && int(pos)>kv_keep)){
+            const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
+            first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
+        }
+        J kv_info=nullptr;double evict_ms=0;size_t handoff_bytes=0;
+        if(kv_reduce_req && mode=="route" && route=="htp" && int(pos)>kv_keep){
+            J kv_cfg={{"kv_reduce_policy",kv_pol},{"kv_keep_tokens",kv_keep},{"kv_sink_tokens",kv_sink},
+                      {"kv_recent_tokens",kv_recent},{"kv_pool_window",kv_pool}};
+            kv_info=evict_kv_by_prior(pre,int(pos),kv_cfg,prior,int(input.size()));
+            evict_ms=kv_info.at("evict_ms").get<double>();
+        }
+        stage=now_ms();
+        if(mode=="route" && route=="htp"){
+            if(!kv_info.is_null())llama_memory_clear(llama_get_memory(cpu->ctx),true);
+            handoff_bytes=transfer(pre,cpu->ctx);
+            if(!first_logits.empty()){
+                auto *dst=llama_get_logits_ith(cpu->ctx,-1);require(dst,"missing dst logits after handoff");
+                std::copy(first_logits.begin(),first_logits.end(),dst);
+            }
+            if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["handoff_bytes"]=handoff_bytes;}
+        }
+        double handoff=now_ms()-stage;
+        auto *dec=mode=="htp"?htp->ctx:cpu->ctx;
+        if(kv_reduce_cpu && kv_reduce_req && mode=="cpu" && int(pos)>kv_keep && kv_pol=="recent"){
+            double kv_s=now_ms();
+            SessionSnapshot tmp;tmp.next_pos=pos;
+            J kv_cfg={{"kv_reduce_policy","recent"},{"kv_keep_tokens",kv_keep},{"kv_sink_tokens",kv_sink},
+                      {"kv_recent_tokens",kv_recent},{"kv_pool_window",kv_pool},{"kv_compact",true}};
+            kv_info=run_kv_reduction(dec,tmp,kv_cfg,prior,int(input.size()));
+            evict_ms=now_ms()-kv_s;
+            auto *dst=llama_get_logits_ith(dec,-1);require(dst,"missing dst logits after cpu reduce");
+            std::copy(first_logits.begin(),first_logits.end(),dst);
+        }
+        int decode_n_kv=!kv_info.is_null()?kv_info.at("kept_count").get<int>():int(pos);
+        stage=now_ms();
         for(auto tok:generated)evaluate(dec,{tok},pos);
         double decode=now_ms()-stage;double response_ms=now_ms()-returned;
+        auto res_after=resource_sample();
+        J free_gen=nullptr;
+        if(verify_free){
+            int n_voc=llama_vocab_n_tokens(vocab);
+            llama_pos rollback=llama_pos(prefix.size()+input.size());
+            require(llama_memory_seq_rm(llama_get_memory(dec),0,rollback,-1),"free-gen rollback seq_rm failed");
+            pos=rollback;
+            auto *dst=llama_get_logits_ith(dec,-1);require(dst,"missing dst logits for free gen");
+            std::copy(first_logits.begin(),first_logits.end(),dst);
+            std::vector<llama_token> f_ids;std::string f_text;bool hit_eog=false;
+            llama_token top1=-1;
+            for(int i=0;i<free_tokens;++i){
+                auto tok=greedy(dec,n_voc);
+                if(i==0)top1=tok;
+                if(llama_vocab_is_eog(vocab,tok)){hit_eog=true;break;}
+                f_ids.push_back(tok);f_text+=piece(vocab,tok);evaluate(dec,{tok},pos);
+            }
+            free_gen={{"tokens",f_ids},{"text",f_text},{"top1_first",top1},{"eog",hit_eog}};
+        }
         // 单边界夹具退出必须等后台线程结束；尾部单列，不能悄悄抹去准备工作。
         stage=now_ms();lane.close();double tail=now_ms()-stage;
         rows.push_back({{"condition",mode},{"route",route},{"route_reason",reason},{"availability",availability},
             {"availability_at_return",availability_at_return},{"return_policy",policy},{"wait_ms",wait_ms},{"decision",decision},
-            {"H",prefix.size()},{"P",input.size()},{"D",generated.size()},{"always_prepare_started",started},
+            {"H",prefix.size()},{"P",input.size()},{"D",generated.size()},{"decode_n_kv",decode_n_kv},{"always_prepare_started",started},
             {"fixture_restore_ms",fixture},{"requested_gap_ms",gap},{"actual_gap_ms",actual_gap},
-            {"prepare_ms",preparation_ms},{"restore_ms",restore},{"prefill_ms",prefill},{"handoff_ms",handoff},
-            {"decode_ms",decode},{"post_return_ms",response_ms},{"retirement_tail_ms",tail},
-            {"gap_to_response_ms",actual_gap+response_ms},{"serialized_total_ms",actual_gap+response_ms+tail}});
+            {"prepare_ms",preparation_ms},{"restore_ms",restore},{"prefill_ms",prefill},{"evict_ms",evict_ms},
+            {"handoff_ms",handoff},{"handoff_bytes",handoff_bytes},{"decode_ms",decode},{"post_return_ms",response_ms},
+            {"retirement_tail_ms",tail},{"gap_to_response_ms",actual_gap+response_ms},{"serialized_total_ms",actual_gap+response_ms+tail},
+            {"kv_reduce",kv_info},{"resources_before",res_before},{"resources_after",res_after},{"free_generation",free_gen}});
     }
     return {{"mode",policy=="greedy"?"always_prepare_gap_replay_v2":"always_prepare_gap_replay_v1"},{"bootstrap_ms",bootstrap},{"cache",cache},{"results",rows},
         {"prediction",predicted},{"scope","teacher-forced replay with observed external gap duration; asynchronous prepare is real, external work is a timed wait; no task-quality or live E2E claim"}};

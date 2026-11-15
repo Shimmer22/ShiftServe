@@ -23,7 +23,7 @@ def main():
         'Remember the session code CEDAR5837. Reply exactly {"status":"ready"}.',
         'What session code did I give you? Reply as {"session_code":"..."}.']):
         messages.append({'role': 'user', 'content': question})
-        body = dict(model='qwen35-9b-q4_0', messages=messages, temperature=0,
+        body = dict(model=cfg.get('model_id', 'qwen35-9b-q4_0'), messages=messages, temperature=0,
                     max_tokens=128, return_tokens=True, cache_prompt=True,
                     chat_template_kwargs={'enable_thinking': False})
         save(args.output / f'{index}.request.json', body)
