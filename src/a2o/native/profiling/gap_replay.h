@@ -16,14 +16,17 @@ J gap_replay(const J &body) {
     const bool kv_reduce_req=body.value("kv_reduce",false);
     const bool kv_reduce_cpu=body.value("kv_reduce_on_cpu",false);
     const std::string kv_pol=body.value("kv_reduce_policy",kv_policy);
-    const int kv_keep=body.value("kv_keep_tokens",kv_keep_tokens);
+    int kv_keep=body.value("kv_keep_tokens",kv_keep_tokens);
     const int kv_sink=body.value("kv_sink_tokens",kv_sink_tokens);
     const int kv_recent=body.value("kv_recent_tokens",kv_recent_tokens);
     const int kv_pool=body.value("kv_pool_window",kv_pool_window);
     const int kv_tail=body.value("kv_tail_tokens",kv_tail_tokens);
+    const bool use_kv_cost=kv_reduce_req && (kv_pol=="adaptive_cost" || body.value("use_kv_cost_model",false));
+    const int expected_d=body.value("expected_decode_tokens",kv_cost_table.valid?kv_cost_table.expected_decode_tokens:expected_decode_tokens);
     const bool verify_free=body.value("verify_free_generation",false);
     const int free_tokens=body.value("free_tokens",128);
-    if(kv_reduce_req && kv_pol=="prefill_prior")require(kv_reduce,"gap_replay prefill_prior requires service A2O_KV_REDUCE=1");
+    if(kv_reduce_req && (kv_pol=="prefill_prior" || use_kv_cost))require(kv_reduce,"gap_replay prior/adaptive requires service A2O_KV_REDUCE=1");
+    if(use_kv_cost)require(kv_cost_table.valid,"gap_replay adaptive_cost requires kv_model installed via /a2o/costs");
     require(!prefix.empty() && !input.empty() && !generated.empty() &&
         prefix.size()+input.size()+generated.size()<size_t(context_size),"invalid gap replay shape");
     double gap=body.at("gap_ms").get<double>();
@@ -89,16 +92,28 @@ J gap_replay(const J &body) {
         double stage=now_ms();
         if(!(mode=="route" && route=="htp"))restore_session(pre,frozen);
         double restore=now_ms()-stage;
-        bool collect_prior=kv_reduce_req && mode=="route" && route=="htp" && kv_pol=="prefill_prior" && int(prefix.size()+input.size())>kv_keep;
+        J kv_cost_decision=nullptr;
+        bool kv_admit=kv_reduce_req && ((mode=="route"&&route=="htp") || (kv_reduce_cpu&&mode=="cpu"));
+        int eff_keep=kv_keep;
+        std::string eff_pol=kv_pol;
+        if(use_kv_cost){
+            KvReducePlan kv_plan=plan_kv_reduce(kv_cost_table,int(prefix.size()),int(input.size()),expected_d,mode=="route"&&route=="htp");
+            kv_cost_decision=kv_reduce_plan_to_json<J>(kv_plan);
+            kv_admit=kv_admit && kv_plan.admit;
+            eff_keep=kv_plan.keep_tokens;
+            eff_pol="prefill_prior";
+        }
+        bool kv_will_run=kv_admit && int(prefix.size()+input.size())>eff_keep;
+        bool collect_prior=kv_will_run && eff_pol=="prefill_prior";
         stage=now_ms();evaluate_with_prior_tail(pre,input,pos,prior,collect_prior,kv_tail);double prefill=now_ms()-stage;
         std::vector<float> first_logits;
-        if(verify_free || (kv_reduce_req && int(pos)>kv_keep)){
+        if(verify_free || kv_will_run){
             const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
             first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
         }
         J kv_info=nullptr;double evict_ms=0;size_t handoff_bytes=0;
-        if(kv_reduce_req && mode=="route" && route=="htp" && int(pos)>kv_keep){
-            J kv_cfg={{"kv_reduce_policy",kv_pol},{"kv_keep_tokens",kv_keep},{"kv_sink_tokens",kv_sink},
+        if(kv_will_run && mode=="route" && route=="htp"){
+            J kv_cfg={{"kv_reduce_policy",eff_pol},{"kv_keep_tokens",eff_keep},{"kv_sink_tokens",kv_sink},
                       {"kv_recent_tokens",kv_recent},{"kv_pool_window",kv_pool}};
             kv_info=evict_kv_by_prior(pre,int(pos),kv_cfg,prior,int(input.size()));
             evict_ms=kv_info.at("evict_ms").get<double>();
@@ -115,10 +130,10 @@ J gap_replay(const J &body) {
         }
         double handoff=now_ms()-stage;
         auto *dec=mode=="htp"?htp->ctx:cpu->ctx;
-        if(kv_reduce_cpu && kv_reduce_req && mode=="cpu" && int(pos)>kv_keep && kv_pol=="recent"){
+        if(kv_will_run && kv_reduce_cpu && mode=="cpu"){
             double kv_s=now_ms();
             SessionSnapshot tmp;tmp.next_pos=pos;
-            J kv_cfg={{"kv_reduce_policy","recent"},{"kv_keep_tokens",kv_keep},{"kv_sink_tokens",kv_sink},
+            J kv_cfg={{"kv_reduce_policy",eff_pol},{"kv_keep_tokens",eff_keep},{"kv_sink_tokens",kv_sink},
                       {"kv_recent_tokens",kv_recent},{"kv_pool_window",kv_pool},{"kv_compact",true}};
             kv_info=run_kv_reduction(dec,tmp,kv_cfg,prior,int(input.size()));
             evict_ms=now_ms()-kv_s;
@@ -157,7 +172,7 @@ J gap_replay(const J &body) {
             {"prepare_ms",preparation_ms},{"restore_ms",restore},{"prefill_ms",prefill},{"evict_ms",evict_ms},
             {"handoff_ms",handoff},{"handoff_bytes",handoff_bytes},{"decode_ms",decode},{"post_return_ms",response_ms},
             {"retirement_tail_ms",tail},{"gap_to_response_ms",actual_gap+response_ms},{"serialized_total_ms",actual_gap+response_ms+tail},
-            {"kv_reduce",kv_info},{"resources_before",res_before},{"resources_after",res_after},{"free_generation",free_gen}});
+            {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"resources_before",res_before},{"resources_after",res_after},{"free_generation",free_gen}});
     }
     return {{"mode",policy=="greedy"?"always_prepare_gap_replay_v2":"always_prepare_gap_replay_v1"},{"bootstrap_ms",bootstrap},{"cache",cache},{"results",rows},
         {"prediction",predicted},{"scope","teacher-forced replay with observed external gap duration; asynchronous prepare is real, external work is a timed wait; no task-quality or live E2E claim"}};

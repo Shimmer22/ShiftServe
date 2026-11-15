@@ -1,0 +1,50 @@
+{
+  "kind": "kv_reduce_cost_v1",
+  "model_id": "qwen3-1.7b-q4_0",
+  "source_curve": "results/20261115-qwen3-1_7b-kv-curve",
+  "expected_decode_tokens": 96,
+  "quality_k_min": 1536,
+  "quality_keep_ratio_min": 0.25,
+  "align_pad": 256,
+  "min_evict_savings_tokens": 512,
+  "min_gain_ms": 100.0,
+  "candidates": [
+    1536,
+    2048,
+    2560,
+    3072,
+    4096
+  ],
+  "decode_per_tok": {
+    "intercept_ms": 41.74211604447541,
+    "slope_ms_per_token": 0.006359819563889574
+  },
+  "handoff": {
+    "intercept_ms": 102.90720255782043,
+    "slope_ms_per_token": 0.09779201752845793
+  },
+  "evict": {
+    "intercept_ms": 0.3391706124856704,
+    "slope_ms_per_token": 0.000274793336113983
+  },
+  "htp_prior_tax": {
+    "intercept_ms": 655.6884210187457,
+    "slope_ms_per_token": 1.1448914769712997
+  },
+  "cpu_prior_tax": {
+    "intercept_ms": 612.7050909996033,
+    "slope_ms_per_token": 0.0
+  },
+  "cpu_restore": {
+    "intercept_ms": 46.00747692090628,
+    "slope_ms_per_token": 0.05281547167971309
+  },
+  "cpu_prefill_p_at_4k": {
+    "intercept_ms": 0.0,
+    "slope_ms_per_token": 12.533129404441398
+  },
+  "htp_prefill_p_at_4k": {
+    "intercept_ms": 273.7085541098022,
+    "slope_ms_per_token": 19.357889534881256
+  }
+}

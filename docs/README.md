@@ -101,3 +101,5 @@ NPU优化叠加稀疏：[同轮CPU对照、固定FFN裁剪与打包成本](valid
 [Qwen3历史长度与Decode成本](validation/qwen3-history-decode.md)：128至8192 token，CPU/HTP串行实测、双横轴图与描述性拟合。
 
 [Qwen3-1.7B τ²-bench 双驻留 HC + PrefillPrior KV Reduce](validation/tau2-qwen3-1_7b-hc-kv.md)：修复多轮`H_anchor`、隔离CPU `cb_eval`税并在6个真实`τ²-bench`长历史边界（`H=5046–7960`）实测状态回迁缩小`7.15×`、CPU Decode提速`1.774×`与端到端`1.321×`加速。
+
+[Qwen3-1.7B 机制 2：压缩曲线、成本表抽象与端到端实测](validation/qwen3-1_7b-kv-cost-and-e2e.md)：定量标定`H/K`死区与质量拐点（`K>=1536, ratio>=0.25`），抽象`kv_reduce_cost_v1`并在`τ²-bench` 9题三条件端到端验证中以`compact_anchor`实现100%完成（`reward 4.0`）、公共子集`1.512×`服务加速与`VmHWM`降低`~2.46 GiB`。

@@ -1,0 +1,66 @@
+{
+  "name": "20261115-tau2-qwen3-1_7b-adaptive-kv-e2e",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-1.7B-Q4_0.gguf",
+  "model_id": "qwen3-1.7b-q4_0",
+  "model_sha256": "5c71ea792028698598657d8f3e13fcf1980fcb2e1887c4931c5a129a5c8b488f",
+  "binary": "results/20261115-qwen3-1_7b-adaptive-kv/build-service/agent",
+  "registry": "results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so",
+  "kv_costs": "configs/qwen3-1_7b-kv-reduce-cost.json",
+  "output_dir": "results/20261115-tau2-qwen3-1_7b-adaptive-kv-e2e",
+  "context_size": 12288,
+  "cpu_threads": 6,
+  "cpu_repack": 1,
+  "opbatch": 1024,
+  "opqueue": 16,
+  "kv_offload": 0,
+  "flash_attention": 0,
+  "agent_max_tokens": 768,
+  "user_max_tokens": 2048,
+  "expected_decode_tokens": 96,
+  "max_steps": 44,
+  "max_errors": 10,
+  "seed": 20261115,
+  "tasks": [
+    {"domain": "retail", "task_id": "105"},
+    {"domain": "retail", "task_id": "84"},
+    {"domain": "retail", "task_id": "110"},
+    {"domain": "airline", "task_id": "0"},
+    {"domain": "airline", "task_id": "26"},
+    {"domain": "airline", "task_id": "48"},
+    {"domain": "telecom", "task_id": "[mobile_data_issue]data_saver_mode_on|data_usage_exceeded[PERSONA:Easy]"},
+    {"domain": "telecom", "task_id": "[service_issue]break_apn_settings|lock_sim_card_pin|overdue_bill_suspension|unseat_sim_card[PERSONA:Easy]"},
+    {"domain": "telecom", "task_id": "[service_issue]airplane_mode_on|break_apn_settings[PERSONA:Hard]"}
+  ],
+  "conditions": [
+    {
+      "name": "cpu_baseline",
+      "label": "CPU Baseline (kv=0)",
+      "condition": "cpu",
+      "single_resident": true,
+      "kv_reduce": 0,
+      "kv_policy": "prefill_prior",
+      "compact_anchor": 0,
+      "use_kv_costs": false
+    },
+    {
+      "name": "cpu_adaptive_full",
+      "label": "Adaptive Cost KV Reduce (full_anchor)",
+      "condition": "cpu",
+      "single_resident": true,
+      "kv_reduce": 1,
+      "kv_policy": "adaptive_cost",
+      "compact_anchor": 0,
+      "use_kv_costs": true
+    },
+    {
+      "name": "cpu_adaptive_compact",
+      "label": "Adaptive Cost KV Reduce (compact_anchor)",
+      "condition": "cpu",
+      "single_resident": true,
+      "kv_reduce": 1,
+      "kv_policy": "adaptive_cost",
+      "compact_anchor": 1,
+      "use_kv_costs": true
+    }
+  ]
+}
