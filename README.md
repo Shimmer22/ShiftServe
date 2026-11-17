@@ -1,6 +1,10 @@
 # Tool Slack 感知的端侧异构推理
 
-围绕 Tool 等待期间的投机状态准备与返回后的成本选路，研究手机 CPU/HTP 协作。默认文本实验切换为 **Qwen3-8B Q4_0**，模型身份见 `configs/model-default.json`，准入与关键成本采集见[新模型指南](docs/guides/qwen3-model-costs.md)。HTP 条件明确称为 **HTP offload**，不能由阶段名称推断全部算子在 DSP 上执行。Qwen3.5-9B 与 Qwen2.5-VL-3B 的历史配置、日志和结论原样保留，不把旧成本表套到新模型；纯文本 Qwen3-8B 不提供图像能力。
+围绕端侧手机 CPU/HTP 异构协作，包含两条互补机制（总览与当前边界见[双机制协同架构](docs/design/joint-architecture.md)）：
+- **M1（Gap 准备 + 返回后选路）**：在 Tool 等待期间异步准备 HTP 状态，返回后依据实际追加长度 `P` 与剩余准备时间在 `CC`（CPU）与 `HC`（HTP prefill → CPU decode）间动态选路。
+- **M2（NPU Prefill 先验指导 KV 裁剪）**：当长历史/大 `P` 场景收敛到 `HC` 时，复用 Prefill 注意力先验（`PrefillPrior`）与 `compact_anchor` 压缩活跃 KV，降低回迁与 CPU Decode 开销（当前 1.7B 单驻留已获端到端验证，4B `M1+M2` 联合仍在修复与复测中）。
+
+默认文本基线模型配置见 `configs/model-default.json`（Qwen3-8B Q4_0），另有 Qwen3-1.7B / Qwen3-4B / Qwen3.5-9B 专项实验配置；HTP 条件明确称为 **HTP offload**，不能由阶段名称推断全部算子在 DSP 上执行。Qwen2.5-VL-3B 的历史配置、日志和结论原样保留。
 
 主设备为小米 SM8650，手机控制统一使用 `configs/termux-ssh.json`。历史Qwen2.5-VL的[平台迁移验证](docs/validation/platform-migration.md)保留其图像与文本限制；新默认模型使用独立准入与成本表，不继承旧模型的通过状态。
 

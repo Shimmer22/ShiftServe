@@ -44,7 +44,7 @@ def route_phone(action: str, cfg: dict, cond: dict, svc_dir: Path, log_path: Pat
             "--model-sha256", cfg["model_sha256"],
             "--context-size", str(cfg["context_size"]),
             "--cpu-threads", str(cfg["cpu_threads"]),
-            "--cpu-repack", str(cfg["cpu_repack"]),
+            "--cpu-repack", str(cond.get("cpu_repack", cfg["cpu_repack"])),
             "--opbatch", str(cfg["opbatch"]),
             "--opqueue", str(cfg["opqueue"]),
             "--kv-offload", str(cfg["kv_offload"]),
@@ -62,6 +62,9 @@ def route_phone(action: str, cfg: dict, cond: dict, svc_dir: Path, log_path: Pat
             cmd.append("--single-resident")
         if cond.get("use_kv_costs"):
             cmd += ["--kv-costs", str((ROOT / cfg["kv_costs"]).resolve())]
+        if cond.get("use_route_costs") or (cond["condition"] == "route" and cfg.get("route_costs")):
+            rc_path = cond.get("route_costs") or cfg["route_costs"]
+            cmd += ["--route-costs", str((ROOT / rc_path).resolve())]
     else:
         cmd.append("--logs-only")
     with log_path.open("a") as logf:
@@ -137,28 +140,67 @@ def stop_wins_user_server(remote_server_dir: str):
         time.sleep(1)
 
 
-def open_phone_tunnel() -> subprocess.Popen:
-    proc = subprocess.Popen(
-        [
-            "ssh", "-N", "-T",
-            "-o", "ExitOnForwardFailure=yes",
-            "-o", "ServerAliveInterval=15",
-            "-o", "ServerAliveCountMax=4",
-            "-R", "18780:10.29.131.50:18780",
-            WINS_HOST,
-        ],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-    )
+class PhoneTunnelGuard:
+    """Keep the SSH reverse tunnel alive across transient disconnects."""
+
+    def __init__(self):
+        self._stop = False
+        self._proc = None
+        self._spawn()
+        import threading
+        self._thread = threading.Thread(target=self._watch, daemon=True)
+        self._thread.start()
+
+    def _spawn(self):
+        self._proc = subprocess.Popen(
+            [
+                "ssh", "-N", "-T",
+                "-o", "ExitOnForwardFailure=yes",
+                "-o", "TCPKeepAlive=yes",
+                "-o", "ServerAliveInterval=15",
+                "-o", "ServerAliveCountMax=8",
+                "-R", "18780:10.29.131.50:18780",
+                WINS_HOST,
+            ],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+
+    def _watch(self):
+        while not self._stop:
+            time.sleep(2.0)
+            if not self._stop and self._proc is not None and self._proc.poll() is not None:
+                self._spawn()
+
+    def terminate(self):
+        self._stop = True
+        if self._proc is not None:
+            self._proc.terminate()
+
+    def wait(self, timeout=None):
+        if self._proc is not None:
+            return self._proc.wait(timeout=timeout)
+        return 0
+
+    def kill(self):
+        self._stop = True
+        if self._proc is not None:
+            self._proc.kill()
+
+
+def open_phone_tunnel() -> PhoneTunnelGuard:
+    guard = PhoneTunnelGuard()
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
+        proc = guard._proc
         if proc.poll() is not None:
             err = proc.stderr.read().decode() if proc.stderr else ""
+            guard.terminate()
             raise RuntimeError(f"SSH reverse tunnel failed: {err}")
         chk = subprocess.run(["ssh", WINS_HOST, "curl -fsS http://127.0.0.1:18780/health >/dev/null"], capture_output=True)
         if chk.returncode == 0:
-            return proc
+            return guard
         time.sleep(0.5)
-    proc.terminate()
+    guard.terminate()
     raise TimeoutError("SSH reverse tunnel did not become ready on wins:18780")
 
 
@@ -183,8 +225,23 @@ def main():
     remote_vllm = f"{remote_base}/vllm-server"
     ensure_wins_workspace()
 
-    print("[e2e] Starting Qwen3.5-9B user/judge server on wins:18769 ...", flush=True)
-    start_wins_user_server(remote_vllm, out / "vllm-driver.log")
+    use_ninfer = cfg.get("user_backend") == "ninfer"
+    user_base = cfg.get("user_base", "http://10.29.243.183:18881" if use_ninfer else "http://127.0.0.1:18769")
+    user_model = cfg.get("user_model", "qwen3.8-27b" if use_ninfer else "qwen35-9b")
+    if use_ninfer:
+        print(f"[e2e] Verifying Qwen3.8-27B NInfer user/judge server on {user_base} ...", flush=True)
+        subprocess.run(
+            ["ssh", WINS_HOST,
+             "docker start qwen38-ninfer >/dev/null 2>&1 || true; "
+             "KEY=$(grep '^NINFER_API_KEY=' /home/wins/qwen38-ninfer/.env | cut -d= -f2-); "
+             "for i in $(seq 1 20); do "
+             f"if curl -fsS -H \"Authorization: Bearer $KEY\" {shlex.quote(user_base.rstrip('/') + '/v1/models')} >/dev/null 2>&1; then exit 0; fi; sleep 2; "
+             "done; exit 1"],
+            check=True,
+        )
+    else:
+        print("[e2e] Starting Qwen3.5-9B user/judge server on wins:18769 ...", flush=True)
+        start_wins_user_server(remote_vllm, out / "vllm-driver.log")
     try:
         for cond in conds:
             cname = cond["name"]
@@ -206,12 +263,23 @@ def main():
                 mem_before = sample_phone_memory(svc_dir)
                 tunnel = open_phone_tunnel()
                 cfg_rel = args.config.resolve().relative_to(ROOT)
+                env_prefix = ""
+                key_args = ""
+                if use_ninfer:
+                    env_prefix = "KEY=$(grep '^NINFER_API_KEY=' /home/wins/qwen38-ninfer/.env | cut -d= -f2-) && "
+                    key_args = " --user-api-key-env NINFER_API_KEY"
+                    docker_env = "-e NINFER_API_KEY=\"$KEY\" "
+                else:
+                    docker_env = ""
                 worker_cmd = (
-                    f"docker exec a2o-bfcl-lc200 env PYTHONPATH=/workspace/references/tau2-bench-v0.1.0-source/src "
-                    f"/workspace/private/a2o-tau2/env/bin/python3 -u {CONTAINER_PROJECT}/scripts/collect/tau2_e2e_worker.py "
+                    f"{env_prefix}"
+                    f"docker exec {docker_env}-e PYTHONPATH=/workspace/references/tau2-bench-v0.1.0-source/src "
+                    f"a2o-bfcl-lc200 /workspace/private/a2o-tau2/env/bin/python3 -u {CONTAINER_PROJECT}/scripts/collect/tau2_e2e_worker.py "
                     f"--config {CONTAINER_PROJECT}/{cfg_rel} "
                     f"--condition-name {shlex.quote(cname)} "
                     f"--output {shlex.quote(container_cdir)} "
+                    f"--user-base {shlex.quote(user_base)} "
+                    f"--user-model {shlex.quote(user_model)}{key_args} "
                     f"--limit-tasks {int(args.limit_tasks)}"
                 )
                 print(f"[e2e] Running tau2 worker for {cname} (limit_tasks={args.limit_tasks}) ...", flush=True)
@@ -229,8 +297,9 @@ def main():
                 print(f"[e2e] Stopping phone service for {cname} ...", flush=True)
                 route_phone("stop", cfg, cond, svc_dir, svc_log)
     finally:
-        print("[e2e] Stopping wins user/judge server ...", flush=True)
-        stop_wins_user_server(remote_vllm)
+        if not use_ninfer:
+            print("[e2e] Stopping wins user/judge server ...", flush=True)
+            stop_wins_user_server(remote_vllm)
 
     summary = summarize_campaign(out, [c["name"] for c in conds])
     (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")

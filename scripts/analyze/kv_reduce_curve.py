@@ -74,12 +74,25 @@ def check_boundary_quality(boundary: int, text: str, cpu_fg: dict | None):
     }
 
 
-def load_baseline_freegen(baseline_campaign: Path):
+def load_baseline_freegen(baseline_campaign: Path | None, curve_dir: Path | None = None):
     fgs = {}
+    if curve_dir is not None:
+        cm = curve_dir / "measurements"
+        for b in range(6):
+            p = cm / f"qual-base-b{b:02d}.json"
+            if p.exists():
+                d = json.loads(p.read_text())
+                for r in d["response"]["results"]:
+                    if r["condition"] == "cpu" and r.get("free_generation"):
+                        fgs[b] = r["free_generation"]
+    if baseline_campaign is None:
+        return fgs
     m = baseline_campaign / "measurements"
     if not m.exists():
         return fgs
     for b in range(6):
+        if b in fgs:
+            continue
         p = m / f"baseline_a-ready-r00-b{b:02d}.json"
         if not p.exists():
             continue
@@ -95,7 +108,7 @@ def summarize(curve_dir: Path, baseline_campaign: Path | None = None):
     grid_rows = []
     quality_rows = []
 
-    baseline_fgs = load_baseline_freegen(baseline_campaign) if baseline_campaign else {}
+    baseline_fgs = load_baseline_freegen(baseline_campaign, curve_dir)
 
     for path in sorted(meas_dir.glob("*.json")):
         if path.name.endswith(".raw.json"):
@@ -103,7 +116,7 @@ def summarize(curve_dir: Path, baseline_campaign: Path | None = None):
         rec = json.loads(path.read_text())
         meta = rec["meta"]
         kind = meta["kind"]
-        if kind == "cpu_probe":
+        if kind in ("cpu_probe", "quality_base"):
             continue
         resp = rec["response"]
         for row in resp["results"]:

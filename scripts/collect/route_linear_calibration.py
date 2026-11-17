@@ -16,12 +16,16 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--endpoint',default='http://10.29.131.50:18780')
-    p.add_argument('--source',type=Path,default=ROOT/'results/20261107-toolsandbox-route-e2e/calibration/H1160-P107.request.json')
+    p.add_argument('--source',type=Path,default=ROOT/'results/20261115-qwen3-4b-joint/calib-source.json')
+    p.add_argument('--hs',default='128,768,1536')
+    p.add_argument('--ps',default='1,8,32,128,384')
+    p.add_argument('--repetitions',type=int,default=3)
     args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     source=json.loads(args.source.read_text());tokens=source['prefix_ids']+source['input_ids']
-    hs=[128,768,1536];ps=[1,8,32,128,384]
+    hs=[int(x) for x in args.hs.split(',') if x.strip()]
+    ps=[int(x) for x in args.ps.split(',') if x.strip()]
     grid=[(h,p) for h in hs for p in ps];random.Random(20261107).shuffle(grid)
-    plan=dict(H=hs,P=ps,repetitions=3,decode_evaluations=1,order=grid,
+    plan=dict(H=hs,P=ps,repetitions=args.repetitions,decode_evaluations=1,order=grid,
               source=str(args.source),seed=20261107,
               timing='prefill and migration only; decode excluded from routing',
               quality='greedy/logit differences reported separately; no performance-row quality filtering')
@@ -32,7 +36,7 @@ def main():
         if path.exists():response=json.loads(path.read_text())
         else:
             seq=(tokens*((h+p)//len(tokens)+1))[:h+p]
-            body=dict(prefix_ids=seq[:h],input_ids=seq[h:],decode_evaluations=1,repetitions=3)
+            body=dict(prefix_ids=seq[:h],input_ids=seq[h:],decode_evaluations=1,repetitions=args.repetitions)
             save(args.output/f'H{h}-P{p}.request.json',body)
             save(args.output/'progress.json',dict(phase='calibrating',H=h,P=p,completed=len(responses),total=len(grid),updated_unix=time.time()))
             # 请求结果丢失时可重复：此入口重建独立上下文，不影响正式会话。

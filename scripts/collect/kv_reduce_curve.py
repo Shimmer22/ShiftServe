@@ -255,6 +255,26 @@ def main():
                     status("measuring", kind="p_sweep", service="baseline_a", round=rnd, H=h, P=pval)
                     resp = run_gap_replay(out / "measurements", f"base-p{pval}-h{h}-r{rnd:02d}", body, meta)
                     print(f"[base p_sweep H={h} P={pval} r{rnd}] " + " | ".join(f"{r['condition']}:pre={r['prefill_ms']:.0f}" for r in resp["results"]), flush=True)
+            if cfg.get("collect_local_quality_baseline") or not cfg.get("baseline_campaign"):
+                for bx in reqs:
+                    b = bx["boundary"]
+                    body = make_body(
+                        bx["prefix_ids"],
+                        bx["input_ids"],
+                        bx["generated_ids"][:32],
+                        ["cpu"],
+                        cfg["ready_gap_ms"],
+                        False,
+                        bx["H"] + bx["P"],
+                        0,
+                        verify_fg=True,
+                        free_tokens=cfg["quality_free_tokens"],
+                    )
+                    meta = {"kind": "quality_base", "service": "baseline_a", "round": 0, "boundary": b, "domain": bx["domain"], "kv_keep": bx["H"] + bx["P"], "kv_tail": 0}
+                    status("measuring", kind="quality_base", boundary=b, H=bx["H"], P=bx["P"])
+                    resp = run_gap_replay(out / "measurements", f"qual-base-b{b:02d}", body, meta)
+                    r0 = resp["results"][0]
+                    print(f"[quality_base b{b} (H+P={bx['H']+bx['P']})] dec={r0['decode_ms']:.0f}ms top1={r0['free_generation']['top1_first']}", flush=True)
         finally:
             status("stopping_service", service="baseline_a")
             route_service("stop", cfg, "route", 0, svc_a, log_a)
@@ -341,7 +361,8 @@ def main():
         run_cpu_probes(cfg, out, status)
 
         status("analyzing")
-        summary = summarize(out, (ROOT / cfg["baseline_campaign"]).resolve())
+        base_camp = (ROOT / cfg["baseline_campaign"]).resolve() if cfg.get("baseline_campaign") else None
+        summary = summarize(out, base_camp)
         save_json(out / "completion.json", {"completed": True, **summary})
         status("complete")
         print("CURVE_SCAN_COMPLETE", out / "summary.json")

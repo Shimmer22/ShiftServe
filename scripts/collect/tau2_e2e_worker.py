@@ -2,7 +2,9 @@
 """Container-side official tau2-bench E2E runner splitting agent (phone) and user/judge (host vLLM)."""
 import argparse
 import hashlib
+import http.client
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -12,10 +14,10 @@ import urllib.error
 import urllib.request
 
 
-def _http_post(url: str, body: dict, timeout: int = 1800) -> dict:
+def _http_post(url: str, body: dict, timeout: int = 1800, api_key: str = "dummy") -> dict:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        url, data=data, headers={"Content-Type": "application/json", "Authorization": "Bearer dummy"}, method="POST"
+        url, data=data, headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}, method="POST"
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -25,6 +27,37 @@ def _http_post(url: str, body: dict, timeout: int = 1800) -> dict:
         raise RuntimeError(f"POST {url} -> HTTP {exc.code}: {detail}") from exc
 
 
+def _http_post_resilient(
+    url: str, body: dict, timeout: int = 25, retries: int = 120, api_key: str = "dummy"
+) -> dict:
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return _http_post(url, body, timeout=timeout, api_key=api_key)
+        except (http.client.HTTPException, urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_exc = exc
+            time.sleep(min(4.0, 0.5 + 0.25 * attempt))
+    raise RuntimeError(f"POST {url} failed after {retries} network retries: {last_exc}") from last_exc
+
+
+def _agent_chat_resilient(agent_base: str, req_body: dict, request_id: str, total_timeout: float = 2400.0) -> dict:
+    base = agent_base.rstrip("/")
+    _http_post_resilient(f"{base}/a2o/chat-start", {**req_body, "request_id": request_id}, timeout=20, retries=120)
+    deadline = time.monotonic() + total_timeout
+    while time.monotonic() < deadline:
+        poll = _http_post_resilient(
+            f"{base}/a2o/chat-wait", {"request_id": request_id, "wait_ms": 15000}, timeout=25, retries=120
+        )
+        status = poll.get("status")
+        if status == "done":
+            return poll["result"]
+        if status == "error":
+            raise RuntimeError(f"Agent async chat failed ({request_id}): {poll.get('error')}")
+        if status == "unknown":
+            _http_post_resilient(f"{base}/a2o/chat-start", {**req_body, "request_id": request_id}, timeout=20, retries=120)
+    raise TimeoutError(f"Agent async chat timed out after {total_timeout}s ({request_id})")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", type=Path, required=True)
@@ -32,12 +65,17 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--agent-base", default="http://127.0.0.1:18780")
     p.add_argument("--user-base", default="http://127.0.0.1:18769")
+    p.add_argument("--user-model", default="qwen35-9b")
+    p.add_argument("--user-api-key-env", default="")
     p.add_argument("--tau2-src", type=Path, default=Path("/workspace/references/tau2-bench-v0.1.0-source/src"))
     p.add_argument("--limit-tasks", type=int, default=0)
     args = p.parse_args()
+    user_api_key = os.environ.get(args.user_api_key_env, "dummy") if args.user_api_key_env else "dummy"
 
     sys.path.insert(0, str(args.tau2_src))
     cfg = json.loads(args.config.read_text())
+    cond_spec = next((c for c in cfg.get("conditions", []) if c.get("name") == args.condition_name), {})
+    trigger_tool_start = cond_spec.get("condition") == "route"
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
 
@@ -46,7 +84,8 @@ def main():
     from tau2.data_model.message import AssistantMessage, ToolCall
     from tau2.environment.environment import Environment
 
-    active_trace = {"calls": [], "tools": []}
+    agent_model_tag = f"phone-{cfg['model_id']}"
+    active_trace = {"calls": [], "tools": [], "task_key": "init"}
 
     def patched_generate(model, messages, tools=None, tool_choice=None, **kwargs):
         litellm_messages = llm_utils.to_litellm_messages(messages)
@@ -54,14 +93,16 @@ def main():
             if m.get("content") is None:
                 m["content"] = ""
         oai_tools = [tool.openai_schema for tool in tools] if tools else None
-        is_agent = model == "phone-qwen3-1.7b"
+        is_agent = (model == agent_model_tag)
+        if not is_agent and model not in (args.user_model, "gpt-4o-mini"):
+            raise RuntimeError(f"Unexpected model tag in patched_generate: {model!r}")
         endpoint = (
             args.agent_base.rstrip("/") + "/v1/chat/completions"
             if is_agent
             else args.user_base.rstrip("/") + "/v1/chat/completions"
         )
         req_body = {
-            "model": cfg["model_id"] if is_agent else "qwen35-9b",
+            "model": cfg["model_id"] if is_agent else args.user_model,
             "messages": litellm_messages,
             "temperature": float(kwargs.get("temperature", 0.0)),
             "max_tokens": int(cfg["agent_max_tokens"] if is_agent else cfg["user_max_tokens"]),
@@ -71,12 +112,20 @@ def main():
             req_body["tool_choice"] = tool_choice or "auto"
         if is_agent:
             req_body["expected_decode_tokens"] = int(cfg.get("expected_decode_tokens", 96))
-        else:
+            req_body["omit_verbose_prompt"] = True
+        elif args.user_model == "qwen35-9b":
             req_body["chat_template_kwargs"] = {"enable_thinking": False}
 
         t0 = time.monotonic()
-        resp = _http_post(endpoint, req_body, timeout=1800)
+        if is_agent:
+            turn_n = sum(1 for c in active_trace["calls"] if c["is_agent"])
+            rid = f"{active_trace['task_key']}:t{turn_n}"
+            resp = _agent_chat_resilient(args.agent_base, req_body, rid, total_timeout=1800.0)
+        else:
+            resp = _http_post_resilient(endpoint, req_body, timeout=180, retries=6, api_key=user_api_key)
         wall_ms = (time.monotonic() - t0) * 1000.0
+        if is_agent and trigger_tool_start:
+            _http_post_resilient(args.agent_base.rstrip("/") + "/a2o/tool-start", {}, timeout=15, retries=4)
         choice = resp["choices"][0]
         msg = choice["message"]
         raw_content = msg.get("content")
@@ -170,13 +219,20 @@ def main():
         key = f"{idx:02d}-{dom}-" + hashlib.sha256(tid.encode()).hexdigest()[:10]
         task_path = traces_dir / f"{key}.json"
         if task_path.exists():
-            tasks_out.append(json.loads(task_path.read_text()))
-            continue
+            cached = json.loads(task_path.read_text())
+            if cached.get("complete"):
+                tasks_out.append(cached)
+                continue
+            fail_idx = 0
+            while (traces_dir / f"{key}.failed-{fail_idx}.json").exists():
+                fail_idx += 1
+            task_path.rename(traces_dir / f"{key}.failed-{fail_idx}.json")
 
         task = by_domain[dom][tid]
         active_trace["calls"] = []
         active_trace["tools"] = []
-        _http_post(args.agent_base.rstrip("/") + "/a2o/reset", {}, timeout=60)
+        active_trace["task_key"] = key
+        _http_post_resilient(args.agent_base.rstrip("/") + "/a2o/reset", {}, timeout=25, retries=120)
 
         t_start = time.monotonic()
         sim_dump = None
@@ -187,9 +243,9 @@ def main():
                 task=task,
                 agent="llm_agent",
                 user="user_simulator",
-                llm_agent="phone-qwen3-1.7b",
+                llm_agent=agent_model_tag,
                 llm_args_agent={"temperature": 0.0},
-                llm_user="qwen35-9b",
+                llm_user=args.user_model,
                 llm_args_user={"temperature": 0.0},
                 max_steps=int(cfg["max_steps"]),
                 max_errors=int(cfg["max_errors"]),

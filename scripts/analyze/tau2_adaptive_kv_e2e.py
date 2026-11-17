@@ -26,9 +26,13 @@ def summarize_condition(cond_dir: Path) -> dict:
 
         admitted = 0
         rejected = 0
+        htp_turns = 0
+        cpu_turns = 0
         prompt_ms_sum = 0.0
         decode_ms_sum = 0.0
         restore_ms_sum = 0.0
+        handoff_ms_sum = 0.0
+        wait_ms_sum = 0.0
         kv_reduce_ms_sum = 0.0
         agent_total_ms_sum = 0.0
         agent_http_ms_sum = 0.0
@@ -48,7 +52,13 @@ def summarize_condition(cond_dir: Path) -> dict:
             prompt_ms_sum += float(t.get("prompt_ms", 0.0))
             decode_ms_sum += float(t.get("predicted_ms", 0.0))
             restore_ms_sum += float(t.get("restore_ms", 0.0))
+            handoff_ms_sum += float(t.get("handoff_ms", 0.0))
+            wait_ms_sum += float(t.get("wait_ms", 0.0))
             kv_reduce_ms_sum += float(t.get("kv_reduce_ms", 0.0))
+            if t.get("route") == "htp":
+                htp_turns += 1
+            else:
+                cpu_turns += 1
             agent_total_ms_sum += float(t.get("total_ms", 0.0))
             agent_http_ms_sum += float(c.get("wall_ms", 0.0))
             pred_tokens_sum += int(t.get("predicted_n", 0))
@@ -73,8 +83,10 @@ def summarize_condition(cond_dir: Path) -> dict:
                 "prompt_ms": t.get("prompt_ms", 0.0),
                 "predicted_ms": t.get("predicted_ms", 0.0),
                 "restore_ms": t.get("restore_ms", 0.0),
+                "handoff_ms": t.get("handoff_ms", 0.0),
                 "kv_reduce_ms": t.get("kv_reduce_ms", 0.0),
                 "total_ms": t.get("total_ms", 0.0),
+                "route": t.get("route", "cpu"),
                 "admitted": bool((dec or {}).get("admit")) if isinstance(dec, dict) else bool(kvr),
             }
             if pt >= 4096:
@@ -96,12 +108,16 @@ def summarize_condition(cond_dir: Path) -> dict:
             "max_H_effective": max_h_eff,
             "kv_admitted_turns": admitted,
             "kv_rejected_turns": rejected,
+            "htp_routed_turns": htp_turns,
+            "cpu_routed_turns": cpu_turns,
             "keep_targets": keep_targets,
             "agent_wall_s": agent_http_ms_sum / 1000.0,
             "agent_service_s": agent_total_ms_sum / 1000.0,
             "prompt_s": prompt_ms_sum / 1000.0,
             "decode_s": decode_ms_sum / 1000.0,
             "restore_s": restore_ms_sum / 1000.0,
+            "handoff_s": handoff_ms_sum / 1000.0,
+            "wait_s": wait_ms_sum / 1000.0,
             "kv_reduce_s": kv_reduce_ms_sum / 1000.0,
             "predicted_tokens": pred_tokens_sum,
             "decode_ms_per_tok": (decode_ms_sum / pred_tokens_sum) if pred_tokens_sum else 0.0,
@@ -115,10 +131,12 @@ def summarize_condition(cond_dir: Path) -> dict:
             "count": len(turns),
             "mean_prompt_tokens": _mean([r["prompt_tokens"] for r in turns]),
             "mean_restore_ms": _mean([r["restore_ms"] for r in turns]),
+            "mean_handoff_ms": _mean([r["handoff_ms"] for r in turns]),
             "mean_prompt_ms": _mean([r["prompt_ms"] for r in turns]),
             "mean_kv_reduce_ms": _mean([r["kv_reduce_ms"] for r in turns]),
             "mean_total_ms": _mean([r["total_ms"] for r in turns]),
             "decode_ms_per_tok": (dec_ms / n_tok) if n_tok else 0.0,
+            "htp_routed_count": sum(1 for r in turns if r["route"] == "htp"),
             "admitted_count": sum(1 for r in turns if r["admitted"]),
         }
 
@@ -135,7 +153,11 @@ def summarize_condition(cond_dir: Path) -> dict:
         "total_prompt_s": sum(t["prompt_s"] for t in tasks_summary),
         "total_decode_s": total_decode_s,
         "total_restore_s": sum(t["restore_s"] for t in tasks_summary),
+        "total_handoff_s": sum(t["handoff_s"] for t in tasks_summary),
+        "total_wait_s": sum(t["wait_s"] for t in tasks_summary),
         "total_kv_reduce_s": sum(t["kv_reduce_s"] for t in tasks_summary),
+        "htp_routed_turns": sum(t["htp_routed_turns"] for t in tasks_summary),
+        "cpu_routed_turns": sum(t["cpu_routed_turns"] for t in tasks_summary),
         "total_predicted_tokens": total_pred_toks,
         "overall_decode_ms_per_tok": (total_decode_s * 1000.0 / total_pred_toks) if total_pred_toks else 0.0,
         "short_turns_lt4k": _agg_turns(short_turns),

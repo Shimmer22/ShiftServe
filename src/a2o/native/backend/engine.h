@@ -3,6 +3,7 @@
 struct Engine {
     llama_model * model = nullptr;
     llama_context * ctx = nullptr;
+    llama_context_params cp {};
     Engine(const std::string & path, bool npu, bool cpu_repack=true, bool kv_offload=true, int threads=4, bool flash_attention=false, ggml_backend_sched_eval_callback eval_callback=nullptr, void *eval_user_data=nullptr) {
         require(threads>0 && threads<=16,"invalid engine thread count");
         auto mp = llama_model_default_params();
@@ -17,7 +18,7 @@ struct Engine {
         }
         model = llama_model_load_from_file(path.c_str(), mp);
         require(model, "model load failed");
-        auto cp = llama_context_default_params();
+        cp = llama_context_default_params();
         cp.n_ctx = context_size; cp.n_batch = batch_size; cp.n_ubatch = batch_size;
         cp.n_threads = threads; cp.n_threads_batch = threads;
         cp.offload_kqv = npu && kv_offload;
@@ -27,5 +28,15 @@ struct Engine {
         ctx = llama_init_from_model(model, cp);
         require(ctx, "context creation failed");
     }
-    ~Engine() { if (ctx) llama_free(ctx); if (model) llama_model_free(model); }
+    void release_ctx() {
+        if (ctx) { llama_free(ctx); ctx = nullptr; }
+    }
+    llama_context * ensure_ctx() {
+        if (!ctx) {
+            ctx = llama_init_from_model(model, cp);
+            require(ctx, "context creation failed");
+        }
+        return ctx;
+    }
+    ~Engine() { release_ctx(); if (model) llama_model_free(model); }
 };

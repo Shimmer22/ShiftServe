@@ -1,0 +1,6 @@
+{
+  "model": "Qwen3-4B-Q4_0.gguf",
+  "model_id": "qwen3-4b-q4_0",
+  "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-4B-Q4_0.gguf",
+  "model_sha256": "a6603667c91ef018c50bc3c36490398c0885b134349707f71c88e0671fe8a55b"
+}

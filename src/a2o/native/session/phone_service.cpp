@@ -7,6 +7,13 @@
 #include "chat.h"
 #include "sampling.h"
 #include "httplib.h"
+#include <algorithm>
+#include <condition_variable>
+#ifndef _WIN32
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/socket.h>
+#endif
 #include "nlohmann/json.hpp"
 using J=nlohmann::ordered_json;
 #include "replay_cache.h"
@@ -23,6 +30,7 @@ struct PhoneService {
     SessionSnapshot anchor;
     std::vector<llama_token> anchor_ids;
     std::vector<int> anchor_live_positions;
+    size_t anchor_pinned_tokens=0;
     PreparationLane lane;
     std::mutex mutex;
     double init_ms=0,prepare_ms=0;
@@ -37,6 +45,7 @@ struct PhoneService {
     std::string kv_policy="prefill_prior";
     PrefillPrior prior;
     std::string model_path;
+    std::chrono::steady_clock::time_point prepare_started_at{};
     std::string model_id="qwen35-9b-q4_0";
     std::unique_ptr<FrozenReplayCache> replay_cache;
     PhoneService(const std::string &model,const std::string &which):condition(which) {
@@ -108,15 +117,17 @@ struct PhoneService {
         if(condition!="route" || anchor.state.empty())return {{"started",false},{"reason","disabled_or_no_anchor"}};
         if(lane.occupied())return {{"started",false},{"reason","previous_preparation_busy"}};
         auto state=std::make_shared<const SessionSnapshot>(anchor);
+        prepare_started_at=std::chrono::steady_clock::now();
         bool started=lane.start(anchor.version,[this,state](const auto &valid){
             double start=now_ms();if(!valid())return false;
-            restore_session(htp->ctx,*state);prepare_ms=now_ms()-start;return valid();
+            restore_session(htp->ensure_ctx(),*state);prepare_ms=now_ms()-start;return valid();
         });
         return {{"started",started},{"version",anchor.version},{"H",anchor_ids.size()}};
     }
     J calibrate(const J &body){
         require(condition=="route","calibration requires both explicit backends");
         lane.close();
+        if(htp)htp->ensure_ctx();
         auto prefix=body.at("prefix_ids").get<std::vector<llama_token>>();
         auto input=body.at("input_ids").get<std::vector<llama_token>>();
         int d=body.value("decode_evaluations",4);
@@ -158,30 +169,79 @@ struct PhoneService {
     J infer(const J &body){
         double start=now_ms();auto chat=render(body);auto ids=tokens(vocab,chat.prompt,true);
         int limit=body.value("max_tokens",768);
-        require(ids.size()+limit<=size_t(context_size),"context overflow; refusing truncation");
         size_t common=0;while(common<std::min(ids.size(),anchor_ids.size()) && ids[common]==anchor_ids[common])++common;
         bool reuse=!anchor_ids.empty() && common==anchor_ids.size();
-        std::string ready=lane.availability(anchor.version),route=condition=="htp"?"htp":"cpu",reason="fixed_backend";
-        J prediction=nullptr;
+        if(!reuse){
+            anchor_pinned_tokens=0;
+            const auto &msgs=body.at("messages");
+            if(msgs.is_array() && !msgs.empty() && msgs[0].value("role",std::string(""))=="system"){
+                J sys_body={{"messages",J::array({msgs[0]})}};
+                if(body.contains("tools") && !body["tools"].is_null())sys_body["tools"]=body["tools"];
+                auto sys_chat=render(sys_body);
+                auto sys_ids=tokens(vocab,sys_chat.prompt,true);
+                size_t sys_common=0;
+                while(sys_common<std::min(sys_ids.size(),ids.size()) && sys_ids[sys_common]==ids[sys_common])++sys_common;
+                anchor_pinned_tokens=sys_common;
+            }
+        }
+        std::vector<int> live_pos=reuse?anchor_live_positions:std::vector<int>{};
+        const size_t h_eff=live_pos.size();
         size_t h=reuse?anchor_ids.size():0,p=ids.size()-h;
+        const size_t physical_h=(reuse && compact_anchor)?h_eff:h;
+        require(physical_h+p+limit<=size_t(context_size),"context overflow; refusing truncation");
+        const bool use_kv_cost=kv_reduce && (body.value("use_kv_cost_model",false) || kv_policy=="adaptive_cost" || (kv_cost_table.valid && kv_policy!="recent"));
+        const int exp_d=body.value("expected_decode_tokens",kv_cost_table.valid?kv_cost_table.expected_decode_tokens:expected_decode_tokens);
+        if(use_kv_cost)require(kv_cost_table.valid,"adaptive_cost requires kv_model installed via /a2o/costs");
+        std::string ready=lane.availability(anchor.version),route=condition=="htp"?"htp":"cpu",reason="fixed_backend";
+        double wait_ms=0.0;
+        J prediction=nullptr;
+        J kv_cost_decision=nullptr;
+        bool kv_admit=kv_reduce;
+        int eff_keep=kv_keep_tokens;
+        std::string eff_policy=kv_policy;
+        bool joint_decided=false;
         if(condition=="route"){
+            if(reuse && ready=="pending" && !cost_model.is_null()){
+                RouteLinearCostTable prep_tbl=parse_route_linear_cost_table(cost_model);
+                JointRouteKvPlan jp_prep=plan_joint_route_kv(
+                    prep_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(anchor_pinned_tokens));
+                if(jp_prep.route=="htp" && jp_prep.cpu_best_total_ms>0.0 && jp_prep.htp_best_total_ms>0.0){
+                    double elapsed_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-prepare_started_at).count();
+                    double pred_prep=prep_tbl.cpu_to_htp.eval(double(h_eff));
+                    GreedyReturnPlan gp=plan_greedy_return(false,elapsed_ms,pred_prep,jp_prep.cpu_best_total_ms,jp_prep.htp_best_total_ms);
+                    if(gp.continue_prepare && gp.wait_budget_ms>0.0){
+                        double w0=now_ms();
+                        lane.wait_ready(anchor.version,gp.wait_budget_ms);
+                        wait_ms=now_ms()-w0;
+                        ready=lane.availability(anchor.version);
+                    }
+                }
+            }
             reason=ready!="ready"?"candidate_"+ready:!reuse?"anchor_prefix_mismatch":"calibration_missing";
             if(reuse && ready=="ready" && !cost_model.is_null()) {
-                auto predict=[&](const char *key,double x){
-                    const auto &fit=cost_model.at(key);
-                    return std::max(0.0,fit.at("intercept_ms").get<double>()+fit.at("slope_ms_per_token").get<double>()*x);
-                };
-                double restore=predict("cpu_restore",h),cp=predict("cpu_prefill",p);
-                double np=predict("htp_prefill",p),back=predict("htp_to_cpu",h+p);
-                double cc=restore+cp,hc=np+back;
+                RouteLinearCostTable route_tbl=parse_route_linear_cost_table(cost_model);
+                JointRouteKvPlan jp=plan_joint_route_kv(
+                    route_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(anchor_pinned_tokens));
+                double restore=route_tbl.cpu_restore.eval(double(h_eff));
+                double cp=route_tbl.cpu_prefill.eval(double(p));
+                double np=route_tbl.htp_prefill.eval(double(p));
+                double back=route_tbl.htp_to_cpu.eval(double(h_eff+p));
+                route=jp.route;reason=jp.reason;
                 prediction={{"kind","linear_hp_v1"},{"cpu_restore_ms",restore},{"cpu_prefill_ms",cp},
-                    {"htp_prefill_ms",np},{"handoff_ms",back},{"cc_ms",cc},{"hc_ms",hc},
+                    {"htp_prefill_ms",np},{"handoff_ms",back},{"cc_ms",jp.cc_ms},{"hc_ms",jp.hc_ms},
                     {"prepare_ms_hidden",prepare_ms},{"model_id",cost_model.at("model_id")},
-                    {"extrapolated",h<cost_model.at("h_min").get<size_t>() || h>cost_model.at("h_max").get<size_t>() ||
-                        p<cost_model.at("p_min").get<size_t>() || p>cost_model.at("p_max").get<size_t>()}};
-                route=hc<cc?"htp":"cpu";reason="linear_hp_cost";
-                if(p<cost_model.value("routing_p_min",size_t(32))) {route="cpu";reason="below_routing_p_min";}
+                    {"extrapolated",jp.extrapolated},
+                    {"h_eff",h_eff},{"cpu_no_kv_total_ms",jp.cpu_no_kv_total_ms},{"htp_no_kv_total_ms",jp.htp_no_kv_total_ms},
+                    {"cpu_best_total_ms",jp.cpu_best_total_ms},{"htp_best_total_ms",jp.htp_best_total_ms},
+                    {"selected_total_ms",jp.selected_total_ms},{"joint_kv_route",use_kv_cost && kv_cost_table.valid}};
                 prediction["routing_p_min"]=cost_model.value("routing_p_min",size_t(32));
+                if(use_kv_cost){
+                    kv_cost_decision=kv_reduce_plan_to_json<J>(jp.kv_plan);
+                    kv_admit=jp.kv_plan.admit;
+                    eff_keep=jp.kv_plan.keep_tokens;
+                    eff_policy="prefill_prior";
+                    joint_decided=true;
+                }
             } else if(reuse && ready=="ready") {
                 // 兼容历史结果；新实验只安装线性模型。
                 for(const auto &row:costs) if(h==row.at("h_min").get<size_t>() && p==row.at("p_min").get<size_t>()) {
@@ -191,12 +251,14 @@ struct PhoneService {
             }
         }
         double observation_ms=now_ms()-start,restore_start=now_ms();
-        llama_context *pre=route=="htp"?htp->ctx:home().ctx;
+        llama_context *pre=route=="htp"?htp->ensure_ctx():home().ctx;
         if(condition=="route" && route=="htp")lane.claim(anchor.version);
         else {
-            lane.retire();
+            lane.close();
+            if(htp)htp->release_ctx();
             if(reuse)restore_session(pre,anchor);else llama_memory_clear(llama_get_memory(pre),true);
         }
+        std::vector<uint8_t>{}.swap(anchor.state);
         double restore_ms=now_ms()-restore_start;
         std::vector<llama_token> suffix(ids.begin()+h,ids.end());llama_pos pos=h;
         // 剥离末尾空 <think> 块作为多轮锚点分界，避免下一轮渲染清除空 <think> 后 H_anchor 回退到 0。
@@ -206,17 +268,8 @@ struct PhoneService {
             auto cand=tokens(vocab,chat.prompt.substr(0,chat.prompt.size()-empty_think.size()),true);
             if(cand.size()>h && cand.size()<ids.size() && std::equal(cand.begin(),cand.end(),ids.begin()))anchor_toks=std::move(cand);
         }
-        std::vector<int> live_pos=reuse?anchor_live_positions:std::vector<int>{};
-        const size_t h_eff=live_pos.size();
-        const bool use_kv_cost=kv_reduce && (body.value("use_kv_cost_model",false) || kv_policy=="adaptive_cost" || (kv_cost_table.valid && kv_policy!="recent"));
-        const int exp_d=body.value("expected_decode_tokens",kv_cost_table.valid?kv_cost_table.expected_decode_tokens:expected_decode_tokens);
-        if(use_kv_cost)require(kv_cost_table.valid,"adaptive_cost requires kv_model installed via /a2o/costs");
-        J kv_cost_decision=nullptr;
-        bool kv_admit=kv_reduce;
-        int eff_keep=kv_keep_tokens;
-        std::string eff_policy=kv_policy;
-        if(use_kv_cost){
-            KvReducePlan kv_plan=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,condition=="route" && route=="htp");
+        if(use_kv_cost && !joint_decided){
+            KvReducePlan kv_plan=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,condition=="route" && route=="htp",int(h),int(anchor_pinned_tokens));
             kv_cost_decision=kv_reduce_plan_to_json<J>(kv_plan);
             kv_admit=kv_plan.admit;
             eff_keep=kv_plan.keep_tokens;
@@ -247,7 +300,7 @@ struct PhoneService {
         live_pos.reserve(h_eff+p);
         for(size_t i=h;i<ids.size();++i)live_pos.push_back(int(i));
         std::vector<float> first_logits;
-        if(kv_will_reduce){
+        if(kv_will_reduce || (condition=="route" && route=="htp")){
             const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
             first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
         }
@@ -257,7 +310,7 @@ struct PhoneService {
             if(kv_will_reduce){
                 double kv_start=now_ms();
                 J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_sink_tokens",kv_sink_tokens},
-                          {"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window}};
+                          {"kv_pinned_tokens",anchor_pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window}};
                 kv_info=evict_kv_by_prior(pre,active_after_prefill,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
                 kv_reduce_ms=now_ms()-kv_start;
                 llama_memory_clear(llama_get_memory(cpu->ctx),true);
@@ -269,6 +322,7 @@ struct PhoneService {
                 require(destination,"missing destination logits after state migration");
                 std::copy(first_logits.begin(),first_logits.end(),destination);
             }
+            htp->release_ctx();
         }
         double handoff_ms=now_ms()-handoff_start-kv_reduce_ms;
         auto *decode=home().ctx;
@@ -276,7 +330,7 @@ struct PhoneService {
             double kv_start=now_ms();
             SessionSnapshot working;working.next_pos=pos;
             J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_sink_tokens",kv_sink_tokens},
-                      {"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
+                      {"kv_pinned_tokens",anchor_pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
             kv_info=run_kv_reduction(decode,working,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
             kv_info["state_bytes_before"]=next.state.empty()?size_t(0):next.state.size();
             auto *destination=llama_get_logits_ith(decode,-1);
@@ -328,13 +382,15 @@ struct PhoneService {
                   {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
                   {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
-                  {"H_effective",h_eff},{"kv_compact_anchor",compact_anchor},
+                  {"H_effective",h_eff},{"pinned_tokens",anchor_pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
+        J verbose_obj={{"tokens",generated},{"stop_type",eog?"eos":"limit"},{"truncated",false}};
+        if(!body.value("omit_verbose_prompt",false))verbose_obj["prompt"]=chat.prompt;
         return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
                 {"choices",J::array({{{"index",0},{"message",message},{"finish_reason",!eog?"length":msg.tool_calls.empty()?"stop":"tool_calls"}}})},
                 {"usage",{{"prompt_tokens",ids.size()},{"completion_tokens",generated.size()},{"total_tokens",ids.size()+generated.size()},
                           {"prompt_tokens_details",{{"cached_tokens",h}}}}},{"timings",timing},
-                {"__verbose",{{"prompt",chat.prompt},{"tokens",generated},{"stop_type",eog?"eos":"limit"},{"truncated",false}}}};
+                {"__verbose",verbose_obj}};
     }
     #include "../profiling/stage_sweep.h"
     #include "../profiling/state_cost_sweep.h"
@@ -365,6 +421,7 @@ struct PhoneService {
         std::vector<llama_token> suffix(prompt.begin()+h,prompt.end());
         J results=J::array();
         auto order=body.value("condition_order",std::vector<std::string>{"cpu","htp","route"});
+        if(htp)htp->ensure_ctx();
         auto sorted=order;std::sort(sorted.begin(),sorted.end());
         require(sorted==std::vector<std::string>({"cpu","htp","route"}),"condition_order must be a permutation of cpu/htp/route");
         for(const std::string &mode:order) {
@@ -402,12 +459,84 @@ struct PhoneService {
                 {"scope","teacher-forced token evaluation; ready preparation excluded; not live E2E or quality measurement"}};
     }
 };
+struct AsyncChatRunner {
+    PhoneService &svc;
+    std::mutex mu;
+    std::condition_variable cv;
+    bool quit=false,has_pending=false;
+    std::string cur_id,cur_status="idle",cur_error;
+    J cur_req,cur_res;
+    std::thread worker;
+    explicit AsyncChatRunner(PhoneService &s):svc(s),worker([this]{run();}){}
+    ~AsyncChatRunner(){
+        {std::lock_guard<std::mutex> lk(mu);quit=true;cv.notify_all();}
+        if(worker.joinable())worker.join();
+    }
+    void run(){
+        for(;;){
+            J req;std::string rid;
+            {
+                std::unique_lock<std::mutex> lk(mu);
+                cv.wait(lk,[&]{return has_pending||quit;});
+                if(quit && !has_pending)break;
+                req=std::move(cur_req);rid=cur_id;has_pending=false;
+            }
+            J out;std::string err;
+            try{std::lock_guard<std::mutex> guard(svc.mutex);out=svc.infer(req);}
+            catch(const std::exception &e){err=e.what();}
+            std::lock_guard<std::mutex> lk(mu);
+            if(cur_id==rid){
+                if(err.empty()){cur_status="done";cur_res=std::move(out);}
+                else{cur_status="error";cur_error=std::move(err);}
+            }
+            cv.notify_all();
+        }
+    }
+    J start(const J &body){
+        const std::string rid=body.at("request_id").get<std::string>();
+        std::lock_guard<std::mutex> lk(mu);
+        if(cur_id==rid)return J{{"request_id",rid},{"status",cur_status}};
+        if(cur_status=="running")throw std::runtime_error("async chat runner busy");
+        cur_id=rid;cur_status="running";cur_req=body;cur_res=nullptr;cur_error.clear();has_pending=true;
+        cv.notify_all();
+        return J{{"request_id",rid},{"status","running"}};
+    }
+    J wait_job(const J &body){
+        const std::string rid=body.at("request_id").get<std::string>();
+        const int wait_ms=std::clamp(body.value("wait_ms",15000),50,60000);
+        std::unique_lock<std::mutex> lk(mu);
+        cv.wait_for(lk,std::chrono::milliseconds(wait_ms),[&]{return cur_id!=rid||cur_status!="running";});
+        if(cur_id!=rid)return J{{"request_id",rid},{"status","unknown"}};
+        if(cur_status=="done")return J{{"request_id",rid},{"status","done"},{"result",cur_res}};
+        if(cur_status=="error")return J{{"request_id",rid},{"status","error"},{"error",cur_error}};
+        return J{{"request_id",rid},{"status","running"}};
+    }
+    void wait_idle_and_clear(){
+        std::unique_lock<std::mutex> lk(mu);
+        cv.wait(lk,[&]{return !has_pending && cur_status!="running";});
+        cur_id.clear();cur_status="idle";cur_res=nullptr;cur_error.clear();
+    }
+};
 int main(int argc,char **argv){try{
     require(argc==6,"usage: service model condition context port costs.json");
     context_size=std::stoi(argv[3]);batch_size=128;ggml_backend_load_all();
     PhoneService service(argv[1],argv[2]);
+    AsyncChatRunner chat_runner(service);
     if(std::string(argv[5])!="none")service.costs=J::parse(read(argv[5])).get<std::vector<J>>();
-    httplib::Server server;server.set_read_timeout(1800,0);server.set_write_timeout(1800,0);
+    httplib::Server server;server.set_read_timeout(1800,0);server.set_write_timeout(1800,0);server.set_tcp_nodelay(true);
+#ifndef _WIN32
+    server.set_socket_options([](socket_t sock){
+        httplib::default_socket_options(sock);
+        int yes=1;
+        ::setsockopt(sock,SOL_SOCKET,SO_KEEPALIVE,&yes,sizeof(yes));
+#ifdef TCP_KEEPIDLE
+        int idle=25,intvl=10,cnt=6;
+        ::setsockopt(sock,IPPROTO_TCP,TCP_KEEPIDLE,&idle,sizeof(idle));
+        ::setsockopt(sock,IPPROTO_TCP,TCP_KEEPINTVL,&intvl,sizeof(intvl));
+        ::setsockopt(sock,IPPROTO_TCP,TCP_KEEPCNT,&cnt,sizeof(cnt));
+#endif
+    });
+#endif
     auto handle=[&](auto fn){return [&,fn](const httplib::Request &req,httplib::Response &res){
         std::lock_guard<std::mutex> guard(service.mutex);
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
@@ -417,6 +546,14 @@ int main(int argc,char **argv){try{
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
+    server.Post("/a2o/chat-start",[&](const httplib::Request &req,httplib::Response &res){
+        try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(chat_runner.start(body).dump(),"application/json");}
+        catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
+    });
+    server.Post("/a2o/chat-wait",[&](const httplib::Request &req,httplib::Response &res){
+        try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(chat_runner.wait_job(body).dump(),"application/json");}
+        catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
+    });
     server.Post("/a2o/replay",handle([&](const J &b){return service.replay(b);}));
     server.Post("/a2o/stage-sweep",handle([&](const J &b){return service.stage_sweep(b);}));
     server.Post("/a2o/state-cost-sweep",handle([&](const J &b){return service.state_cost_sweep(b);}));
@@ -460,7 +597,15 @@ int main(int argc,char **argv){try{
         if(!out.empty())return out;
         throw std::runtime_error("missing model, kv_model, or rows in /a2o/costs");
     }));
-    server.Post("/a2o/reset",handle([&](const J &){service.lane.close();service.anchor={};service.anchor_ids.clear();service.anchor_live_positions.clear();return J{{"reset",true}};}));
+    server.Post("/a2o/reset",[&](const httplib::Request &req,httplib::Response &res){
+        try{
+            (void)req;
+            chat_runner.wait_idle_and_clear();
+            std::lock_guard<std::mutex> guard(service.mutex);
+            service.lane.close();service.anchor={};service.anchor_ids.clear();service.anchor_live_positions.clear();service.anchor_pinned_tokens=0;
+            res.set_content(J{{"reset",true}}.dump(),"application/json");
+        }catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
+    });
     std::cerr<<"A2O_PHONE_READY "<<service.init_ms<<"\n";
     require(server.listen("0.0.0.0",std::stoi(argv[4])),"HTTP listen failed");return 0;
 }catch(const std::exception &e){std::cerr<<"phone_service: "<<e.what()<<"\n";return 1;}}

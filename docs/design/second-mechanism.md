@@ -1,4 +1,7 @@
-# 第二机制：NPU草稿、CPU验证探索
+# 第二机制历史探索：NPU草稿、CPU验证（已暂停）
+
+> [!NOTE]
+> 本文档记录早期“NPU 稀疏草稿 + CPU 验证”方向的探索快照（因收益未超过直接 CPU decode 而暂停）。当前 M2 主线已转向 **NPU `PrefillPrior` 指导 KV 裁剪与 `compact_anchor` 跨后端协同**，M1 与 M2 的整体协同设计见 [双机制协同架构](joint-architecture.md)。
 
 本分支保存第二机制的探索快照，尚未合入主线或替换默认运行时。范围限定为CPU/HTP，不包含GPU/OpenCL候选。
 

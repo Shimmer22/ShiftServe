@@ -21,7 +21,7 @@ static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const Prefi
     const int n_cells=use_live?int(live_pos->size()):total;
     auto pos_at=[&](int idx)->int{return use_live?(*live_pos)[size_t(idx)]:idx;};
     const int keep_target=cfg.at("kv_keep_tokens");
-    const int sink=std::min(n_cells,cfg.value("kv_sink_tokens",4));
+    const int sink=std::min(n_cells,std::max(cfg.value("kv_sink_tokens",4),cfg.value("kv_pinned_tokens",0)));
     const int recent_min=std::min(n_cells-sink,cfg.value("kv_recent_tokens",std::max(input_len,64)));
     const int pool_window=cfg.value("kv_pool_window",1);
 

@@ -1,0 +1,160 @@
+{
+  "model": {
+    "kind": "linear_hp_v1",
+    "routing_p_min": 32,
+    "h_min": 1536,
+    "h_max": 5120,
+    "p_min": 32,
+    "p_max": 768,
+    "formula": "CC=R(H)+C(P); HC=N(P)+M(H+P); common CPU decode excluded",
+    "preparation": "always prepare; ready only; CPU-to-HTP preparation hidden by actual tool gap",
+    "extrapolation": "linear allowed; every extrapolated decision logged",
+    "cpu_restore": {
+      "intercept_ms": 47.076102050172345,
+      "slope_ms_per_token": 0.08651588048638045,
+      "n": 12,
+      "rmse_ms": 12.634284115540721,
+      "r2": 0.9902027406301098,
+      "max_abs_error_ms": 25.445796132490443
+    },
+    "cpu_to_htp": {
+      "intercept_ms": 36.057401796047735,
+      "slope_ms_per_token": 0.08903594108572155,
+      "n": 12,
+      "rmse_ms": 23.949946716192642,
+      "r2": 0.9675204924239293,
+      "max_abs_error_ms": 57.96863180600309
+    },
+    "cpu_prefill": {
+      "intercept_ms": 0,
+      "slope_ms_per_token": 81.9267651265776,
+      "n": 12,
+      "rmse_ms": 8478.353749499498,
+      "r2": 0.8852166954497791,
+      "max_abs_error_ms": 20288.645600845077
+    },
+    "htp_prefill": {
+      "intercept_ms": 403.5655993248923,
+      "slope_ms_per_token": 47.44141463313709,
+      "n": 12,
+      "rmse_ms": 5796.469755307658,
+      "r2": 0.8445228101471425,
+      "max_abs_error_ms": 12589.285756353012
+    },
+    "htp_to_cpu": {
+      "intercept_ms": 0,
+      "slope_ms_per_token": 0.20530703099768602,
+      "n": 12,
+      "rmse_ms": 226.87152804233347,
+      "r2": 0.7599335395513608,
+      "max_abs_error_ms": 516.0630344867616
+    },
+    "model_id": "27979f21ece149e677dedb4d70c9a90ade23fd66cf88e12f32ee1af31b7c3615"
+  },
+  "thresholds": [
+    {
+      "H": 128,
+      "numerator_ms": 371.69476454016706,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 10.842890702498536,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 512,
+      "numerator_ms": 417.3105663365084,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 12.173571681544491,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 1024,
+      "numerator_ms": 478.13163539829685,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 13.9478129869391,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 1536,
+      "numerator_ms": 538.9527044600853,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 15.72205429233371,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 2048,
+      "numerator_ms": 599.7737735218737,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 17.496295597728317,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 3072,
+      "numerator_ms": 721.4159116454507,
+      "savings_slope_ms_per_token": 34.280043462442826,
+      "p_crossover": 21.04477820851753,
+      "rule": "P > crossover selects HTP"
+    }
+  ],
+  "quality": [
+    {
+      "H": 5120,
+      "P": 768,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 768,
+      "all_passed": true
+    },
+    {
+      "H": 5120,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 384,
+      "all_passed": true
+    },
+    {
+      "H": 3072,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 3072,
+      "P": 128,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 128,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 3072,
+      "P": 768,
+      "all_passed": true
+    },
+    {
+      "H": 3072,
+      "P": 384,
+      "all_passed": true
+    },
+    {
+      "H": 5120,
+      "P": 384,
+      "all_passed": true
+    },
+    {
+      "H": 5120,
+      "P": 128,
+      "all_passed": true
+    }
+  ]
+}

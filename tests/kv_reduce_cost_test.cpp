@@ -43,9 +43,36 @@ int main() {
     auto p_8k = plan_kv_reduce(t, 8192, 256, 96, true);
     assert(p_8k.admit && p_8k.keep_tokens == 2304 && p_8k.k_floor == 2304);
 
+    // Logical H_anchor + pinned_tokens prevents k_floor collapse across compact turns.
+    auto p_compact = plan_kv_reduce(t, 1536, 512, 96, false, 8192, 0);
+    assert(!p_compact.admit && p_compact.reason == "below_quality_or_evict_floor" && p_compact.k_floor == 2304);
+    auto p_pinned = plan_kv_reduce(t, 4096, 512, 96, false, 4096, 3800);
+    assert(p_pinned.k_floor == 3800);
+
     // Emit CSV-like values for cross-language parity verification.
+    RouteLinearCostTable rm;
+    rm.valid = true;
+    rm.routing_p_min = 32;
+    rm.h_min = 128;
+    rm.h_max = 1536;
+    rm.p_min = 1;
+    rm.p_max = 384;
+    rm.cpu_restore = {50.0, 0.05};
+    rm.cpu_prefill = {20.0, 12.0};
+    rm.htp_prefill = {80.0, 8.0};
+    rm.htp_to_cpu = {102.90720255782043, 0.09779201752845793};
+    rm.cpu_to_htp = {100.0, 0.1};
+    // Joint case: H_eff=6144, P=256, D=96 -> HTP+KV wins over CPU+KV
+    auto jp_htp = plan_joint_route_kv(rm, t, 6144, 256, 96, true, true, "cpu");
+    assert(jp_htp.route == "htp" && jp_htp.reason == "joint_route_kv_cost" && jp_htp.kv_plan.admit && jp_htp.kv_plan.keep_tokens == 1792);
+    // Below routing_p_min -> CPU+KV fallback
+    auto jp_small_p = plan_joint_route_kv(rm, t, 6144, 16, 96, true, true, "cpu");
+    assert(jp_small_p.route == "cpu" && jp_small_p.reason == "below_routing_p_min" && jp_small_p.kv_plan.admit);
+
     std::cout << std::setprecision(15)
               << p_4k.keep_tokens << "," << p_4k.expected_gain_ms << ","
-              << p_8k.keep_tokens << "," << p_8k.expected_gain_ms << "\n";
+              << p_8k.keep_tokens << "," << p_8k.expected_gain_ms << ","
+              << jp_htp.route << "," << jp_htp.selected_total_ms << ","
+              << jp_small_p.route << "," << jp_small_p.selected_total_ms << "\n";
     return 0;
 }

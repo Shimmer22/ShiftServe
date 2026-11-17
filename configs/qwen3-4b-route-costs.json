@@ -1,0 +1,175 @@
+{
+  "model": {
+    "kind": "linear_hp_v1",
+    "routing_p_min": 32,
+    "h_min": 128,
+    "h_max": 1536,
+    "p_min": 1,
+    "p_max": 384,
+    "formula": "CC=R(H)+C(P); HC=N(P)+M(H+P); common CPU decode excluded",
+    "preparation": "always prepare; ready only; CPU-to-HTP preparation hidden by actual tool gap",
+    "extrapolation": "linear allowed; every extrapolated decision logged",
+    "cpu_restore": {
+      "intercept_ms": 16.681353399255773,
+      "slope_ms_per_token": 0.07151427654610885,
+      "n": 15,
+      "rmse_ms": 0.8247846450114376,
+      "r2": 0.999598696914867,
+      "max_abs_error_ms": 1.8938071704172899
+    },
+    "cpu_to_htp": {
+      "intercept_ms": 15.578761797815885,
+      "slope_ms_per_token": 0.07320878999103066,
+      "n": 15,
+      "rmse_ms": 1.598944639632922,
+      "r2": 0.9985623050505463,
+      "max_abs_error_ms": 2.8976927732373383
+    },
+    "cpu_prefill": {
+      "intercept_ms": 43.83945581032264,
+      "slope_ms_per_token": 38.81145052618893,
+      "n": 15,
+      "rmse_ms": 774.5108413040346,
+      "r2": 0.98117259054182,
+      "max_abs_error_ms": 2138.2543798629868
+    },
+    "htp_prefill": {
+      "intercept_ms": 690.216931090046,
+      "slope_ms_per_token": 24.802969988304916,
+      "n": 15,
+      "rmse_ms": 917.5793243215123,
+      "r2": 0.9381336515133073,
+      "max_abs_error_ms": 2205.78717142859
+    },
+    "htp_to_cpu": {
+      "intercept_ms": 9.034886384947155,
+      "slope_ms_per_token": 0.12739680087432767,
+      "n": 15,
+      "rmse_ms": 2.9675112597565376,
+      "r2": 0.9984612623997144,
+      "max_abs_error_ms": 7.164407713218651
+    },
+    "model_id": "96e5f36b32aecd0628d4e163c0a99cea59d3cb7fcc5c9cf6c7aaf9e16821d50c"
+  },
+  "thresholds": [
+    {
+      "H": 128,
+      "numerator_ms": 645.8839713794268,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 46.52979433135857,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 512,
+      "numerator_ms": 667.3428607214629,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 48.0757031197929,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 1024,
+      "numerator_ms": 695.9547131775109,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 50.136914837705326,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 1536,
+      "numerator_ms": 724.566565633559,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 52.19812655561776,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 2048,
+      "numerator_ms": 753.178418089607,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 54.25933827353019,
+      "rule": "P > crossover selects HTP"
+    },
+    {
+      "H": 3072,
+      "numerator_ms": 810.4021230017031,
+      "savings_slope_ms_per_token": 13.881083737009684,
+      "p_crossover": 58.381761709355054,
+      "rule": "P > crossover selects HTP"
+    }
+  ],
+  "quality": [
+    {
+      "H": 1536,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 8,
+      "all_passed": true
+    },
+    {
+      "H": 768,
+      "P": 128,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 384,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 128,
+      "all_passed": true
+    },
+    {
+      "H": 768,
+      "P": 1,
+      "all_passed": true
+    },
+    {
+      "H": 128,
+      "P": 8,
+      "all_passed": true
+    },
+    {
+      "H": 128,
+      "P": 128,
+      "all_passed": true
+    },
+    {
+      "H": 128,
+      "P": 384,
+      "all_passed": true
+    },
+    {
+      "H": 128,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 128,
+      "P": 1,
+      "all_passed": true
+    },
+    {
+      "H": 768,
+      "P": 32,
+      "all_passed": true
+    },
+    {
+      "H": 768,
+      "P": 8,
+      "all_passed": true
+    },
+    {
+      "H": 1536,
+      "P": 1,
+      "all_passed": true
+    },
+    {
+      "H": 768,
+      "P": 384,
+      "all_passed": true
+    }
+  ]
+}
