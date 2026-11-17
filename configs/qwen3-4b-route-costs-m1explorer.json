@@ -1,0 +1,33 @@
+{
+  "model": {
+    "kind": "linear_hp_v1",
+    "routing_p_min": 32,
+    "h_min": 128,
+    "h_max": 12288,
+    "p_min": 32,
+    "p_max": 4096,
+    "reference_h": 8000,
+    "formula": "CC=R(H)+C(P;H_ref); HC=N(P;H_ref)+M(H+P); online M1-Explorer linearization",
+    "cpu_restore": {
+      "intercept_ms": 38.114704328456696,
+      "slope_ms_per_token": 0.0958494496519788
+    },
+    "cpu_to_htp": {
+      "intercept_ms": 38.263867256318576,
+      "slope_ms_per_token": 0.08728603881593419
+    },
+    "cpu_prefill": {
+      "intercept_ms": 148.78039155170882,
+      "slope_ms_per_token": 159.053153159158
+    },
+    "htp_prefill": {
+      "intercept_ms": 32.76769687302658,
+      "slope_ms_per_token": 105.25765445815522
+    },
+    "htp_to_cpu": {
+      "intercept_ms": 0.0,
+      "slope_ms_per_token": 0.5967402821299842
+    },
+    "model_id": "acc3e61ce553e18b43a6ca9a5d112b871e441ee67fb04f5c2b2d267f25553f5e"
+  }
+}
