@@ -180,6 +180,26 @@ struct PhoneService {
         return {{"H",prefix.size()},{"P",input.size()},{"D",d},{"rows",rows}};
     }
     J infer(const J &body){
+        J gap_probe=nullptr;
+        bool detach_preparation=false;
+        bool force_probe_cc=false;
+        if (body.contains("frozen_tool_gap_ms")) {
+            require(condition=="route" && body.contains("frozen_decode_ids") && !anchor.state.empty(),
+                    "device gap probe requires a frozen tool continuation on route");
+            const double gap=body.at("frozen_tool_gap_ms").get<double>();
+            require(std::isfinite(gap) && gap>=0.0 && gap<=10000.0, "invalid frozen tool gap");
+            const auto mode=body.value("frozen_prepare_retirement",std::string("join"));
+            require(mode=="join" || mode=="retire","invalid preparation retirement mode");
+            detach_preparation=mode=="retire";
+            force_probe_cc=body.value("frozen_force_cc_after_prepare",false);
+            const auto begin=Clock::now();
+            auto preparation=start_prepare();
+            require(preparation.at("started").get<bool>(),"device gap probe failed to start preparation");
+            std::this_thread::sleep_until(begin+std::chrono::duration<double,std::milli>(gap));
+            const double actual=std::chrono::duration<double,std::milli>(Clock::now()-begin).count();
+            gap_probe={{"requested_gap_ms",gap},{"actual_gap_ms",actual},{"retirement",mode},
+                       {"forced_cc",force_probe_cc},{"preparation",std::move(preparation)}};
+        }
         double start=now_ms();auto chat=render(body);auto ids=tokens(vocab,chat.prompt,true);
         int limit=body.value("max_tokens",768);
         const bool frozen=body.contains("frozen_decode_ids");
@@ -228,7 +248,10 @@ struct PhoneService {
         }
         std::string eff_policy=kv_policy;
         bool joint_decided=false;
-        if(condition=="route"){
+        if(force_probe_cc){
+            require(reuse,"forced CPU probe requires the prepared anchor");
+            reason="frozen_probe_cc";
+        }else if(condition=="route"){
             if(reuse && ready=="pending" && !cost_model.is_null()){
                 RouteLinearCostTable prep_tbl=parse_route_linear_cost_table(cost_model);
                 JointRouteKvPlan jp_prep=plan_joint_route_kv(
@@ -280,10 +303,21 @@ struct PhoneService {
         }
         double observation_ms=now_ms()-start,restore_start=now_ms();
         llama_context *pre=route=="htp"?htp->ensure_ctx():home().ctx;
+        bool cpu_with_retiring_preparation=false;
+        double preparation_retirement_ms=0;
         if(condition=="route" && route=="htp")lane.claim(anchor.version);
         else {
-            lane.close();
-            if(htp && route!="htp")htp->release_ctx();
+            const double retirement_started=now_ms();
+            if(detach_preparation){
+                // The retired worker keeps ownership of HTP until it exits.
+                lane.retire();
+                lane.poll();
+                cpu_with_retiring_preparation=lane.occupied();
+            }else{
+                lane.close();
+            }
+            if(htp && route!="htp" && !cpu_with_retiring_preparation)htp->release_ctx();
+            preparation_retirement_ms=now_ms()-retirement_started;
             if(reuse)restore_session(pre,anchor);else llama_memory_clear(llama_get_memory(pre),true);
         }
         std::vector<uint8_t>{}.swap(anchor.state);
@@ -444,9 +478,14 @@ struct PhoneService {
                   {"handoff_ms",handoff_ms},{"handoff_bytes",handoff_bytes},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
                   {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
+                  {"cpu_with_retiring_preparation",cpu_with_retiring_preparation},
                   {"H_effective",h_eff},{"pinned_tokens",anchor_pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
         if(frozen)timing["decode_resources"]=std::move(decode_resources);
+        if(!gap_probe.is_null()){
+            gap_probe["preparation_retirement_ms"]=preparation_retirement_ms;
+            timing["gap_probe"]=std::move(gap_probe);
+        }
         J verbose_obj={{"tokens",generated},{"stop_type",frozen?"forced":eog?"eos":"limit"},{"truncated",false}};
         if(!body.value("omit_verbose_prompt",false))verbose_obj["prompt"]=chat.prompt;
         return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
