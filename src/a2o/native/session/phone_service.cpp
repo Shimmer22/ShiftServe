@@ -42,6 +42,7 @@ struct PhoneService {
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
     bool single_resident=false;
     int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, expected_decode_tokens=96;
+    bool kv_hwm_trim=true;
     int cpu_kv_hwm=0;
     std::string kv_policy="prefill_prior";
     PrefillPrior prior;
@@ -64,6 +65,7 @@ struct PhoneService {
         if(const char *value=std::getenv("A2O_KV_TAIL_TOKENS"))kv_tail_tokens=std::stoi(value);
         if(const char *value=std::getenv("A2O_KV_POLICY"))kv_policy=value;
         if(const char *value=std::getenv("A2O_COMPACT_ANCHOR")){require(std::string(value)=="0"||std::string(value)=="1","invalid compact anchor flag");compact_anchor=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_KV_HWM_TRIM")){require(std::string(value)=="0"||std::string(value)=="1","invalid kv_hwm_trim flag");kv_hwm_trim=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_EXPECTED_DECODE"))expected_decode_tokens=std::stoi(value);
         require(!kv_reduce || which=="cpu" || which=="route","kv_reduce requires cpu or route condition");
         require(!kv_reduce || !flash_attention,"kv_reduce requires flash_attention=0");
@@ -375,7 +377,7 @@ struct PhoneService {
             kv_info["anchor_state_bytes"]=next.state.size();
             kv_info["anchor_live_tokens"]=anchor_live_positions.size();
             int kept_after=kv_info.value("kept_count",int(anchor_toks.size()));
-            if(cpu && decode==cpu->ctx && cpu_kv_hwm-kept_after>=1536){
+            if(kv_hwm_trim && cpu && decode==cpu->ctx && cpu_kv_hwm-kept_after>=3072){
                 double trim0=now_ms();
                 int old_hwm=cpu_kv_hwm;
                 cpu->release_ctx();
@@ -616,7 +618,7 @@ int main(int argc,char **argv){try{
             chat_runner.wait_idle_and_clear();
             std::lock_guard<std::mutex> guard(service.mutex);
                         service.lane.close();service.anchor={};service.anchor_ids.clear();service.anchor_live_positions.clear();service.anchor_pinned_tokens=0;
-            if(service.cpu && service.cpu_kv_hwm>=1536){
+            if(service.kv_hwm_trim && service.cpu && service.cpu_kv_hwm>=3072){
                 service.cpu->release_ctx();
                 service.cpu->ensure_ctx();
                 service.cpu_kv_hwm=0;

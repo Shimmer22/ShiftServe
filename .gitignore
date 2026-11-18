@@ -4,6 +4,8 @@ build/
 !scripts/build/
 !scripts/build/*.py
 .DS_Store
+.env
+.env.*
 # 实验结果仅保留在本地，不纳入版本控制。
 /results/
 # 大型状态、数值张量及模型留在本地。
