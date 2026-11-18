@@ -42,6 +42,7 @@ struct PhoneService {
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
     bool single_resident=false;
     int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, expected_decode_tokens=96;
+    int cpu_kv_hwm=0;
     std::string kv_policy="prefill_prior";
     PrefillPrior prior;
     std::string model_path;
@@ -354,6 +355,7 @@ struct PhoneService {
             generated.push_back(tok);raw+=piece(vocab,tok);evaluate(decode,{tok},pos);
         }
         double decode_ms=now_ms()-decode_start;
+        if(cpu && decode==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,int(pos));
         common_chat_parser_params parser(chat);parser.reasoning_format=COMMON_REASONING_FORMAT_DEEPSEEK;
         if(!chat.parser.empty())parser.parser.load(chat.parser);
         auto msg=common_chat_parse(raw,false,parser);msg.role="assistant";
@@ -372,6 +374,17 @@ struct PhoneService {
             kv_info["compact_anchor"]=true;
             kv_info["anchor_state_bytes"]=next.state.size();
             kv_info["anchor_live_tokens"]=anchor_live_positions.size();
+            int kept_after=kv_info.value("kept_count",int(anchor_toks.size()));
+            if(cpu && decode==cpu->ctx && cpu_kv_hwm-kept_after>=1536){
+                double trim0=now_ms();
+                int old_hwm=cpu_kv_hwm;
+                cpu->release_ctx();
+                cpu->ensure_ctx();
+                cpu_kv_hwm=kept_after;
+                kv_info["kv_hwm_trimmed"]=true;
+                kv_info["kv_hwm_before"]=old_hwm;
+                kv_info["kv_trim_ms"]=now_ms()-trim0;
+            }
         }else{
             anchor_live_positions=std::move(next_live_pos);
         }
@@ -602,7 +615,12 @@ int main(int argc,char **argv){try{
             (void)req;
             chat_runner.wait_idle_and_clear();
             std::lock_guard<std::mutex> guard(service.mutex);
-            service.lane.close();service.anchor={};service.anchor_ids.clear();service.anchor_live_positions.clear();service.anchor_pinned_tokens=0;
+                        service.lane.close();service.anchor={};service.anchor_ids.clear();service.anchor_live_positions.clear();service.anchor_pinned_tokens=0;
+            if(service.cpu && service.cpu_kv_hwm>=1536){
+                service.cpu->release_ctx();
+                service.cpu->ensure_ctx();
+                service.cpu_kv_hwm=0;
+            }
             res.set_content(J{{"reset",true}}.dump(),"application/json");
         }catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     });
