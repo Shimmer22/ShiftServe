@@ -182,6 +182,16 @@ struct PhoneService {
     J infer(const J &body){
         double start=now_ms();auto chat=render(body);auto ids=tokens(vocab,chat.prompt,true);
         int limit=body.value("max_tokens",768);
+        const bool frozen=body.contains("frozen_decode_ids");
+        std::vector<llama_token> frozen_ids;
+        if(frozen){
+            frozen_ids=body.at("frozen_decode_ids").get<std::vector<llama_token>>();
+            require(!frozen_ids.empty() && frozen_ids.size()<=size_t(context_size),"invalid frozen decode length");
+            require(ids==body.at("frozen_prompt_ids").get<std::vector<llama_token>>(),"frozen prompt IDs differ from rendered input");
+            const int n_vocab=llama_vocab_n_tokens(vocab);
+            for(auto tok:frozen_ids)require(tok>=0 && tok<n_vocab,"frozen decode token out of vocabulary");
+            limit=int(frozen_ids.size());
+        }
         size_t common=0;while(common<std::min(ids.size(),anchor_ids.size()) && ids[common]==anchor_ids[common])++common;
         bool reuse=!anchor_ids.empty() && common==anchor_ids.size();
         if(!reuse){
@@ -299,11 +309,12 @@ struct PhoneService {
         if(anchor_split_in_suffix<suffix.size()){
             std::vector<llama_token> head_suf(suffix.begin(),suffix.begin()+anchor_split_in_suffix);
             std::vector<llama_token> tail_suf(suffix.begin()+anchor_split_in_suffix,suffix.end());
-            double pf0=now_ms();evaluate(pre,head_suf,pos);prefill_ms+=now_ms()-pf0;
+            // Acquire prior over the actual model input, before the template's empty thinking suffix.
+            double pf0=now_ms();evaluate_with_prior_tail(pre,head_suf,pos,prior,collect_prior,kv_tail_tokens);prefill_ms+=now_ms()-pf0;
             if(!compact_anchor || !kv_will_reduce){
                 double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
             }else{next.version=++version;}
-            double pf1=now_ms();evaluate_with_prior_tail(pre,tail_suf,pos,prior,collect_prior,kv_tail_tokens);prefill_ms+=now_ms()-pf1;
+            double pf1=now_ms();evaluate(pre,tail_suf,pos);prefill_ms+=now_ms()-pf1;
         }else{
             double pf_start=now_ms();evaluate_with_prior_tail(pre,suffix,pos,prior,collect_prior,kv_tail_tokens);prefill_ms=now_ms()-pf_start;
             if(!compact_anchor || !kv_will_reduce){
@@ -313,7 +324,7 @@ struct PhoneService {
         live_pos.reserve(h_eff+p);
         for(size_t i=h;i<ids.size();++i)live_pos.push_back(int(i));
         std::vector<float> first_logits;
-        if(kv_will_reduce || (condition=="route" && route=="htp")){
+        if(!frozen && (kv_will_reduce || (condition=="route" && route=="htp"))){
             const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
             first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
         }
@@ -346,32 +357,53 @@ struct PhoneService {
                       {"kv_pinned_tokens",anchor_pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
             kv_info=run_kv_reduction(decode,working,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
             kv_info["state_bytes_before"]=next.state.empty()?size_t(0):next.state.size();
-            auto *destination=llama_get_logits_ith(decode,-1);
-            require(destination,"missing destination logits after kv reduction");
-            std::copy(first_logits.begin(),first_logits.end(),destination);
+            if(!first_logits.empty()){
+                auto *destination=llama_get_logits_ith(decode,-1);
+                require(destination,"missing destination logits after kv reduction");
+                std::copy(first_logits.begin(),first_logits.end(),destination);
+            }
             kv_reduce_ms=now_ms()-kv_start;
         }
-        common_params_sampling sampling;sampling.temp=0;sampling.seed=body.value("seed",20261107);
-        if(!chat.grammar.empty())sampling.grammar={COMMON_GRAMMAR_TYPE_TOOL_CALLS,chat.grammar};
-        sampling.grammar_lazy=chat.grammar_lazy;
-        sampling.grammar_triggers=chat.grammar_triggers;sampling.generation_prompt=chat.generation_prompt;
-        for(const auto &text:chat.preserved_tokens){auto ts=tokens(vocab,text,false);if(ts.size()==1)sampling.preserved_tokens.insert(ts[0]);}
-        auto sampler=std::unique_ptr<common_sampler,decltype(&common_sampler_free)>(common_sampler_init(home().model,sampling),common_sampler_free);
-        require(bool(sampler),"sampler init failed");
-        std::string raw;std::vector<llama_token> generated;bool eog=false;
-        double decode_start=now_ms();
-        for(int i=0;i<limit;++i){
-            auto tok=common_sampler_sample(sampler.get(),decode,-1);
-            common_sampler_accept(sampler.get(),tok,true);
-            if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}
-            generated.push_back(tok);raw+=piece(vocab,tok);evaluate(decode,{tok},pos);
+        std::vector<llama_token> generated;
+        double decode_ms;
+        bool eog=false;
+        J message={{"role","assistant"},{"content",nullptr}};
+        J decode_resources=nullptr;
+        std::string finish_reason="forced";
+        if(frozen){
+            const llama_pos before_decode=pos;
+            auto resources_before=resource_sample();
+            double decode_start=now_ms();
+            for(auto tok:frozen_ids)evaluate(decode,{tok},pos);
+            decode_ms=now_ms()-decode_start;
+            decode_resources={{"before",resources_before},{"after",resource_sample()}};
+            require(pos-before_decode==limit,"incomplete frozen forward sequence");
+            generated=std::move(frozen_ids);
+        }else{
+            common_params_sampling sampling;sampling.temp=0;sampling.seed=body.value("seed",20261107);
+            if(!chat.grammar.empty())sampling.grammar={COMMON_GRAMMAR_TYPE_TOOL_CALLS,chat.grammar};
+            sampling.grammar_lazy=chat.grammar_lazy;
+            sampling.grammar_triggers=chat.grammar_triggers;sampling.generation_prompt=chat.generation_prompt;
+            for(const auto &text:chat.preserved_tokens){auto ts=tokens(vocab,text,false);if(ts.size()==1)sampling.preserved_tokens.insert(ts[0]);}
+            auto sampler=std::unique_ptr<common_sampler,decltype(&common_sampler_free)>(common_sampler_init(home().model,sampling),common_sampler_free);
+            require(bool(sampler),"sampler init failed");
+            std::string raw;
+            double decode_start=now_ms();
+            for(int i=0;i<limit;++i){
+                auto tok=common_sampler_sample(sampler.get(),decode,-1);
+                common_sampler_accept(sampler.get(),tok,true);
+                if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}
+                generated.push_back(tok);raw+=piece(vocab,tok);evaluate(decode,{tok},pos);
+            }
+            decode_ms=now_ms()-decode_start;
+            common_chat_parser_params parser(chat);parser.reasoning_format=COMMON_REASONING_FORMAT_DEEPSEEK;
+            if(!chat.parser.empty())parser.parser.load(chat.parser);
+            auto msg=common_chat_parse(raw,false,parser);msg.role="assistant";
+            for(size_t i=0;i<msg.tool_calls.size();++i)msg.tool_calls[i].id="a2o_"+std::to_string(version)+"_"+std::to_string(i);
+            finish_reason=!eog?"length":msg.tool_calls.empty()?"stop":"tool_calls";
+            message=msg.to_json_oaicompat();
         }
-        double decode_ms=now_ms()-decode_start;
         if(cpu && decode==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,int(pos));
-        common_chat_parser_params parser(chat);parser.reasoning_format=COMMON_REASONING_FORMAT_DEEPSEEK;
-        if(!chat.parser.empty())parser.parser.load(chat.parser);
-        auto msg=common_chat_parse(raw,false,parser);msg.role="assistant";
-        for(size_t i=0;i<msg.tool_calls.size();++i)msg.tool_calls[i].id="a2o_"+std::to_string(version)+"_"+std::to_string(i);
         lane.retire();lane.poll();
         if(compact_anchor && !kv_info.is_null()){
             double cs0=now_ms();
@@ -401,7 +433,6 @@ struct PhoneService {
             anchor_live_positions=std::move(next_live_pos);
         }
         anchor=std::move(next);anchor_ids=std::move(anchor_toks);
-        auto message=msg.to_json_oaicompat();
         J timing={{"prompt_ms",prefill_ms},{"predicted_ms",decode_ms},{"prompt_n",suffix.size()},
                   {"predicted_n",generated.size()},{"observation_ms",observation_ms},{"restore_ms",restore_ms},
                   {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
@@ -409,10 +440,11 @@ struct PhoneService {
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"H_effective",h_eff},{"pinned_tokens",anchor_pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
-        J verbose_obj={{"tokens",generated},{"stop_type",eog?"eos":"limit"},{"truncated",false}};
+        if(frozen)timing["decode_resources"]=std::move(decode_resources);
+        J verbose_obj={{"tokens",generated},{"stop_type",frozen?"forced":eog?"eos":"limit"},{"truncated",false}};
         if(!body.value("omit_verbose_prompt",false))verbose_obj["prompt"]=chat.prompt;
         return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
-                {"choices",J::array({{{"index",0},{"message",message},{"finish_reason",!eog?"length":msg.tool_calls.empty()?"stop":"tool_calls"}}})},
+                {"choices",J::array({{{"index",0},{"message",message},{"finish_reason",finish_reason}}})},
                 {"usage",{{"prompt_tokens",ids.size()},{"completion_tokens",generated.size()},{"total_tokens",ids.size()+generated.size()},
                           {"prompt_tokens_details",{{"cached_tokens",h}}}}},{"timings",timing},
                 {"__verbose",verbose_obj}};
@@ -567,7 +599,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));

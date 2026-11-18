@@ -26,6 +26,7 @@ static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const Prefi
     const int pool_window=cfg.value("kv_pool_window",1);
 
     std::vector<uint8_t> keep(size_t(n_cells),0);
+    int prior_ranked_tokens=0;
     if(n_cells<=keep_target){
         std::fill(keep.begin(),keep.end(),1);
     }else{
@@ -43,8 +44,8 @@ static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const Prefi
             std::vector<std::pair<double,int>> ranked;ranked.reserve(size_t(recent_start-sink));
             for(int p=sink;p<recent_start;++p)ranked.push_back({smoothed[size_t(p)],p});
             std::stable_sort(ranked.begin(),ranked.end(),[](const auto &a,const auto &b){return a.first>b.first;});
-            int take=std::min(budget,int(ranked.size()));
-            for(int i=0;i<take;++i)keep[size_t(ranked[size_t(i)].second)]=1;
+            prior_ranked_tokens=std::min(budget,int(ranked.size()));
+            for(int i=0;i<prior_ranked_tokens;++i)keep[size_t(ranked[size_t(i)].second)]=1;
         }
     }
 
@@ -75,7 +76,7 @@ static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const Prefi
     }
 
     J info={{"policy",policy},{"keep_target",keep_target},{"sink_tokens",sink},{"recent_tokens",recent_min},
-        {"pool_window",pool_window},{"before_pos_count",n_cells},{"kept_count",kept},
+        {"pool_window",pool_window},{"prior_ranked_tokens",prior_ranked_tokens},{"before_pos_count",n_cells},{"kept_count",kept},
         {"evicted_count",rm_tokens},{"rm_spans",rm_spans},{"evict_ms",evict_ms},
         {"max_pos_preserved",llama_memory_seq_pos_max(mem,0)}};
     if(needle_total>0){
