@@ -221,6 +221,11 @@ struct PhoneService {
         J kv_cost_decision=nullptr;
         bool kv_admit=kv_reduce;
         int eff_keep=kv_keep_tokens;
+        if (body.contains("frozen_kv_keep_tokens")) {
+            require(frozen && kv_reduce && !use_kv_cost, "frozen KV budget requires fixed-policy frozen replay");
+            eff_keep=body.at("frozen_kv_keep_tokens").get<int>();
+            require(eff_keep>0 && eff_keep<=context_size, "frozen KV budget out of range");
+        }
         std::string eff_policy=kv_policy;
         bool joint_decided=false;
         if(condition=="route"){
@@ -330,6 +335,7 @@ struct PhoneService {
         }
         J kv_info=nullptr;double kv_reduce_ms=0;
         double handoff_start=now_ms();
+        size_t handoff_bytes=0;
         if(condition=="route" && route=="htp") {
             if(kv_will_reduce){
                 double kv_start=now_ms();
@@ -339,8 +345,8 @@ struct PhoneService {
                 kv_reduce_ms=now_ms()-kv_start;
                 llama_memory_clear(llama_get_memory(cpu->ctx),true);
             }
-            size_t hbytes=transfer(pre,cpu->ctx);
-            if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=hbytes;}
+            handoff_bytes=transfer(pre,cpu->ctx);
+            if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=handoff_bytes;}
             if(!first_logits.empty()){
                 auto *destination=llama_get_logits_ith(cpu->ctx,-1);
                 require(destination,"missing destination logits after state migration");
@@ -435,7 +441,7 @@ struct PhoneService {
         anchor=std::move(next);anchor_ids=std::move(anchor_toks);
         J timing={{"prompt_ms",prefill_ms},{"predicted_ms",decode_ms},{"prompt_n",suffix.size()},
                   {"predicted_n",generated.size()},{"observation_ms",observation_ms},{"restore_ms",restore_ms},
-                  {"handoff_ms",handoff_ms},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
+                  {"handoff_ms",handoff_ms},{"handoff_bytes",handoff_bytes},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
                   {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"H_effective",h_eff},{"pinned_tokens",anchor_pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
