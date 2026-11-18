@@ -40,7 +40,7 @@ struct PhoneService {
     uint64_t version=0;
     int cpu_threads=4;
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
-    bool single_resident=false;
+    bool single_resident=false, shared_weights=false;
     int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, expected_decode_tokens=96;
     bool kv_hwm_trim=true;
     int cpu_kv_hwm=0;
@@ -74,11 +74,21 @@ struct PhoneService {
         prior.collect_ffn=false;prior.collect_kv=need_prior_cb;prior.kv_tail_tokens=kv_tail_tokens;
         if(const char *value=std::getenv("A2O_MODEL_ID"))model_id=value;
         if(const char *value=std::getenv("A2O_SINGLE_RESIDENT")){require(std::string(value)=="0"||std::string(value)=="1","invalid residency flag");single_resident=std::string(value)=="1";}
-        replay_cache=std::make_unique<FrozenReplayCache>(model+":"+std::to_string(std::filesystem::file_size(model))+":"+std::to_string(static_cast<long long>(std::filesystem::last_write_time(model).time_since_epoch().count()))+":"+__DATE__+":"+__TIME__+":cpu_threads="+std::to_string(cpu_threads));
+        if (const char *value = std::getenv("A2O_SHARED_WEIGHTS")) {
+            require(std::string(value) == "0" || std::string(value) == "1", "invalid shared weights flag");
+            shared_weights = std::string(value) == "1";
+        }
+        require(!shared_weights || (which == "route" && !single_resident && !cpu_repack),
+                "shared weights require route with stock CPU packing and both backend contexts");
+        replay_cache=std::make_unique<FrozenReplayCache>(model+":"+std::to_string(std::filesystem::file_size(model))+":"+std::to_string(static_cast<long long>(std::filesystem::last_write_time(model).time_since_epoch().count()))+":"+__DATE__+":"+__TIME__+":cpu_threads="+std::to_string(cpu_threads)+(shared_weights?":shared_weights=1":""));
         double start=now_ms();
         // kv_reduce 启用 prior 采集时挂载回调；prior.enabled=false 时 ask 阶段不抓取 tensor。
-        if(which!="htp")cpu=std::make_unique<Engine>(model,false,cpu_repack,true,cpu_threads,flash_attention,need_prior_cb?&PrefillPrior::callback:nullptr,need_prior_cb?&prior:nullptr);
+        if(which!="htp" && !shared_weights)cpu=std::make_unique<Engine>(model,false,cpu_repack,true,cpu_threads,flash_attention,need_prior_cb?&PrefillPrior::callback:nullptr,need_prior_cb?&prior:nullptr);
         if(which!="cpu" && !single_resident)htp=std::make_unique<Engine>(model,true,false,htp_kv_offload,4,flash_attention,(need_prior_cb && which=="route")?&PrefillPrior::callback:nullptr,(need_prior_cb && which=="route")?&prior:nullptr);
+        if (shared_weights) {
+            cpu = std::make_unique<Engine>(*htp, cpu_threads, flash_attention,
+                    need_prior_cb ? &PrefillPrior::callback : nullptr, need_prior_cb ? &prior : nullptr);
+        }
         require(cpu||htp,"single residency requires route or cpu startup");
         auto *m=cpu?cpu->model:htp->model;vocab=llama_model_get_vocab(m);
         templates=common_chat_templates_init(m,"");init_ms=now_ms()-start;
@@ -557,7 +567,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));

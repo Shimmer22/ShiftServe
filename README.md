@@ -6,6 +6,8 @@
 
 默认文本基线模型配置见 `configs/model-default.json`（Qwen3-8B Q4_0），另有 Qwen3-1.7B / Qwen3-4B / Qwen3.5-9B 专项实验配置；HTP 条件明确称为 **HTP offload**，不能由阶段名称推断全部算子在 DSP 上执行。Qwen2.5-VL-3B 的历史配置、日志和结论原样保留。
 
+大模型部署可通过实验开关 `--shared-weights` 使用单份 CPU/HTP 权重。这个工程选项借鉴 [SplitLM](https://github.com/dastin359/SplitLM/tree/0a5105bb03c643e56f8b585f1c930f665ac2e715)，CPU 直接读取当前 Hexagon 的量化布局，M1/M2 继续管理选路与 KV 状态。构建入口是 `scripts/build/htp_shared_weights.py`，部署入口是 `scripts/run/route_phone.py` 的 `--runtime-overlay` 和 `--shared-weights`。当前原型支持 HTP0 上稠密 Qwen3 的 Q4_0/Q8_0 权重矩阵，默认关闭。
+
 主设备为小米 SM8650，手机控制统一使用 `configs/termux-ssh.json`。历史Qwen2.5-VL的[平台迁移验证](docs/validation/platform-migration.md)保留其图像与文本限制；新默认模型使用独立准入与成本表，不继承旧模型的通过状态。
 
 [手机单闭环](docs/validation/single-loop.md)已通过：两轮同一进程，模型真实点击测试页，基于新截图确认完成并回忆任务码；当前为 CPU 执行路径的功能基线，尚未接入投机调度。

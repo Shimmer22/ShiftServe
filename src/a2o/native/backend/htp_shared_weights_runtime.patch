@@ -1,0 +1,186 @@
+--- a/ggml/src/ggml-cpu/ggml-cpu.cpp
++++ b/ggml/src/ggml-cpu/ggml-cpu.cpp
+@@ -3,6 +3,7 @@
+ #include "ggml-cpu.h"
+ #include "repack.h"
+ #include "traits.h"
++#include "htp_shared_weights.h"
+ #include "ggml-impl.h"
+ #include "amx/amx.h"
+ 
+@@ -428,6 +429,12 @@
+         return true;
+     }
+ 
++    for (const auto *src : op->src) {
++        if (a2o::shared_weights::packed_tensor(src)) {
++            return a2o::shared_weights::supports_matmul(op);
++        }
++    }
++
+     // check extra buffer types
+     // note: only the first sources are checked for extra buffer types to reduce overhead, increase if necessary
+     for (int i = 0; i < 4; i++) {
+@@ -474,7 +481,7 @@
+ }
+ 
+ static bool ggml_backend_cpu_device_supports_buft(ggml_backend_dev_t dev, ggml_backend_buffer_type_t buft) {
+-    return ggml_backend_buft_is_host(buft) || ggml_backend_cpu_is_extra_buffer_type(buft);
++    return a2o::shared_weights::packed_type(buft) || ggml_backend_buft_is_host(buft) || ggml_backend_cpu_is_extra_buffer_type(buft);
+     GGML_UNUSED(dev);
+ }
+ 
+--- a/ggml/src/ggml-cpu/traits.cpp
++++ b/ggml/src/ggml-cpu/traits.cpp
+@@ -1,4 +1,5 @@
+ #include "traits.h"
++#include "htp_shared_weights_cpu.inc"
+ 
+ #include "ggml-backend-impl.h"
+ #include "ggml-backend.h"
+@@ -10,6 +11,19 @@
+ }  // namespace ggml::cpu
+ 
+ bool ggml_cpu_extra_compute_forward(struct ggml_compute_params * params, struct ggml_tensor * op) {
++    if (a2o::shared_weights::supports_matmul(op)) {
++        if (op->src[0]->type == GGML_TYPE_Q4_0) {
++            a2o::shared_weights::matmul<true>(params, op);
++        } else {
++            a2o::shared_weights::matmul<false>(params, op);
++        }
++        return true;
++    }
++    for (const auto *src : op->src) {
++        if (a2o::shared_weights::packed_tensor(src)) {
++            GGML_ABORT("unsupported CPU op on Hexagon-packed weights: %s", ggml_op_name(op->op));
++        }
++    }
+     for (auto extra : ggml_backend_cpu_get_extra_buffer_types()) {
+         if (extra && extra->context) {
+             auto buf_extra     = (ggml::cpu::extra_buffer_type *) extra->context;
+@@ -23,6 +37,10 @@
+ }
+ 
+ bool ggml_cpu_extra_work_size(int n_threads, const struct ggml_tensor * op, size_t * size) {
++    if (a2o::shared_weights::supports_matmul(op)) {
++        *size = a2o::shared_weights::work_size(op);
++        return true;
++    }
+     for (auto extra : ggml_backend_cpu_get_extra_buffer_types()) {
+         if (extra && extra->context) {
+             auto buf_extra     = (ggml::cpu::extra_buffer_type *) extra->context;
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -1,4 +1,5 @@
+ #include "llama-context.h"
++#include "htp_shared_weights.h"
+ 
+ #include "ggml.h"
+ #include "llama-arch.h"
+@@ -23,7 +24,11 @@
+ 
+ llama_context::llama_context(
+         const llama_model & model,
+-              llama_context_params params) :
++              llama_context_params params) : llama_context(model, params, false) {}
++
++llama_context::llama_context(
++        const llama_model & model,
++              llama_context_params params, bool cpu_only) :
+     model(model),
+     cvec(std::make_unique<llama_adapter_cvec>()),
+     loras(std::make_unique<llama_adapter_loras>()),
+@@ -219,7 +224,7 @@
+ 
+     if (!hparams.vocab_only) {
+         // GPU backends
+-        for (const auto & dev : model.devices) {
++        if (!cpu_only) for (const auto & dev : model.devices) {
+             ggml_backend_t backend = ggml_backend_dev_init(dev.dev, nullptr);
+             if (backend == nullptr) {
+                 throw std::runtime_error(format("failed to initialize %s backend", ggml_backend_dev_name(dev.dev)));
+@@ -228,7 +233,7 @@
+         }
+ 
+         // add ACCEL backends (such as BLAS)
+-        for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
++        if (!cpu_only) for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+             ggml_backend_dev_t dev = ggml_backend_dev_get(i);
+             if (ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_ACCEL) {
+                 ggml_backend_t backend = ggml_backend_dev_init(dev, nullptr);
+@@ -3217,9 +3222,7 @@
+     return result;
+ }
+ 
+-llama_context * llama_init_from_model(
+-                 llama_model * model,
+-        llama_context_params   params) {
++static llama_context * init_context(llama_model * model, llama_context_params params, bool cpu_only) {
+     if (!model) {
+         LLAMA_LOG_ERROR("%s: model cannot be NULL\n", __func__);
+         return nullptr;
+@@ -3290,13 +3293,53 @@
+     }
+ 
+     try {
+-        auto * ctx = new llama_context(*model, params);
++        auto * ctx = new llama_context(*model, params, cpu_only);
+         return ctx;
+     } catch (const std::exception & err) {
+         LLAMA_LOG_ERROR("%s: failed to initialize the context: %s\n", __func__, err.what());
+     }
+ 
+     return nullptr;
++}
++
++llama_context * llama_init_from_model(llama_model *model, llama_context_params params) {
++    return init_context(model, params, false);
++}
++
++extern "C" LLAMA_API llama_context * llama_a2o_init_shared_cpu(llama_model *model, llama_context_params params);
++
++llama_context * llama_a2o_init_shared_cpu(llama_model *model, llama_context_params params) {
++    using namespace a2o::shared_weights;
++    if (!enabled() || !model || model->arch != LLM_ARCH_QWEN3 || model->devices.size() != 1 ||
++        std::strcmp(ggml_backend_dev_name(model->devices[0].dev), "HTP0") != 0) {
++        LLAMA_LOG_ERROR("%s: requires opt-in dense Qwen3 with exactly one HTP0 model device\n", __func__);
++        return nullptr;
++    }
++    size_t packed_bytes = 0;
++    for (const auto &entry : model->tensors_by_name) {
++        const auto *t = entry.second;
++        auto buft = ggml_backend_buffer_get_type(t->buffer);
++        if (packed_type(buft)) {
++            if ((t->type != GGML_TYPE_Q4_0 && t->type != GGML_TYPE_Q8_0) ||
++                !ggml_is_matrix(t) || !ggml_is_contiguous(t) || t->ne[0] % 32 != 0) {
++                LLAMA_LOG_ERROR("%s: unsupported packed weight %s\n", __func__, t->name);
++                return nullptr;
++            }
++            packed_bytes += ggml_nbytes(t);
++        } else if (hexagon_buffer(buft, "HTP0") &&
++                   (!ggml_backend_buft_is_host(buft) || ggml_is_quantized(t->type))) {
++            LLAMA_LOG_ERROR("%s: incompatible HTP0 tensor %s\n", __func__, t->name);
++            return nullptr;
++        }
++    }
++    if (!packed_bytes || params.n_samplers) {
++        LLAMA_LOG_ERROR("%s: no shared weights or unsupported backend sampler\n", __func__);
++        return nullptr;
++    }
++    LLAMA_LOG_INFO("%s: CPU-only scheduler, shared packed weights %zu bytes\n", __func__, packed_bytes);
++    params.offload_kqv = false;
++    params.op_offload = false;
++    return init_context(model, params, true);
+ }
+ 
+ // deprecated
+--- a/src/llama-context.h
++++ b/src/llama-context.h
+@@ -44,6 +44,7 @@
+             const llama_model & model,
+                   llama_context_params params);
+ 
++    llama_context(const llama_model &model, llama_context_params params, bool cpu_only);
+     ~llama_context();
+ 
+     // reserve a new backend scheduler (if needed)
