@@ -255,7 +255,7 @@ struct PhoneService {
         if(condition=="route" && route=="htp")lane.claim(anchor.version);
         else {
             lane.close();
-            if(htp)htp->release_ctx();
+            if(htp && route!="htp")htp->release_ctx();
             if(reuse)restore_session(pre,anchor);else llama_memory_clear(llama_get_memory(pre),true);
         }
         std::vector<uint8_t>{}.swap(anchor.state);
