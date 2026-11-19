@@ -184,7 +184,8 @@ def probe(args,cases,costs):
     selected=[c for c in cases.values() if c['benchmark'].startswith('tau2') and c['turns'][1]['observed_gap_ms'] is not None]
     if not selected:
         raise RuntimeError('no independently recorded short tool gap')
-    long=min(selected,key=lambda c:(abs(c['turns'][1]['H']-7500),abs(c['turns'][1]['P']-60),c['id']))
+    long=min(selected,key=lambda c:(c['turns'][1]['H']<7000,c['turns'][1]['P']>100,
+                                   abs(c['turns'][1]['H']-7500),abs(c['turns'][1]['P']-60),c['id']))
     short=min((c for c in selected if c['id']!=long['id']),
               key=lambda c:(abs(c['turns'][1]['H']-5000),abs(c['turns'][1]['P']-60),c['id']))
     large=max(selected,key=lambda c: max(t['P'] for t in c['turns'][1:]))
@@ -195,32 +196,36 @@ def probe(args,cases,costs):
     runner=Campaign(service_args,read(service_args.fixtures))
     service=out/f'{args.primary.name}-supplement-{time.time_ns()}'
     save(out/'plan.json',dict(cancellation_cases=[c['id'] for c in selected], extrapolation_case=large['id'],
-         build=runner.build,context=runner.context,comparison='same-binary forced CC, observed G, synchronous join vs retired worker'))
+         build=runner.build,context=runner.context,comparison='observed G dynamic routing, plus same-binary forced CC join vs retire'))
     try:
         runner.service('start','shared_m1',service)
         request('/a2o/costs',{'model':costs})
         results=[]
         for c_index,case in enumerate(selected):
             seed, turn = case['turns'][:2]
-            for mode in (('join','retire') if c_index==0 else ('retire','join')):
+            for mode in (('dynamic','join','retire') if c_index==0 else ('dynamic','retire','join')):
                 directory=out/case['id']/mode
                 directory.mkdir(parents=True,exist_ok=True)
                 if (directory/'warm.json').exists():
-                    results.append(read(directory/'warm.json')['timings'])
+                    results.append(dict(case=case['id'],mode=mode,**read(directory/'warm.json')['timings']))
                     continue
-                runner.state(stage='cancellation_probe',case=case['id'],retirement=mode)
+                runner.state(stage='gap_probe',case=case['id'],mode=mode)
                 request('/a2o/reset',{})
                 reply=_agent_chat_resilient(BASE,seed['request'],f'{service.name}:{case["id"]}:{mode}:seed')
                 save(directory/'seed.json',reply)
                 payload=dict(turn['request'],frozen_tool_gap_ms=turn['observed_gap_ms'],
-                             frozen_prepare_retirement=mode,frozen_force_cc_after_prepare=True)
+                             frozen_prepare_retirement='join' if mode=='dynamic' else mode,
+                             frozen_force_cc_after_prepare=mode!='dynamic')
                 reply=_agent_chat_resilient(BASE,payload,f'{service.name}:{case["id"]}:{mode}:warm')
                 m=reply['timings']
-                if (m['route']!='cpu' or m['route_reason']!='frozen_probe_cc' or m['H_anchor']!=turn['H']
+                if ((mode!='dynamic' and (m['route']!='cpu' or m['route_reason']!='frozen_probe_cc'))
+                    or m['H_anchor']!=turn['H'] or m['H_effective']!=turn['H']
+                    or m['P_evaluated']!=turn['P'] or m['predicted_n']!=turn['D']
+                    or reply['__verbose']['stop_type']!='forced'
                     or reply['__verbose']['tokens']!=turn['request']['frozen_decode_ids']):
                     raise RuntimeError('supplemental cancellation fixture mismatch')
                 save(directory/'warm.json',reply)
-                results.append(m)
+                results.append(dict(case=case['id'],mode=mode,**m))
         target=max(large['turns'][1:],key=lambda t:t['P'])
         extra=out/'large-p.json'
         if target['P']>costs['p_max'] and not extra.exists():
@@ -242,7 +247,9 @@ def main():
     p.add_argument('--probe-build',type=Path)
     p.add_argument('--cpu-registry',type=Path)
     p.add_argument('--model',type=Path,default=ROOT/'configs/model-qwen3-4b.json')
-    p.add_argument('--audit-only',action='store_true')
+    mode=p.add_mutually_exclusive_group()
+    mode.add_argument('--audit-only',action='store_true')
+    mode.add_argument('--probe-only',action='store_true')
     args=p.parse_args()
     for key in ('primary','primary_build','probe_build','cpu_registry','model'):
         value=getattr(args,key)
@@ -251,6 +258,23 @@ def main():
     if args.audit_only:
         result,_,_=audit(args.primary)
         print(json.dumps({k:v for k,v in result.items() if k not in ('observations','by_source_task')},ensure_ascii=False,indent=2))
+        return
+    if args.probe_only:
+        if not all((args.probe_build,args.cpu_registry)):
+            p.error('probe requires probe build and CPU registry')
+        report,cases,costs=audit(args.primary)
+        if read(args.primary/'status.json')['status']!='passed' or report['verified_chains']!=report['expected_chains']:
+            raise RuntimeError('primary ablation must pass the raw audit')
+        if phone_owner():
+            raise RuntimeError('phone is already in use')
+        with (args.primary/'supervisor.lock').open('a') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            try:
+                probe(args,cases,costs)
+            except Exception as exc:
+                save(args.primary/'supplement/status.json',dict(status='failed',error=str(exc)))
+                raise
+            save(args.primary/'supplement/status.json',dict(status='passed',stage='complete'))
         return
     if not all((args.primary_build,args.probe_build,args.cpu_registry)):
         p.error('supervisor requires primary/probe builds and a CPU registry')
