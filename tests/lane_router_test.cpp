@@ -9,34 +9,41 @@ int main(int argc, char ** argv) {
     auto barrier=std::make_shared<PreparationBarrier>();
     auto payload=std::make_shared<int>(42); std::weak_ptr<int> lifetime=payload;
     std::atomic<int> writes{0};
+    int retired=0;
     assert(lane.start(1,[barrier,payload,&writes](const auto & valid) {
         barrier->enter(); if(!valid()) return false; ++writes; return *payload==42;
-    }));
+    },[&]{++retired;}));
     payload.reset(); barrier->wait_entered();
     lane.retire();
-    assert(lane.availability(2)=="busy" && !lifetime.expired());
+    assert(lane.availability(2)=="busy" && !lifetime.expired() && retired==0);
     for(int round=2;round<100;++round) {
         // CPU 前台在屏障释放之前推进；不创建第二个 worker/context。
         assert(!lane.start(round,[](const auto &) {return true;}));
         assert(lane.started()==1 && writes==0);
     }
     barrier->release(); lane.close();
-    assert(lifetime.expired() && writes==0 && lane.reaped()==1);
-    assert(lane.start(100,[](const auto &) {return true;}));
+    assert(lifetime.expired() && writes==0 && lane.reaped()==1 && retired==1);
+    assert(lane.start(100,[](const auto &) {return true;},[&]{++retired;}));
     lane.wait_for_test();
     assert(lane.availability(99)=="stale");
     assert(lane.availability(100)=="ready"); lane.claim(100);
-    assert(!lane.occupied() && lane.reaped()==2);
+    assert(!lane.occupied() && lane.reaped()==2 && retired==1);
 
     // 关闭时可阻塞，但错误必须传播；析构仅做最后的安全清理。
     std::promise<void> error_entered;
     assert(lane.start(101,[&](const auto &) -> bool {
         error_entered.set_value(); throw std::runtime_error("import error");
-    }));
+    },[&]{++retired;}));
     error_entered.get_future().wait();
     bool error=false;
     try {lane.close();} catch(const std::runtime_error &) {error=true;}
-    assert(error);
+    assert(error && !lane.occupied() && retired==2);
+
+    assert(lane.start(102,[](const auto &) {return true;},[&]{++retired;}));
+    lane.wait_for_test();
+    lane.retire();
+    lane.poll();
+    assert(!lane.occupied() && retired==3);
 
     CostRouter router;
     router.rows={{1024,16,4,3,"CC",100,0},{1024,16,4,3,"HC",200,50},

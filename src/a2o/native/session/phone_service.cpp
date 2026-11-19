@@ -28,7 +28,7 @@ struct PhoneService {
     std::unique_ptr<Engine> cpu,htp;
     common_chat_templates_ptr templates;
     const llama_vocab *vocab=nullptr;
-    SessionSnapshot anchor;
+    std::shared_ptr<const SessionSnapshot> anchor;
     std::vector<llama_token> anchor_ids;
     std::vector<int> anchor_live_positions;
     size_t anchor_pinned_tokens=0;
@@ -101,6 +101,8 @@ struct PhoneService {
         auto *m=cpu?cpu->model:htp->model;vocab=llama_model_get_vocab(m);
         templates=common_chat_templates_init(m,"");init_ms=now_ms()-start;
     }
+    ~PhoneService() { try { lane.close(); } catch (...) {} }
+
     Engine &home(){return cpu?*cpu:*htp;}
     J select_stage_backend(const std::string &backend,const std::vector<llama_token> &warm_ids) {
         require(backend=="cpu"||backend=="htp","invalid stage backend");
@@ -135,7 +137,7 @@ struct PhoneService {
     }
     J start_prepare(const J &body){
         lane.poll();
-        if(condition!="route" || anchor.state.empty())return {{"started",false},{"reason","disabled_or_no_anchor"}};
+        if(condition!="route" || !anchor)return {{"started",false},{"reason","disabled_or_no_anchor"}};
         if(lane.occupied())return {{"started",false},{"reason","previous_preparation_busy"}};
         const bool serial=body.value("frozen_serial_context",false);
         double cpu_release_ms=0;
@@ -146,13 +148,12 @@ struct PhoneService {
             cpu_kv_hwm=0;
             cpu_release_ms=now_ms()-begin;
         }
-        auto state=std::make_shared<const SessionSnapshot>(anchor);
         prepare_started_at=std::chrono::steady_clock::now();
-        bool started=lane.start(anchor.version,[this,state](const auto &valid){
+        bool started=lane.start(anchor->version,[this,state=anchor](const auto &valid){
             double start=now_ms();if(!valid())return false;
             restore_session(htp->ensure_ctx(),*state);prepare_ms=now_ms()-start;return valid();
-        });
-        return {{"started",started},{"version",anchor.version},{"H",anchor_ids.size()},
+        },[this]{htp->release_ctx();});
+        return {{"started",started},{"version",anchor->version},{"H",anchor_ids.size()},
                 {"serial_context",serial},{"cpu_context_release_ms",cpu_release_ms}};
     }
     J calibrate(const J &body){
@@ -166,7 +167,6 @@ struct PhoneService {
         llama_pos pos=0;
         SessionSnapshot state;
         if(!cold){
-            htp->ensure_ctx();
             llama_memory_clear(llama_get_memory(cpu->ctx),true);
             evaluate(cpu->ctx,prefix,pos);
             state.state=export_seq(cpu->ctx);
@@ -176,7 +176,8 @@ struct PhoneService {
         for(int repetition=0;repetition<body.value("repetitions",3);++repetition){
             J row={{"repetition",repetition}};
             std::vector<float> cpu_logits,htp_logits;
-            if(cold)htp->release_ctx();
+            // 每次标定前释放 HTP context，使 hc_prepare_ms 真实计入按需重建 htp->ctx 的开销。
+            htp->release_ctx();
             for(bool accelerated:{false,true}){
                 const double setup_start=now_ms();
                 auto *ctx=accelerated?htp->ensure_ctx():cpu->ctx;
@@ -199,7 +200,7 @@ struct PhoneService {
                 for(int i=0;i<d;++i){auto tok=i==0?first:greedy(dec,llama_vocab_n_tokens(vocab));ids.push_back(tok);evaluate(dec,{tok},pos);}
                 row[accelerated?"hc_decode_ms":"cc_decode_ms"]=now_ms()-decode_start;
                 row[accelerated?"hc_ms":"cc_ms"]=now_ms()-begin;
-                row[accelerated?"hc_prepare_ms":"cc_restore_ms"]=preparation;
+                row[accelerated?"hc_prepare_ms":"cc_restore_ms"]=accelerated?(setup_ms+preparation):preparation;
                 row[accelerated?"hc_ids":"cc_ids"]=ids;
             }
             double dot=0,aa=0,bb=0,err=0;
@@ -213,10 +214,11 @@ struct PhoneService {
     }
     J infer(const J &body){
         J gap_probe=nullptr;
-        bool detach_preparation=false;
+        // 常规 route 回退 CPU 时默认异步退役后台准备线程，避免在短 Gap 下同步阻塞。
+        bool detach_preparation=(condition=="route");
         bool force_probe_cc=false;
         if (body.contains("frozen_tool_gap_ms")) {
-            require(condition=="route" && body.contains("frozen_decode_ids") && !anchor.state.empty(),
+            require(condition=="route" && body.contains("frozen_decode_ids") && anchor,
                     "device gap probe requires a frozen tool continuation on route");
             const double gap=body.at("frozen_tool_gap_ms").get<double>();
             require(std::isfinite(gap) && gap>=0.0 && gap<=10000.0, "invalid frozen tool gap");
@@ -249,9 +251,9 @@ struct PhoneService {
             limit=int(frozen_ids.size());
         }
         size_t common=0;while(common<std::min(ids.size(),anchor_ids.size()) && ids[common]==anchor_ids[common])++common;
-        bool reuse=!anchor_ids.empty() && common==anchor_ids.size();
+        const bool reuse=anchor && !anchor_ids.empty() && common==anchor_ids.size();
+        size_t pinned_tokens=reuse?anchor_pinned_tokens:0;
         if(!reuse){
-            anchor_pinned_tokens=0;
             const auto &msgs=body.at("messages");
             if(msgs.is_array() && !msgs.empty() && msgs[0].value("role",std::string(""))=="system"){
                 J sys_body={{"messages",J::array({msgs[0]})}};
@@ -260,7 +262,7 @@ struct PhoneService {
                 auto sys_ids=tokens(vocab,sys_chat.prompt,true);
                 size_t sys_common=0;
                 while(sys_common<std::min(sys_ids.size(),ids.size()) && sys_ids[sys_common]==ids[sys_common])++sys_common;
-                anchor_pinned_tokens=sys_common;
+                pinned_tokens=sys_common;
             }
         }
         std::vector<int> live_pos=reuse?anchor_live_positions:std::vector<int>{};
@@ -271,7 +273,8 @@ struct PhoneService {
         const bool use_kv_cost=kv_reduce && (body.value("use_kv_cost_model",false) || kv_policy=="adaptive_cost" || (kv_cost_table.valid && kv_policy!="recent"));
         const int exp_d=body.value("expected_decode_tokens",kv_cost_table.valid?kv_cost_table.expected_decode_tokens:expected_decode_tokens);
         if(use_kv_cost)require(kv_cost_table.valid,"adaptive_cost requires kv_model installed via /a2o/costs");
-        std::string ready=lane.availability(anchor.version),route=condition=="htp"?"htp":"cpu",reason="fixed_backend";
+        const uint64_t anchor_version=anchor?anchor->version:0;
+        std::string ready=lane.availability(anchor_version),route=condition=="htp"?"htp":"cpu",reason="fixed_backend";
         double wait_ms=0.0;
         J prediction=nullptr;
         J kv_cost_decision=nullptr;
@@ -289,9 +292,9 @@ struct PhoneService {
             require(reuse,"forced HC requires matching prepared history");
             if(ready=="pending"){
                 const double begin=now_ms();
-                lane.wait_ready(anchor.version,30000.0);
+                lane.wait_ready(anchor_version,30000.0);
                 wait_ms=now_ms()-begin;
-                ready=lane.availability(anchor.version);
+                ready=lane.availability(anchor_version);
             }
             require(ready=="ready","forced HC preparation did not complete");
             route="htp";reason="frozen_forced_hc";
@@ -312,16 +315,16 @@ struct PhoneService {
             if(reuse && ready=="pending" && !cost_model.is_null()){
                 RouteLinearCostTable prep_tbl=parse_route_linear_cost_table(cost_model);
                 JointRouteKvPlan jp_prep=plan_joint_route_kv(
-                    prep_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(anchor_pinned_tokens));
+                    prep_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(pinned_tokens));
                 if(jp_prep.route=="htp" && jp_prep.cpu_best_total_ms>0.0 && jp_prep.htp_best_total_ms>0.0){
                     double elapsed_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-prepare_started_at).count();
                     double pred_prep=prep_tbl.cpu_to_htp.eval(double(h_eff));
                     GreedyReturnPlan gp=plan_greedy_return(false,elapsed_ms,pred_prep,jp_prep.cpu_best_total_ms,jp_prep.htp_best_total_ms);
                     if(gp.continue_prepare && gp.wait_budget_ms>0.0){
                         double w0=now_ms();
-                        lane.wait_ready(anchor.version,gp.wait_budget_ms);
+                        lane.wait_ready(anchor_version,gp.wait_budget_ms);
                         wait_ms=now_ms()-w0;
-                        ready=lane.availability(anchor.version);
+                        ready=lane.availability(anchor_version);
                     }
                 }
             }
@@ -329,7 +332,7 @@ struct PhoneService {
             if(reuse && ready=="ready" && !cost_model.is_null()) {
                 RouteLinearCostTable route_tbl=parse_route_linear_cost_table(cost_model);
                 JointRouteKvPlan jp=plan_joint_route_kv(
-                    route_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(anchor_pinned_tokens));
+                    route_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),int(pinned_tokens));
                 double restore=route_tbl.cpu_restore.eval(double(h_eff));
                 double cp=route_tbl.cpu_prefill.eval(double(p));
                 double np=route_tbl.htp_prefill.eval(double(p));
@@ -365,7 +368,7 @@ struct PhoneService {
         if(cold_hc){
             lane.close();
             llama_memory_clear(llama_get_memory(pre),true);
-        }else if(condition=="route" && route=="htp")lane.claim(anchor.version);
+        }else if(condition=="route" && route=="htp")lane.claim(anchor_version);
         else {
             const double retirement_started=now_ms();
             if(detach_preparation){
@@ -378,9 +381,8 @@ struct PhoneService {
             }
             if(htp && route!="htp" && !cpu_with_retiring_preparation)htp->release_ctx();
             preparation_retirement_ms=now_ms()-retirement_started;
-            if(reuse)restore_session(pre,anchor);else llama_memory_clear(llama_get_memory(pre),true);
+            if(reuse)restore_session(pre,*anchor);else llama_memory_clear(llama_get_memory(pre),true);
         }
-        std::vector<uint8_t>{}.swap(anchor.state);
         double restore_ms=now_ms()-restore_start;
         std::vector<llama_token> suffix(ids.begin()+h,ids.end());llama_pos pos=h;
         // 剥离末尾空 <think> 块作为多轮锚点分界，避免下一轮渲染清除空 <think> 后 H_anchor 回退到 0。
@@ -391,7 +393,7 @@ struct PhoneService {
             if(cand.size()>h && cand.size()<ids.size() && std::equal(cand.begin(),cand.end(),ids.begin()))anchor_toks=std::move(cand);
         }
         if(use_kv_cost && !joint_decided){
-            KvReducePlan kv_plan=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,condition=="route" && route=="htp",int(h),int(anchor_pinned_tokens));
+            KvReducePlan kv_plan=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,condition=="route" && route=="htp",int(h),int(pinned_tokens));
             kv_cost_decision=kv_reduce_plan_to_json<J>(kv_plan);
             kv_admit=kv_plan.admit;
             eff_keep=kv_plan.keep_tokens;
@@ -399,7 +401,7 @@ struct PhoneService {
         }
         const int active_after_prefill=int(h_eff+p);
         const bool use_ratio=(kv_keep_ratio>0.0 && kv_keep_ratio<1.0 && !use_kv_cost && !body.contains("frozen_kv_keep_tokens"));
-        const int est_sink=std::min(active_after_prefill,int(std::max<size_t>(size_t(kv_sink_tokens),anchor_pinned_tokens)));
+        const int est_sink=std::min(active_after_prefill,int(std::max<size_t>(size_t(kv_sink_tokens),pinned_tokens)));
         const int est_recent=std::min(std::max(0,active_after_prefill-est_sink),kv_recent_tokens);
         const int est_mid=std::max(0,active_after_prefill-est_sink-est_recent);
         const int est_keep_target=use_ratio?(est_sink+est_recent+int(std::lround(kv_keep_ratio*double(est_mid)))):eff_keep;
@@ -435,14 +437,10 @@ struct PhoneService {
         }
         live_pos.reserve(h_eff+p);
         for(size_t i=h;i<ids.size();++i)live_pos.push_back(int(i));
-        // A fresh CPU context has no logits slot. Sample the first HC token
-        // directly from HTP, then submit it and subsequent tokens to CPU.
-        const bool sample_cold_htp=cold_hc && !frozen && limit>0;
-        std::vector<float> first_logits;
-        if(!frozen && !cold_hc && (kv_will_reduce || (condition=="route" && route=="htp"))){
-            const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
-            first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
-        }
+        if(cpu && pre==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,active_after_prefill);
+        const bool hc=condition=="route" && route=="htp";
+        // 首 token 使用产生本轮 prefill logits 的上下文。
+        const bool sample_first_on_htp=hc && !frozen && limit>0;
         J kv_info=nullptr;double kv_reduce_ms=0;
         double cpu_context_rebuild_ms=0;
         double htp_context_release_ms=0;
@@ -450,11 +448,11 @@ struct PhoneService {
         if(force_hc)pre_handoff_resources=resource_sample();
         double handoff_start=now_ms();
         size_t handoff_bytes=0;
-        if(condition=="route" && route=="htp") {
+        if(hc) {
             if(kv_will_reduce){
                 double kv_start=now_ms();
                 J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?kv_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
-                          {"kv_pinned_tokens",anchor_pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window}};
+                          {"kv_pinned_tokens",pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window}};
                 kv_info=evict_kv_by_prior(pre,active_after_prefill,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
                 kv_reduce_ms=now_ms()-kv_start;
                 llama_memory_clear(llama_get_memory(cpu->ctx),true);
@@ -472,12 +470,7 @@ struct PhoneService {
                 handoff_bytes=transfer(pre,cpu->ctx);
             }
             if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=handoff_bytes;}
-            if(!first_logits.empty()){
-                auto *destination=llama_get_logits_ith(cpu->ctx,-1);
-                require(destination,"missing destination logits after state migration");
-                std::copy(first_logits.begin(),first_logits.end(),destination);
-            }
-            if(!serial_context && !sample_cold_htp){
+            if(!serial_context && !sample_first_on_htp){
                 const double begin=now_ms();
                 htp->release_ctx();
                 htp_context_release_ms=now_ms()-begin;
@@ -485,11 +478,17 @@ struct PhoneService {
         }
         double handoff_ms=now_ms()-handoff_start-kv_reduce_ms;
         auto *decode=home().ctx;
-        if(kv_will_reduce && !(condition=="route" && route=="htp")){
+        if(kv_will_reduce && !hc){
             double kv_start=now_ms();
+            std::vector<float> first_logits;
+            if(!frozen && limit>0){
+                const auto *logits=llama_get_logits_ith(decode,-1);
+                require(logits,"missing prefill logits");
+                first_logits.assign(logits,logits+llama_vocab_n_tokens(vocab));
+            }
             SessionSnapshot working;working.next_pos=pos;
             J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?kv_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
-                      {"kv_pinned_tokens",anchor_pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
+                      {"kv_pinned_tokens",pinned_tokens},{"kv_recent_tokens",kv_recent_tokens},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
             kv_info=run_kv_reduction(decode,working,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
             kv_info["state_bytes_before"]=next.state.empty()?size_t(0):next.state.size();
             if(!first_logits.empty()){
@@ -525,7 +524,7 @@ struct PhoneService {
             std::string raw;
             double decode_start=now_ms();
             for(int i=0;i<limit;++i){
-                const bool first_on_htp=sample_cold_htp && i==0;
+                const bool first_on_htp=sample_first_on_htp && i==0;
                 auto tok=common_sampler_sample(sampler.get(),first_on_htp?pre:decode,-1);
                 if(first_on_htp){
                     const double release_start=now_ms();
@@ -546,7 +545,7 @@ struct PhoneService {
             finish_reason=!eog?"length":msg.tool_calls.empty()?"stop":"tool_calls";
             message=msg.to_json_oaicompat();
         }
-        if(cpu && decode==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,int(pos));
+        if(cpu && decode==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,int(live_pos.size()+generated.size()));
         lane.retire();lane.poll();
         if(compact_anchor && !kv_info.is_null()){
             double cs0=now_ms();
@@ -554,35 +553,31 @@ struct PhoneService {
             require(llama_memory_seq_rm(mem,0,llama_pos(anchor_toks.size()),-1),"compact_anchor rollback seq_rm failed");
             next.state=export_seq(decode);
             next.next_pos=anchor_toks.size();next.evaluated_tokens=anchor_toks.size();
-            std::vector<int> trimmed;trimmed.reserve(live_pos.size());
-            for(int lp:live_pos)if(lp<int(anchor_toks.size()))trimmed.push_back(lp);
-            anchor_live_positions=std::move(trimmed);
+            live_pos.erase(std::lower_bound(live_pos.begin(),live_pos.end(),int(anchor_toks.size())),live_pos.end());
+            next_live_pos=std::move(live_pos);
             snapshot_ms+=now_ms()-cs0;
             kv_info["compact_anchor"]=true;
             kv_info["anchor_state_bytes"]=next.state.size();
-            kv_info["anchor_live_tokens"]=anchor_live_positions.size();
-            int kept_after=kv_info.value("kept_count",int(anchor_toks.size()));
+            kv_info["anchor_live_tokens"]=next_live_pos.size();
+            const int kept_after=int(next_live_pos.size());
             if(kv_hwm_trim && cpu && decode==cpu->ctx && cpu_kv_hwm-kept_after>=3072){
                 double trim0=now_ms();
                 int old_hwm=cpu_kv_hwm;
                 cpu->release_ctx();
                 cpu->ensure_ctx();
-                cpu_kv_hwm=kept_after;
+                cpu_kv_hwm=0;
                 kv_info["kv_hwm_trimmed"]=true;
                 kv_info["kv_hwm_before"]=old_hwm;
                 kv_info["kv_trim_ms"]=now_ms()-trim0;
             }
-        }else{
-            anchor_live_positions=std::move(next_live_pos);
         }
-        anchor=std::move(next);anchor_ids=std::move(anchor_toks);
         J timing={{"prompt_ms",prefill_ms},{"predicted_ms",decode_ms},{"prompt_n",suffix.size()},
                   {"predicted_n",generated.size()},{"observation_ms",observation_ms},{"restore_ms",restore_ms},
                   {"handoff_ms",handoff_ms},{"handoff_bytes",handoff_bytes},{"snapshot_ms",snapshot_ms},{"kv_reduce_ms",kv_reduce_ms},
                   {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
                   {"route",route},{"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"cpu_with_retiring_preparation",cpu_with_retiring_preparation},
-                  {"H_effective",h_eff},{"pinned_tokens",anchor_pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
+                  {"H_effective",h_eff},{"pinned_tokens",pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"prediction",prediction}};
         if(frozen)timing["decode_resources"]=std::move(decode_resources);
         if(!gap_probe.is_null()){
@@ -594,11 +589,16 @@ struct PhoneService {
             {"before_handoff",std::move(pre_handoff_resources)}};
         J verbose_obj={{"tokens",generated},{"stop_type",frozen?"forced":eog?"eos":"limit"},{"truncated",false}};
         if(!body.value("omit_verbose_prompt",false))verbose_obj["prompt"]=chat.prompt;
-        return {{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
+        J response={{"id","a2o-"+std::to_string(version)},{"object","chat.completion"},{"created",0},{"model",model_id},
                 {"choices",J::array({{{"index",0},{"message",message},{"finish_reason",finish_reason}}})},
                 {"usage",{{"prompt_tokens",ids.size()},{"completion_tokens",generated.size()},{"total_tokens",ids.size()+generated.size()},
                           {"prompt_tokens_details",{{"cached_tokens",h}}}}},{"timings",timing},
                 {"__verbose",verbose_obj}};
+        anchor=std::make_shared<const SessionSnapshot>(std::move(next));
+        anchor_ids=std::move(anchor_toks);
+        anchor_live_positions=std::move(next_live_pos);
+        anchor_pinned_tokens=pinned_tokens;
+        return response;
     }
     #include "../profiling/stage_sweep.h"
     #include "../profiling/state_cost_sweep.h"

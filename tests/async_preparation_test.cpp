@@ -1,4 +1,5 @@
 #include "state/async_preparation.h"
+#include "state/preparation_lane.h"
 #include <atomic>
 #include <cassert>
 #include <future>
@@ -38,4 +39,21 @@ int main() {
     try { failed.bind(3); } catch(const std::runtime_error &) { bind_error=true; }
     try { failed.join(); } catch(const std::runtime_error &) { join_error=true; }
     assert(wait_error && bind_error && join_error);
+
+    // PreparationLane::close() must release failed tasks so subsequent close/start recover cleanly.
+    PreparationLane lane;
+    std::promise<void> lane_entered;
+    auto lane_entered_future = lane_entered.get_future();
+    assert(lane.start(4, [&](const auto &) -> bool {
+        lane_entered.set_value();
+        throw std::runtime_error("lane boom");
+    }));
+    lane_entered_future.wait();
+    bool first_close_threw = false;
+    try { lane.close(); } catch(const std::runtime_error &) { first_close_threw = true; }
+    assert(first_close_threw);
+    assert(!lane.occupied());
+    lane.close(); // must not throw again
+    assert(lane.start(5, [](const auto &) -> bool { return true; }));
+    lane.close();
 }

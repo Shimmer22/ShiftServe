@@ -1,23 +1,27 @@
 #pragma once
 #include "state/async_preparation.h"
+#include <functional>
 #include <memory>
 #include <stdexcept>
 
 // 会话级单 lane；只有 retired 且线程真正退出后才回收，逐轮不等待。
 class PreparationLane {
 public:
-    bool start(uint64_t version, AsyncPreparation::Work work) {
+    // 退役回调在调用方线程执行，此时 worker 已退出，可以安全释放其 context。
+    bool start(uint64_t version, AsyncPreparation::Work work, std::function<void()> on_retired = {}) {
         poll();
         if (task_) return false;
         task_ = std::make_unique<AsyncPreparation>(version, std::move(work));
+        on_retired_ = std::move(on_retired);
         retired_ = false; ++started_; return true;
     }
     void poll() {
         if (!task_) return;
-        task_->check_error();
         if (retired_ && task_->exited()) {
-            task_->join(); task_.reset(); ++reaped_;
+            reap_retired();
+            return;
         }
+        task_->check_error();
     }
     std::string availability(uint64_t version) {
         poll();
@@ -28,7 +32,10 @@ public:
     }
     void claim(uint64_t version) {
         if (availability(version) != "ready") throw std::runtime_error("HTP lane is not claimable");
-        task_->join(); task_.reset(); ++reaped_;
+        auto t = std::move(task_);
+        on_retired_ = {};
+        retired_ = false; ++reaped_;
+        t->join();
     }
     bool wait_ready(uint64_t version,double budget_ms) {
         poll();
@@ -39,7 +46,7 @@ public:
     void retire() { if (task_) { task_->cancel(); retired_ = true; } }
     void close() {
         retire();
-        if (task_) { task_->join(); task_.reset(); ++reaped_; }
+        if (task_) reap_retired();
     }
     bool occupied() const { return bool(task_); }
     uint64_t version() const { return task_ ? task_->version : 0; }
@@ -54,8 +61,22 @@ public:
     ~PreparationLane() { try { close(); } catch (...) {} }
 private:
     std::unique_ptr<AsyncPreparation> task_;
+    std::function<void()> on_retired_;
     bool retired_ = false;
     size_t started_ = 0, reaped_ = 0;
+
+    void reap_retired() {
+        auto task = std::move(task_);
+        auto cleanup = std::move(on_retired_);
+        retired_ = false; ++reaped_;
+        try {
+            task->join();
+        } catch (...) {
+            if (cleanup) cleanup();
+            throw;
+        }
+        if (cleanup) cleanup();
+    }
 };
 
 // 机制测试专用：模拟不可抢占调用返回边界，不模拟时间。

@@ -38,6 +38,7 @@ J gap_replay(const J &body) {
     const double cc=predicted.at("cpu_prefill_ms").get<double>()+predicted.value("cpu_restore_ms",0.0),hc=predicted.at("htp_prefill_handoff_ms");
     require(std::isfinite(cc) && std::isfinite(hc) && cc>0 && hc>0,"invalid replay prediction");
     lane.close();anchor={};anchor_ids.clear();
+    htp->ensure_ctx();
     J cache;double begin=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
     auto frozen=replay_cache->get(cpu->ctx,prefix,dir?dir:"",cache);
     double bootstrap=now_ms()-begin;
@@ -122,10 +123,6 @@ J gap_replay(const J &body) {
         if(mode=="route" && route=="htp"){
             if(!kv_info.is_null())llama_memory_clear(llama_get_memory(cpu->ctx),true);
             handoff_bytes=transfer(pre,cpu->ctx);
-            if(!first_logits.empty()){
-                auto *dst=llama_get_logits_ith(cpu->ctx,-1);require(dst,"missing dst logits after handoff");
-                std::copy(first_logits.begin(),first_logits.end(),dst);
-            }
             if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["handoff_bytes"]=handoff_bytes;}
         }
         double handoff=now_ms()-stage;

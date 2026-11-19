@@ -7,6 +7,7 @@ J state_cost_sweep(const J &body) {
     const int repetitions=body.value("repetitions",5);
     require(repetitions>0 && repetitions<=20,"invalid repetitions");
     lane.close();anchor={};anchor_ids.clear();
+    htp->ensure_ctx();
     J cache;double begin=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
     auto frozen=replay_cache->get(cpu->ctx,prefix,dir?dir:"",cache);
     double bootstrap=now_ms()-begin;

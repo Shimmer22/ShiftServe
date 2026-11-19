@@ -21,7 +21,11 @@ J stage_sweep(const J &body) {
     J rows=J::array();std::vector<float> reference;double cosine=1,nrmse=0;
     for(const auto &backend:order) {
         J setup=select_stage_backend(backend,prefix);
-        auto *ctx=backend=="cpu"?cpu->ctx:htp->ctx;
+        const double init_start=now_ms();
+        auto &engine=backend=="cpu"?*cpu:*htp;
+        const bool rebuild=engine.ctx==nullptr;
+        auto *ctx=engine.ensure_ctx();
+        if(rebuild)setup["model_context_init_ms"]=now_ms()-init_start;
         double start=now_ms();restore_session(ctx,frozen);double restore=now_ms()-start;
         auto resources_before=resource_sample();
         llama_pos pos=prefix.size();start=now_ms();evaluate(ctx,input,pos);double prefill=now_ms()-start;

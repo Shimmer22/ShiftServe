@@ -5,25 +5,25 @@ J model_preflight(const J &body) {
     const std::string path=body.at("path");
     require(path=="cc"||path=="hh"||path=="hc"||path=="ch","invalid preflight path");
     if(single_resident){require(path=="cc"||path=="hh","cross-backend preflight requires dual residency");select_stage_backend(path=="cc"?"cpu":"htp",tokens(vocab,"warmup",true));}
-    auto *pre=path[0]=='c'?cpu->ctx:htp->ctx;
-    auto *dec=path[1]=='c'?cpu->ctx:htp->ctx;
-    if(cpu)llama_memory_clear(llama_get_memory(cpu->ctx),true);
-    if(htp)llama_memory_clear(llama_get_memory(htp->ctx),true);
+    auto *pre=(path[0]=='c'?cpu:htp)->ensure_ctx();
+    auto *dec=(path[1]=='c'?cpu:htp)->ensure_ctx();
+    llama_memory_clear(llama_get_memory(pre),true);
+    if(pre!=dec)llama_memory_clear(llama_get_memory(dec),true);
     auto chat=render(J{{"messages",J::array({{{"role","user"},{"content","Remember the number 314159 for my next question. Reply only with the JSON object {\"code\":314159}, without markdown."}}})}});
     auto input=tokens(vocab,chat.prompt,true);llama_pos pos=0;
     J turns=J::array();
     for(int turn=0;turn<2;++turn){
         double begin=now_ms();evaluate(pre,input,pos);double prefill=now_ms()-begin;
         auto *lp=llama_get_logits_ith(pre,-1);require(lp,"missing preflight logits");
-        std::vector<float> logits(lp,lp+llama_vocab_n_tokens(vocab));
-        for(auto value:logits)require(std::isfinite(value),"nonfinite preflight logits");
+        const int n_vocab=llama_vocab_n_tokens(vocab);
+        for(int i=0;i<n_vocab;++i)require(std::isfinite(lp[i]),"nonfinite preflight logits");
         begin=now_ms();size_t bytes=0;
-        if(pre!=dec){bytes=transfer(pre,dec);std::copy(logits.begin(),logits.end(),llama_get_logits_ith(dec,-1));}
+        if(pre!=dec)bytes=transfer(pre,dec);
         double handoff=now_ms()-begin;
         std::string text;J ids=J::array();bool eog=false;
         begin=now_ms();
         for(int i=0;i<96;++i){
-            auto tok=greedy(dec,llama_vocab_n_tokens(vocab));
+            auto tok=greedy(i==0?pre:dec,n_vocab);
             if(llama_vocab_is_eog(vocab,tok)){evaluate(dec,{tok},pos);eog=true;break;}
             text+=piece(vocab,tok);ids.push_back(tok);evaluate(dec,{tok},pos);
         }
