@@ -21,6 +21,7 @@ p.add_argument('--binary',type=Path)
 p.add_argument('--output',type=Path,required=True)
 p.add_argument('--costs',type=Path)
 p.add_argument('--route-costs',type=Path)
+p.add_argument('--cold-costs',type=Path,help='H=0 实测 cold_route_v1，points 包含 P/cc_ms/hc_ms')
 p.add_argument('--kv-costs',type=Path)
 p.add_argument('--registry',type=Path)
 p.add_argument('--runtime-overlay',type=Path,help='私有构建目录，含 agent、CPU/llama 动态库与校验清单')
@@ -51,6 +52,7 @@ if a.shared_weights and (a.condition!='route' or a.single_resident or a.cpu_repa
 overlay={}
 hexagon_sha256=None
 if a.action=='start':
+ if a.cold_costs and (a.condition!='route' or a.single_resident):p.error('--cold-costs 需要 route 和双上下文')
  if a.shared_weights and not a.runtime_overlay:p.error('--shared-weights 需要 --runtime-overlay')
  if a.runtime_overlay:
   build=a.runtime_overlay.resolve()
@@ -106,7 +108,7 @@ if a.action=='start':
  command='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(remote if a.probe_skel else t.config['runtime_library_dir'])+' GGML_HEXAGON_PROFILE='+str(a.htp_profile)+' GGML_HEXAGON_USE_HMX=1 A2O_CPU_THREADS='+str(a.cpu_threads)+' A2O_CPU_REPACK='+str(a.cpu_repack)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE='+str(a.opqueue)+' GGML_HEXAGON_OPBATCH='+str(a.opbatch)+' A2O_HTP_KV_OFFLOAD='+str(a.kv_offload)+' A2O_FLASH_ATTN='+str(a.flash_attention)+' A2O_KV_REDUCE='+str(a.kv_reduce)+' A2O_KV_POLICY='+q(a.kv_policy)+' A2O_KV_KEEP_TOKENS='+str(a.kv_keep_tokens)+' A2O_KV_SINK_TOKENS='+str(a.kv_sink_tokens)+' A2O_KV_RECENT_TOKENS='+str(a.kv_recent_tokens)+' A2O_KV_POOL_WINDOW='+str(a.kv_pool_window)+' A2O_KV_TAIL_TOKENS='+str(a.kv_tail_tokens)+' A2O_COMPACT_ANCHOR='+str(a.compact_anchor)+' A2O_KV_HWM_TRIM='+str(a.kv_hwm_trim)+' A2O_EXPECTED_DECODE='+str(a.expected_decode)+' A2O_SINGLE_RESIDENT='+str(int(a.single_resident))+' A2O_SHARED_WEIGHTS='+str(int(a.shared_weights))+' A2O_MODEL_ID='+q(a.model_id)+cache_env+'; exec '+shlex.join([remote+'/service',model,a.condition,str(a.context_size),'18780',costs])
  launch='nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/runtime.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid')
  t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else '+launch+'; fi; }')
- (out/'manifest.json').write_text(json.dumps(dict(condition=a.condition,shared_weights=a.shared_weights,runtime_overlay=overlay,hexagon_sha256=hexagon_sha256,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,cpu_repack=bool(a.cpu_repack),htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model=model,model_id=a.model_id,model_sha256=a.model_sha256,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy=(a.kv_policy if a.kv_reduce else 'none'),kv_reduce=bool(a.kv_reduce),kv_keep_tokens=(a.kv_keep_tokens if a.kv_reduce else None),kv_sink_tokens=(a.kv_sink_tokens if a.kv_reduce else None),kv_recent_tokens=(a.kv_recent_tokens if a.kv_reduce else None),kv_pool_window=(a.kv_pool_window if a.kv_reduce else None),kv_tail_tokens=(a.kv_tail_tokens if a.kv_reduce else None),compact_anchor=(bool(a.compact_anchor) if a.kv_reduce else False),expected_decode_tokens=a.expected_decode,kv_costs=(str(a.kv_costs) if a.kv_costs else None),route_costs=(str(a.route_costs) if a.route_costs else None),pre_move=False,costs=str(a.costs)),indent=2)+'\n')
+ (out/'manifest.json').write_text(json.dumps(dict(condition=a.condition,shared_weights=a.shared_weights,runtime_overlay=overlay,hexagon_sha256=hexagon_sha256,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,cpu_repack=bool(a.cpu_repack),htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model=model,model_id=a.model_id,model_sha256=a.model_sha256,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy=(a.kv_policy if a.kv_reduce else 'none'),kv_reduce=bool(a.kv_reduce),kv_keep_tokens=(a.kv_keep_tokens if a.kv_reduce else None),kv_sink_tokens=(a.kv_sink_tokens if a.kv_reduce else None),kv_recent_tokens=(a.kv_recent_tokens if a.kv_reduce else None),kv_pool_window=(a.kv_pool_window if a.kv_reduce else None),kv_tail_tokens=(a.kv_tail_tokens if a.kv_reduce else None),compact_anchor=(bool(a.compact_anchor) if a.kv_reduce else False),expected_decode_tokens=a.expected_decode,kv_costs=(str(a.kv_costs) if a.kv_costs else None),route_costs=(str(a.route_costs) if a.route_costs else None),cold_costs=(str(a.cold_costs) if a.cold_costs else None),pre_move=False,costs=str(a.costs)),indent=2)+'\n')
  deadline=time.monotonic()+300
  while time.monotonic()<deadline:
   try:
@@ -116,6 +118,7 @@ if a.action=='start':
    if 'model' in health and health['model']!=a.model_id:raise RuntimeError('模型身份与请求不一致')
    if 'htp_kv_offload' in health and health['htp_kv_offload']!=bool(a.kv_offload):raise RuntimeError('KV offload配置不一致')
    cost_payload={}
+   if a.cold_costs:cost_payload['cold_model']=json.loads(a.cold_costs.read_text())
    if a.kv_costs:cost_payload['kv_model']=json.loads(a.kv_costs.read_text())
    if a.route_costs:
     rc=json.loads(a.route_costs.read_text())
@@ -123,6 +126,9 @@ if a.action=='start':
    if cost_payload:
     req=urllib.request.Request('http://10.29.131.50:18780/a2o/costs',data=json.dumps(cost_payload).encode(),headers={'Content-Type':'application/json'},method='POST')
     with urllib.request.urlopen(req,timeout=15) as kr:health['cost_install']=json.load(kr)
+    if a.cold_costs:
+     if not health['cost_install'].get('cold_cost_loaded'):raise RuntimeError('首轮选路成本安装失败')
+     health['cold_cost_loaded']=True
    (out/'health.json').write_text(json.dumps(health));print(health);break
   except OSError:
    # 仅网络等待不消耗初始化预算；SSH连通后继续检查服务。

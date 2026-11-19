@@ -17,6 +17,7 @@
 #include "nlohmann/json.hpp"
 using J=nlohmann::ordered_json;
 #include "replay_cache.h"
+#include "../scheduling/cold_route.h"
 #include "../scheduling/greedy_return.h"
 #include "../scheduling/kv_reduce_cost.h"
 #include "../profiling/prefill_prior.h"
@@ -37,6 +38,7 @@ struct PhoneService {
     std::vector<J> costs;
     J cost_model=nullptr,kv_cost_model=nullptr;
     KvReduceCostTable kv_cost_table;
+    ColdRouteCosts cold_costs;
     uint64_t version=0;
     int cpu_threads=4;
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
@@ -138,21 +140,31 @@ struct PhoneService {
         return {{"started",started},{"version",anchor.version},{"H",anchor_ids.size()}};
     }
     J calibrate(const J &body){
-        require(condition=="route","calibration requires both explicit backends");
+        require(condition=="route" && cpu && htp,"calibration requires both explicit backends");
         lane.close();
-        if(htp)htp->ensure_ctx();
         auto prefix=body.at("prefix_ids").get<std::vector<llama_token>>();
         auto input=body.at("input_ids").get<std::vector<llama_token>>();
         int d=body.value("decode_evaluations",4);
+        const bool cold=prefix.empty();
         require(!input.empty() && prefix.size()+input.size()+d<size_t(context_size),"invalid calibration shape");
-        llama_memory_clear(llama_get_memory(cpu->ctx),true);llama_pos pos=0;evaluate(cpu->ctx,prefix,pos);
-        SessionSnapshot state;state.state=export_seq(cpu->ctx);state.next_pos=pos;
+        llama_pos pos=0;
+        SessionSnapshot state;
+        if(!cold){
+            htp->ensure_ctx();
+            llama_memory_clear(llama_get_memory(cpu->ctx),true);
+            evaluate(cpu->ctx,prefix,pos);
+            state.state=export_seq(cpu->ctx);
+            state.next_pos=pos;
+        }
         J rows=J::array();
         for(int repetition=0;repetition<body.value("repetitions",3);++repetition){
             J row={{"repetition",repetition}};
             std::vector<float> cpu_logits,htp_logits;
+            if(cold)htp->release_ctx();
             for(bool accelerated:{false,true}){
-                auto *ctx=accelerated?htp->ctx:cpu->ctx;
+                const double setup_start=now_ms();
+                auto *ctx=accelerated?htp->ensure_ctx():cpu->ctx;
+                const double setup_ms=now_ms()-setup_start;
                 double ps=now_ms();restore_session(ctx,state);double preparation=now_ms()-ps;
                 pos=prefix.size();double begin=now_ms();evaluate(ctx,input,pos);
                 row[accelerated?"htp_prefill_ms":"cpu_prefill_ms"]=now_ms()-begin;
@@ -162,6 +174,10 @@ struct PhoneService {
                 double handoff_start=now_ms();
                 if(accelerated){transfer(ctx,cpu->ctx);auto *destination=llama_get_logits_ith(cpu->ctx,-1);require(destination,"missing migration logits");std::copy(values.begin(),values.end(),destination);}
                 row[accelerated?"htp_to_cpu_ms":"cpu_handoff_ms"]=now_ms()-handoff_start;
+                if(cold){
+                    const double cost=setup_ms+preparation+now_ms()-begin;
+                    row[accelerated?"cold_hc_ms":"cold_cc_ms"]=cost;
+                }
                 double decode_start=now_ms();
                 auto *dec=cpu->ctx;std::vector<llama_token> ids;
                 for(int i=0;i<d;++i){auto tok=i==0?first:greedy(dec,llama_vocab_n_tokens(vocab));ids.push_back(tok);evaluate(dec,{tok},pos);}
@@ -248,9 +264,20 @@ struct PhoneService {
         }
         std::string eff_policy=kv_policy;
         bool joint_decided=false;
+        bool cold_hc=false;
         if(force_probe_cc){
             require(reuse,"forced CPU probe requires the prepared anchor");
             reason="frozen_probe_cc";
+        }else if(condition=="route" && anchor_ids.empty() && cold_costs.configured()){
+            const auto point=cold_costs.estimate(static_cast<int>(p));
+            reason="cold_outside_calibration";
+            if(point){
+                cold_hc=point->hc_ms<point->cc_ms;
+                route=cold_hc?"htp":"cpu";
+                reason="cold_route_cost";
+                prediction={{"kind","cold_route_v1"},{"model_id",cold_costs.model_id},
+                            {"cc_ms",point->cc_ms},{"hc_ms",point->hc_ms}};
+            }
         }else if(condition=="route"){
             if(reuse && ready=="pending" && !cost_model.is_null()){
                 RouteLinearCostTable prep_tbl=parse_route_linear_cost_table(cost_model);
@@ -305,7 +332,10 @@ struct PhoneService {
         llama_context *pre=route=="htp"?htp->ensure_ctx():home().ctx;
         bool cpu_with_retiring_preparation=false;
         double preparation_retirement_ms=0;
-        if(condition=="route" && route=="htp")lane.claim(anchor.version);
+        if(cold_hc){
+            lane.close();
+            llama_memory_clear(llama_get_memory(pre),true);
+        }else if(condition=="route" && route=="htp")lane.claim(anchor.version);
         else {
             const double retirement_started=now_ms();
             if(detach_preparation){
@@ -362,8 +392,11 @@ struct PhoneService {
         }
         live_pos.reserve(h_eff+p);
         for(size_t i=h;i<ids.size();++i)live_pos.push_back(int(i));
+        // A fresh CPU context has no logits slot. Sample the first HC token
+        // directly from HTP, then submit it and subsequent tokens to CPU.
+        const bool sample_cold_htp=cold_hc && !frozen && limit>0;
         std::vector<float> first_logits;
-        if(!frozen && (kv_will_reduce || (condition=="route" && route=="htp"))){
+        if(!frozen && !cold_hc && (kv_will_reduce || (condition=="route" && route=="htp"))){
             const float *fl=llama_get_logits_ith(pre,-1);require(fl,"missing prefill logits");
             first_logits.assign(fl,fl+llama_vocab_n_tokens(vocab));
         }
@@ -386,7 +419,7 @@ struct PhoneService {
                 require(destination,"missing destination logits after state migration");
                 std::copy(first_logits.begin(),first_logits.end(),destination);
             }
-            htp->release_ctx();
+            if(!sample_cold_htp)htp->release_ctx();
         }
         double handoff_ms=now_ms()-handoff_start-kv_reduce_ms;
         auto *decode=home().ctx;
@@ -430,7 +463,15 @@ struct PhoneService {
             std::string raw;
             double decode_start=now_ms();
             for(int i=0;i<limit;++i){
-                auto tok=common_sampler_sample(sampler.get(),decode,-1);
+                const bool first_on_htp=sample_cold_htp && i==0;
+                auto tok=common_sampler_sample(sampler.get(),first_on_htp?pre:decode,-1);
+                if(first_on_htp){
+                    const double release_start=now_ms();
+                    htp->release_ctx();
+                    const double release_ms=now_ms()-release_start;
+                    handoff_ms+=release_ms;
+                    decode_start+=release_ms;
+                }
                 common_sampler_accept(sampler.get(),tok,true);
                 if(llama_vocab_is_eog(vocab,tok)){eog=true;break;}
                 generated.push_back(tok);raw+=piece(vocab,tok);evaluate(decode,{tok},pos);
@@ -644,7 +685,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"cold_cost_loaded",service.cold_costs.configured()},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
@@ -668,10 +709,19 @@ int main(int argc,char **argv){try{
         service.lane.close();
         if(b.value("clear_kv_model",false)){
             service.kv_cost_model=nullptr;service.kv_cost_table=KvReduceCostTable{};
-            if(!b.contains("model") && !b.contains("rows") && !b.contains("kv_model"))
+            if(!b.contains("model") && !b.contains("rows") && !b.contains("kv_model") && !b.contains("cold_model"))
                 return J{{"kv_model_cleared",true}};
         }
         J out=J::object();
+        if(b.contains("cold_model")){
+            const auto & data=b.at("cold_model");
+            auto cold=data.is_null()?ColdRouteCosts{}:ColdRouteCosts::parse(data);
+            require(!cold.configured() || (service.condition=="route" && service.cpu && service.htp &&
+                    !service.single_resident && cold.model_id==service.model_id &&
+                    cold.shared_weights==service.shared_weights),"cold route cost model identity or configuration mismatch");
+            service.cold_costs=std::move(cold);
+            out["cold_cost_loaded"]=service.cold_costs.configured();
+        }
         if(b.contains("kv_model")){
             const auto &km=b.at("kv_model");
             service.kv_cost_table=parse_kv_reduce_cost_table(km);
@@ -697,7 +747,7 @@ int main(int argc,char **argv){try{
             return out;
         }
         if(!out.empty())return out;
-        throw std::runtime_error("missing model, kv_model, or rows in /a2o/costs");
+        throw std::runtime_error("missing model, cold_model, kv_model, or rows in /a2o/costs");
     }));
     server.Post("/a2o/reset",[&](const httplib::Request &req,httplib::Response &res){
         try{
