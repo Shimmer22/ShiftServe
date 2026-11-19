@@ -1,9 +1,11 @@
 #pragma once
+#include <cstdlib>
 #include <cstring>
 // 只在计时前的观察prefill收集逐通道平方和或注意力分数，不接触decode未来token。
 struct PrefillPrior {
     bool enabled=false,collect_ffn=true,collect_kv=false,record_n_kv=false;
     int kv_tail_tokens=0;
+    int kv_layer_stride=4;
     int64_t last_n_kv=-1;
     std::map<int,std::vector<double>> ffn,query;
     std::vector<double> kv_scores;
@@ -16,29 +18,42 @@ struct PrefillPrior {
         bool is_ffn=self.collect_ffn&&std::strncmp(cname,"ffn_swiglu-",11)==0;
         bool is_query=self.collect_ffn&&std::strncmp(cname,"kqv_out-",8)==0;
         bool is_kq=self.collect_kv&&std::strncmp(cname,"kq_soft_max-",12)==0;
+        if(is_kq&&self.kv_layer_stride>1){
+            int layer=std::atoi(cname+12);
+            if((layer%self.kv_layer_stride)!=0)is_kq=false;
+        }
         if(ask)return is_ffn||is_query||is_kq;
         if(!is_ffn&&!is_query&&!is_kq)return true;
         require(t->type==GGML_TYPE_F32&&ggml_is_contiguous(t),"prefill prior requires contiguous F32");
         if(is_kq){
             const int64_t n_kv=t->ne[0],n_tok=t->ne[1],n_head=t->ne[2];
             require(t->ne[3]==1,"kq_soft_max prior expects single stream");
-            const float *ptr=nullptr;
-            if(t->buffer&&ggml_backend_buffer_is_host(t->buffer)&&t->data){
-                ptr=reinterpret_cast<const float*>(t->data);
-            }else{
-                self.kv_read_scratch.resize(size_t(ggml_nelements(t)));
-                ggml_backend_tensor_get(t,self.kv_read_scratch.data(),0,ggml_nbytes(t));
-                ptr=self.kv_read_scratch.data();
-            }
+            const int64_t q0=(self.kv_tail_tokens>0&&n_tok>self.kv_tail_tokens)?(n_tok-self.kv_tail_tokens):0;
+            const int64_t q_len=n_tok-q0;
             if(self.kv_scores.size()<size_t(n_kv))self.kv_scores.resize(size_t(n_kv),0.0);
             self.kv_layer_acc.assign(size_t(n_kv),0.0f);
             float * __restrict__ acc=self.kv_layer_acc.data();
-            const int64_t q0=(self.kv_tail_tokens>0&&n_tok>self.kv_tail_tokens)?(n_tok-self.kv_tail_tokens):0;
-            for(int64_t h=0;h<n_head;++h){
-                const int64_t h_off=h*n_tok*n_kv;
-                for(int64_t q=q0;q<n_tok;++q){
-                    const float * __restrict__ row=ptr+h_off+q*n_kv;
-                    for(int64_t k=0;k<n_kv;++k)acc[k]+=row[k];
+            if(t->buffer&&ggml_backend_buffer_is_host(t->buffer)&&t->data){
+                const float *ptr=reinterpret_cast<const float*>(t->data);
+                for(int64_t h=0;h<n_head;++h){
+                    const int64_t h_off=h*n_tok*n_kv;
+                    for(int64_t q=q0;q<n_tok;++q){
+                        const float * __restrict__ row=ptr+h_off+q*n_kv;
+                        for(int64_t k=0;k<n_kv;++k)acc[k]+=row[k];
+                    }
+                }
+            }else{
+                // 仅按 head 拷贝末尾 q_len 行，避免把整块 [n_kv, n_tok, n_head] 全部读回 host。
+                const size_t head_tail_elems=size_t(q_len)*size_t(n_kv);
+                self.kv_read_scratch.resize(head_tail_elems);
+                const size_t head_tail_bytes=head_tail_elems*sizeof(float);
+                for(int64_t h=0;h<n_head;++h){
+                    const size_t byte_off=size_t((h*n_tok+q0)*n_kv)*sizeof(float);
+                    ggml_backend_tensor_get(t,self.kv_read_scratch.data(),byte_off,head_tail_bytes);
+                    for(int64_t dq=0;dq<q_len;++dq){
+                        const float * __restrict__ row=self.kv_read_scratch.data()+size_t(dq)*size_t(n_kv);
+                        for(int64_t k=0;k<n_kv;++k)acc[k]+=row[k];
+                    }
                 }
             }
             for(int64_t k=0;k<n_kv;++k){
@@ -75,7 +90,8 @@ struct PrefillPrior {
     }
 };
 
-// 仅在末尾 tail_tokens 个 token 窗口启用 kq_soft_max 采集，避免前段 chunk 重复触发图切分与同步。
+// 仅在最后一个 batch chunk 启用 kq_soft_max 采集（回调内部再按 kv_tail_tokens 切片），
+// 既不增加额外 forward 次数，也避免拆出 <32 的小 batch 掉进 HTP 性能低谷。
 static void evaluate_with_prior_tail(llama_context *ctx,const std::vector<llama_token> &ts,
         llama_pos &pos,PrefillPrior &prior,bool collect,int tail_tokens){
     prior.kv_scores.clear();
@@ -84,8 +100,21 @@ static void evaluate_with_prior_tail(llama_context *ctx,const std::vector<llama_
         evaluate(ctx,ts,pos);
         return;
     }
-    int n_tail=tail_tokens>0?std::min(int(ts.size()),tail_tokens):int(ts.size());
-    size_t split=ts.size()-size_t(n_tail);
+    const size_t bs=size_t(batch_size);
+    const size_t n_tail=(tail_tokens>0)?std::min(ts.size(),size_t(tail_tokens)):ts.size();
+    size_t split=0;
+    if(ts.size()>bs){
+        const size_t rem=ts.size()%bs;
+        if(rem==0){
+            split=ts.size()-bs;
+        }else if(rem>=n_tail){
+            split=ts.size()-rem;
+        }else{
+            // 保持总 chunk 数不变，同时把最后一块凑到 >=32（且 <=bs）以避开 HTP 小 batch 低谷。
+            const size_t tail_chunk=std::min(bs,std::max(n_tail,size_t(32)));
+            split=(ts.size()>tail_chunk)?(ts.size()-tail_chunk):0;
+        }
+    }
     if(split>0){
         prior.enabled=false;
         evaluate(ctx,std::vector<llama_token>(ts.begin(),ts.begin()+split),pos);

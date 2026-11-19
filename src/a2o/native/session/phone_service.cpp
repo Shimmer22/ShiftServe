@@ -43,7 +43,7 @@ struct PhoneService {
     int cpu_threads=4;
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
     bool single_resident=false, shared_weights=false;
-    int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, expected_decode_tokens=96;
+    int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, kv_layer_stride=4, kv_min_evict_tokens=256, expected_decode_tokens=96;
     bool kv_hwm_trim=true;
     int cpu_kv_hwm=0;
     std::string kv_policy="prefill_prior";
@@ -65,6 +65,10 @@ struct PhoneService {
         if(const char *value=std::getenv("A2O_KV_RECENT_TOKENS"))kv_recent_tokens=std::stoi(value);
         if(const char *value=std::getenv("A2O_KV_POOL_WINDOW"))kv_pool_window=std::stoi(value);
         if(const char *value=std::getenv("A2O_KV_TAIL_TOKENS"))kv_tail_tokens=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_LAYER_STRIDE"))kv_layer_stride=std::stoi(value);
+        if(const char *value=std::getenv("A2O_KV_MIN_EVICT_TOKENS"))kv_min_evict_tokens=std::stoi(value);
+        require(kv_layer_stride>=1,"invalid A2O_KV_LAYER_STRIDE");
+        require(kv_min_evict_tokens>=0,"invalid A2O_KV_MIN_EVICT_TOKENS");
         if(const char *value=std::getenv("A2O_KV_POLICY"))kv_policy=value;
         if(const char *value=std::getenv("A2O_COMPACT_ANCHOR")){require(std::string(value)=="0"||std::string(value)=="1","invalid compact anchor flag");compact_anchor=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_KV_HWM_TRIM")){require(std::string(value)=="0"||std::string(value)=="1","invalid kv_hwm_trim flag");kv_hwm_trim=std::string(value)=="1";}
@@ -73,7 +77,7 @@ struct PhoneService {
         require(!kv_reduce || !flash_attention,"kv_reduce requires flash_attention=0");
         require(kv_policy=="prefill_prior" || kv_policy=="recent" || kv_policy=="adaptive_cost","unsupported A2O_KV_POLICY");
         bool need_prior_cb=kv_reduce && (kv_policy=="prefill_prior" || kv_policy=="adaptive_cost");
-        prior.collect_ffn=false;prior.collect_kv=need_prior_cb;prior.kv_tail_tokens=kv_tail_tokens;
+        prior.collect_ffn=false;prior.collect_kv=need_prior_cb;prior.kv_tail_tokens=kv_tail_tokens;prior.kv_layer_stride=kv_layer_stride;
         if(const char *value=std::getenv("A2O_MODEL_ID"))model_id=value;
         if(const char *value=std::getenv("A2O_SINGLE_RESIDENT")){require(std::string(value)=="0"||std::string(value)=="1","invalid residency flag");single_resident=std::string(value)=="1";}
         if (const char *value = std::getenv("A2O_SHARED_WEIGHTS")) {
@@ -368,7 +372,16 @@ struct PhoneService {
             eff_policy="prefill_prior";
         }
         const int active_after_prefill=int(h_eff+p);
-        const bool kv_will_reduce=kv_admit && active_after_prefill>eff_keep;
+        const int est_sink=std::min(active_after_prefill,int(std::max<size_t>(size_t(kv_sink_tokens),anchor_pinned_tokens)));
+        const int est_recent=std::min(std::max(0,active_after_prefill-est_sink),kv_recent_tokens);
+        const int est_effective_keep=std::max(eff_keep,est_sink+est_recent);
+        const int est_evictable=std::max(0,active_after_prefill-est_effective_keep);
+        const int est_prior_budget=std::max(0,eff_keep-(est_sink+est_recent));
+        const bool kv_will_reduce=kv_admit && est_evictable>0 && active_after_prefill>eff_keep;
+        // 若可淘汰 token 过少或无先验排序预算，直接退化为 recent，避免为极小裁剪量支付先验采集税。
+        if(kv_will_reduce && eff_policy=="prefill_prior" && (est_prior_budget<=0 || est_evictable<kv_min_evict_tokens)){
+            eff_policy="recent";
+        }
         const bool collect_prior=kv_will_reduce && eff_policy=="prefill_prior";
         const size_t anchor_split_in_suffix=anchor_toks.size()-h;
         std::vector<int> next_live_pos=live_pos;
@@ -685,7 +698,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"cold_cost_loaded",service.cold_costs.configured()},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_layer_stride",service.kv_layer_stride},{"kv_min_evict_tokens",service.kv_min_evict_tokens},{"kv_cost_loaded",service.kv_cost_table.valid},{"cold_cost_loaded",service.cold_costs.configured()},{"compact_anchor",service.compact_anchor},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4},{"build_id",__DATE__ " " __TIME__}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){return J{{"tokens",tokens(service.vocab,b.at("content"),false)}};}));
     server.Post("/v1/chat/completions",handle([&](const J &b){return service.infer(b);}));
