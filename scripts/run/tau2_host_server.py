@@ -13,7 +13,11 @@ import urllib.request
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--container', default='a2o-bfcl-lc200')
     parser.add_argument('--model-path', default='/workspace/cache/pvst-vllm/qwen35-9b-bf16-20261016')
+    parser.add_argument('--tokenizer')
+    parser.add_argument('--gguf-plugin-dir')
+    parser.add_argument('--dtype', default='bfloat16')
     parser.add_argument('--served-model-name', default='qwen35-9b')
     parser.add_argument('--port', type=int, default=18769)
     parser.add_argument('--max-model-len', type=int, default=32768)
@@ -32,15 +36,22 @@ def main():
     busy = subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader'], text=True)
     if busy.strip():
         raise RuntimeError('CUDA occupied; refusing contention')
-    prefix = ['docker', 'exec', 'a2o-bfcl-lc200']
+    prefix = ['docker', 'exec']
+    if args.gguf_plugin_dir:
+        prefix += ['-e', f'PYTHONPATH={args.gguf_plugin_dir}']
+    prefix.append(args.container)
     command = prefix + ['python3', '-m', 'vllm.entrypoints.openai.api_server',
         '--model', args.model_path,
         '--served-model-name', args.served_model_name, '--host', '127.0.0.1', '--port', str(args.port),
-        '--dtype', 'bfloat16', '--max-model-len', str(args.max_model_len),
+        '--dtype', args.dtype, '--max-model-len', str(args.max_model_len),
         '--max-num-seqs', str(args.max_num_seqs), '--max-num-batched-tokens', '2048',
         '--gpu-memory-utilization', str(args.gpu_memory_utilization), '--enforce-eager',
         '--enable-auto-tool-choice', '--tool-call-parser', args.tool_call_parser,
         '--reasoning-parser', args.reasoning_parser]
+    if args.tokenizer:
+        command += ['--tokenizer', args.tokenizer]
+    if args.gguf_plugin_dir:
+        command += ['--quantization', 'gguf']
     if args.language_model_only:
         command.append('--language-model-only')
     (out / 'server-command.json').write_text(json.dumps(command, indent=2))

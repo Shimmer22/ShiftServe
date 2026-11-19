@@ -155,7 +155,10 @@ def plan_kv_reduce(
             "H_total": total,
         }
 
-    candidates = sorted({c for c in list(model.get("candidates", [1536, 2048, 2560, 3072, 4096])) + [k_floor] if c >= k_floor and c + min_evict <= total})
+    candidates = sorted({
+        c for c in list(model.get("candidates", [1536, 2048, 2560, 3072, 4096])) + [k_floor + off for off in (0, 512, 1024, 2048)]
+        if c >= k_floor and c + min_evict <= total
+    })
     if not candidates and k_floor + min_evict <= total:
         candidates = [k_floor]
     if not candidates:

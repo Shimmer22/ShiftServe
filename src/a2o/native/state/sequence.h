@@ -6,12 +6,15 @@ static std::vector<uint8_t> export_seq(llama_context * ctx) {
     require(llama_state_seq_get_data(ctx, state.data(), state.size(), 0) == state.size(), "seq export failed");
     return state;
 }
-static size_t transfer(llama_context * from, llama_context * to) {
-    auto state = export_seq(from);
+static size_t import_seq_verified(llama_context * to, const std::vector<uint8_t> & state) {
     std::cerr << "TRANSFER exported_bytes=" << state.size() << " importing\n";
     require(llama_state_seq_set_data(to, state.data(), state.size(), 0) == state.size(), "seq import failed");
     std::cerr << "TRANSFER imported; synchronizing and verifying\n";
     llama_synchronize(to);
     require(export_seq(to) == state, "KV/position metadata changed during transfer");
     return state.size();
+}
+
+static size_t transfer(llama_context * from, llama_context * to) {
+    return import_seq_verified(to, export_seq(from));
 }

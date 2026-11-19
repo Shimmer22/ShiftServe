@@ -1,0 +1,205 @@
+{
+  "name": "20261119-host-kv-accuracy-tau2-ratio-8b",
+  "model_path": "/home/wins/ai-workspace/cache/a2o-qwen3-8b/Qwen3-8B-Q4_0.gguf",
+  "model_id": "qwen3-8b-q4_0",
+  "model_sha256": "7578dd44850f97bea0f89d6553a2b3260de07185aa363852dbbe582539ce8066",
+  "context_size": 32768,
+  "cpu_threads": 8,
+  "agent_max_tokens": 2048,
+  "user_max_tokens": 1024,
+  "user_model": "qwen3-4b-q4_0",
+  "judge_model": "gpt-6.1-terra",
+  "expected_decode_tokens": 96,
+  "max_steps": 100,
+  "max_errors": 10,
+  "seed": 20261115,
+  "tasks": [
+    {
+      "domain": "retail",
+      "task_id": "51"
+    },
+    {
+      "domain": "retail",
+      "task_id": "88"
+    },
+    {
+      "domain": "retail",
+      "task_id": "82"
+    },
+    {
+      "domain": "retail",
+      "task_id": "87"
+    },
+    {
+      "domain": "retail",
+      "task_id": "2"
+    },
+    {
+      "domain": "retail",
+      "task_id": "21"
+    },
+    {
+      "domain": "retail",
+      "task_id": "64"
+    },
+    {
+      "domain": "retail",
+      "task_id": "91"
+    },
+    {
+      "domain": "retail",
+      "task_id": "74"
+    },
+    {
+      "domain": "retail",
+      "task_id": "62"
+    },
+    {
+      "domain": "retail",
+      "task_id": "33"
+    },
+    {
+      "domain": "retail",
+      "task_id": "56"
+    },
+    {
+      "domain": "airline",
+      "task_id": "47"
+    },
+    {
+      "domain": "airline",
+      "task_id": "22"
+    },
+    {
+      "domain": "airline",
+      "task_id": "27"
+    },
+    {
+      "domain": "airline",
+      "task_id": "13"
+    },
+    {
+      "domain": "airline",
+      "task_id": "33"
+    },
+    {
+      "domain": "airline",
+      "task_id": "36"
+    },
+    {
+      "domain": "airline",
+      "task_id": "26"
+    },
+    {
+      "domain": "airline",
+      "task_id": "8"
+    },
+    {
+      "domain": "airline",
+      "task_id": "3"
+    },
+    {
+      "domain": "airline",
+      "task_id": "12"
+    },
+    {
+      "domain": "airline",
+      "task_id": "35"
+    },
+    {
+      "domain": "airline",
+      "task_id": "1"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mobile_data_issue]airplane_mode_on|user_abroad_roaming_enabled_off[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mms_issue]bad_wifi_calling|break_apn_mms_setting|break_app_sms_permission|data_usage_exceeded[PERSONA:Hard]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mms_issue]airplane_mode_on|bad_network_preference|bad_wifi_calling|break_app_storage_permission|data_mode_off|data_usage_exceeded|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Hard]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mobile_data_issue]data_mode_off|data_usage_exceeded[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[service_issue]airplane_mode_on|contract_end_suspension|lock_sim_card_pin|unseat_sim_card[PERSONA:Hard]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mms_issue]break_apn_mms_setting|data_mode_off|data_usage_exceeded|user_abroad_roaming_disabled_on[PERSONA:Hard]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mms_issue]bad_network_preference|user_abroad_roaming_disabled_on[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mobile_data_issue]bad_network_preference|bad_vpn|user_abroad_roaming_disabled_on[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mms_issue]bad_wifi_calling|break_apn_mms_setting|unseat_sim_card|user_abroad_roaming_enabled_off[PERSONA:Easy]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[service_issue]airplane_mode_on|break_apn_settings|lock_sim_card_pin|unseat_sim_card[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mobile_data_issue]bad_vpn|data_saver_mode_on|user_abroad_roaming_disabled_on[PERSONA:None]"
+    },
+    {
+      "domain": "telecom",
+      "task_id": "[mobile_data_issue]airplane_mode_on|data_saver_mode_on|user_abroad_roaming_disabled_on[PERSONA:None]"
+    }
+  ],
+  "conditions": [
+    {
+      "name": "full_kv",
+      "kv_reduce": 0,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 32768,
+      "kv_keep_ratio": -1.0,
+      "compact_anchor": 0
+    },
+    {
+      "name": "recent_only",
+      "kv_reduce": 1,
+      "kv_policy": "recent",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.5,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_low",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.25,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_mid",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.5,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_high",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.75,
+      "compact_anchor": 1
+    }
+  ],
+  "user_model_path": "/home/wins/ai-workspace/cache/a2o-qwen3-4b/Qwen3-4B-Q4_0.gguf"
+}

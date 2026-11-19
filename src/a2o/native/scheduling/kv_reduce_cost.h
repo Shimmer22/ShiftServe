@@ -82,12 +82,13 @@ inline KvReducePlan plan_kv_reduce(
     }
 
     std::vector<int> cands;
-    cands.reserve(model.candidates.size() + 1);
+    cands.reserve(model.candidates.size() + 4);
     for (int c : model.candidates) {
         if (c >= k_floor && c + model.min_evict_savings_tokens <= total) cands.push_back(c);
     }
-    if (k_floor + model.min_evict_savings_tokens <= total) {
-        cands.push_back(k_floor);
+    for (int off : {0, 512, 1024, 2048}) {
+        int c = k_floor + off;
+        if (c + model.min_evict_savings_tokens <= total) cands.push_back(c);
     }
     std::sort(cands.begin(), cands.end());
     cands.erase(std::unique(cands.begin(), cands.end()), cands.end());

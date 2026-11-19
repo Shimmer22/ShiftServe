@@ -20,10 +20,17 @@ static J evict_kv_by_prior(llama_context *ctx,int total,const J &cfg,const Prefi
     const bool use_live=(live_pos!=nullptr && !live_pos->empty());
     const int n_cells=use_live?int(live_pos->size()):total;
     auto pos_at=[&](int idx)->int{return use_live?(*live_pos)[size_t(idx)]:idx;};
-    const int keep_target=cfg.at("kv_keep_tokens");
+    const int keep_target_raw=cfg.value("kv_keep_tokens",0);
+    const double keep_ratio=cfg.value("kv_keep_ratio",-1.0);
     const int sink=std::min(n_cells,std::max(cfg.value("kv_sink_tokens",4),cfg.value("kv_pinned_tokens",0)));
     const int recent_min=std::min(n_cells-sink,cfg.value("kv_recent_tokens",std::max(input_len,64)));
     const int pool_window=cfg.value("kv_pool_window",1);
+
+    int keep_target=keep_target_raw;
+    if(keep_ratio>0.0&&keep_ratio<1.0){
+        const int mid_len=std::max(0,n_cells-sink-recent_min);
+        keep_target=sink+recent_min+int(std::lround(keep_ratio*double(mid_len)));
+    }
 
     std::vector<uint8_t> keep(size_t(n_cells),0);
     int prior_ranked_tokens=0;

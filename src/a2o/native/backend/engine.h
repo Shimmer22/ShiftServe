@@ -28,7 +28,11 @@ public:
     Engine(const std::string & path, bool npu, bool cpu_repack=true, bool kv_offload=true, int threads=4, bool flash_attention=false, ggml_backend_sched_eval_callback eval_callback=nullptr, void *eval_user_data=nullptr) {
         require(threads>0 && threads<=16,"invalid engine thread count");
         auto mp = llama_model_default_params();
-        mp.n_gpu_layers = npu ? 99 : 0;
+        int host_gpu_layers = 0;
+        if (!npu) {
+            if (const char *v = std::getenv("A2O_HOST_GPU_LAYERS")) host_gpu_layers = std::stoi(v);
+        }
+        mp.n_gpu_layers = npu ? 99 : host_gpu_layers;
         mp.use_mmap = !npu;
         mp.use_extra_bufts = cpu_repack;
         ggml_backend_dev_t devices[2] = {nullptr, nullptr};
@@ -40,7 +44,7 @@ public:
         model_owner = std::shared_ptr<llama_model>(llama_model_load_from_file(path.c_str(), mp), llama_model_free);
         model = model_owner.get();
         require(model, "model load failed");
-        configure(npu && kv_offload, threads, flash_attention, eval_callback, eval_user_data);
+        configure((npu || host_gpu_layers > 0) && kv_offload, threads, flash_attention, eval_callback, eval_user_data);
     }
 
     Engine(const Engine &owner, int threads, bool flash_attention,

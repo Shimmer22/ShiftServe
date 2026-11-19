@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import hashlib
+from itertools import groupby
 import json
 import math
 from pathlib import Path
@@ -30,6 +31,10 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--tasks-per-domain',type=int,default=4)
     parser.add_argument('--context-size',type=int,default=16384)
+    parser.add_argument('--strip-anchor-tail-ids', type=int, nargs='+', default=[],
+                        help='Only strip this exact token suffix from the saved anchor before matching')
+    parser.add_argument('--min-tool-chain-turns', type=int, default=0,
+                        help='Also export contiguous tool-only replay chains with at least this many agent turns')
     parser.add_argument('--gap-kind',choices=['tool','balanced'],default='balanced')
     parser.add_argument('--quantiles',default=None,help='显式P分位，例如0.25,0.75；数量等于每域任务数')
     args=parser.parse_args()
@@ -52,17 +57,22 @@ def main():
             if previous is not None:
                 old,old_event=previous
                 h=common_prefix(old['prompt_token_ids']+old['choices'][0]['token_ids'],ids)
-                anchor_h=common_prefix(old['prompt_token_ids'],ids)
+                anchor_ids=old['prompt_token_ids']
+                tail=args.strip_anchor_tail_ids
+                if tail and len(anchor_ids)>len(tail) and anchor_ids[-len(tail):]==tail:
+                    anchor_ids=anchor_ids[:-len(tail)]
+                anchor_h=common_prefix(anchor_ids,ids)
                 between=[e for e in events if old_event['response_ns']<=e['monotonic_ns']<=current_event['request_ns']]
                 tool_events=[e for e in between if e['kind']=='tool_result' and e['call']['requestor']=='assistant']
                 user_events=[e for e in between if e['kind']=='llm_response' and e['role']=='user']
                 gap_kind='user' if user_events else 'tool' if tool_events else 'other'
                 gap=(current_event['request_ns']-old_event['response_ns'])/1e6
                 execution=(max(e['end_ns'] for e in tool_events)-min(e['start_ns'] for e in tool_events))/1e6 if tool_events else None
-                reusable=anchor_h==len(old['prompt_token_ids'])
+                reusable=anchor_h==len(anchor_ids)
                 # 正式服务只保存完整上一输入锚点；不可裁剪 recurrent 状态来伪造 H。
-                physical_h=len(old['prompt_token_ids']) if reusable else 0
+                physical_h=len(anchor_ids) if reusable else 0
                 row=dict(domain=task['domain'],task_id=task['id'],task_key=task['key'],index=index,
+                    previous_index=old_event['index'],
                     H=physical_h,P=len(ids)-physical_h,logical_H=h,logical_P=len(ids)-h,
                     D=len(generated),N=len(ids),gap_kind=gap_kind,gap_ms=gap,
                     tool_execution_ms=execution,anchor_H=anchor_h,anchor_P=len(ids)-anchor_h,
@@ -115,10 +125,25 @@ def main():
             scored_successes=sum(r['domain']==d and r.get('reward')==1 for r in task_results),
             **{k:distribution([r[k] for r in rows if r['domain']==d]) for k in ['H','P','D']}) for d in manifest['config']['domains']},
         excluded_count=len(excluded),selected_tasks=len(requests),context_size=args.context_size,
+        strip_anchor_tail_ids=args.strip_anchor_tail_ids,
         selection=f'每域{args.tasks_per_domain}个不同任务、P分位{quantiles}；gap_kind={args.gap_kind}；只取完整可恢复锚点，不按质量筛选；冻结性能pilot，不是全任务手机评分')
     save(args.output/'boundaries.json',rows)
     save(args.output/'excluded.json',excluded)
     save(args.output/'requests.json',requests)
+    if args.min_tool_chain_turns:
+        chains=[]
+        for _, task_rows in groupby(rows, key=lambda r: r['task_key']):
+            for eligible, chain in groupby(task_rows, key=lambda r: r['gap_kind']=='tool'
+                                           and (r['task_key'],r['index']) not in invalid):
+                boundaries=list(chain)
+                if eligible and len(boundaries)+1>=args.min_tool_chain_turns:
+                    first=boundaries[0]
+                    chains.append(dict(domain=first['domain'],task_key=first['task_key'],
+                        trace_dir=str(Path(first['source_response']).parent.resolve()),
+                        indices=[first['previous_index'],*(r['index'] for r in boundaries)],
+                        boundaries=boundaries))
+        save(args.output/'tool-chains.json',chains)
+        summary['tool_chains']=len(chains)
     save(args.output/'summary.json',summary)
     print(json.dumps(summary,ensure_ascii=False,indent=2))
 

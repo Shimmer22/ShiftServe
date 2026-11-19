@@ -4,6 +4,7 @@ import concurrent.futures
 import contextvars
 import hashlib
 import json
+import os
 from pathlib import Path
 import random
 import threading
@@ -22,6 +23,12 @@ def install_recording(cfg):
     from tau2.utils import llm_utils
     from tau2.environment.environment import Environment
     original_tool = Environment.get_response
+    judge_model = cfg.get('judge_model')
+    if judge_model:
+        judge_base = os.environ['JUDGE_BASE_URL'].rstrip('/')
+        judge_key = os.environ['JUDGE_API_KEY']
+        if not judge_base or not judge_key or os.environ['JUDGE_MODEL'] != judge_model:
+            raise ValueError('Judge environment does not match the configured model')
 
     def complete(**kwargs):
         ctx = CURRENT.get()
@@ -34,33 +41,58 @@ def install_recording(cfg):
         if not body.get('tools'):
             body.pop('tools', None)
             body.pop('tool_choice', None)
-        body.update(model=cfg['model'], return_token_ids=True,
-                    chat_template_kwargs={'enable_thinking':False})
-        body.setdefault('max_tokens', cfg['max_tokens_agent'])
+        external_judge = kind == 'judge' and judge_model is not None
+        headers = {'Content-Type': 'application/json'}
+        if external_judge:
+            endpoint = judge_base + '/chat/completions'
+            headers['Authorization'] = 'Bearer ' + judge_key
+            body.update(model=judge_model, response_format={'type': 'json_object'})
+        else:
+            endpoint = cfg['endpoint'] + '/v1/chat/completions'
+            body.update(model=cfg['model'], return_token_ids=True,
+                        chat_template_kwargs={'enable_thinking':False})
+            body.setdefault('max_tokens', cfg['max_tokens_agent'])
         stem = ctx['folder'] / f'{index:03d}-{kind}'
         save(stem.with_suffix('.request.json'), body)
         request_ns = time.monotonic_ns()
         ctx['emit']('llm_request', index=index, role=kind, request_ns=request_ns)
-        req = urllib.request.Request(cfg['endpoint']+'/v1/chat/completions',json.dumps(body).encode(),
-                                     {'Content-Type':'application/json'})
-        try:
-            with urllib.request.urlopen(req,timeout=900) as response:
-                raw = response.read()
-            stem.with_suffix('.response.raw.json').write_bytes(raw)
-            response = json.loads(raw)
-        except urllib.error.HTTPError as exc:
-            stem.with_suffix('.error.txt').write_bytes(exc.read())
-            raise
+        req = urllib.request.Request(endpoint,json.dumps(body).encode(),headers)
+        attempts = 4 if external_judge else 1
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(req,timeout=120 if external_judge else 900) as response:
+                    raw = response.read()
+                break
+            except urllib.error.HTTPError as exc:
+                if not external_judge:
+                    stem.with_suffix('.error.txt').write_bytes(exc.read())
+                if attempt + 1 == attempts or exc.code not in (429, 500, 502, 503, 504):
+                    raise RuntimeError(f'{kind} endpoint returned HTTP {exc.code}') from None
+            except OSError:
+                if attempt + 1 == attempts:
+                    raise RuntimeError(f'{kind} endpoint transport failed') from None
+            time.sleep(2 ** attempt)
+        stem.with_suffix('.response.raw.json').write_bytes(raw)
+        response = json.loads(raw)
         response_ns = time.monotonic_ns()
         save(stem.with_suffix('.response.json'),response)
         choice = response['choices'][0]
         ids = response.get('prompt_token_ids')
         generated = choice.get('token_ids')
-        assert ids and generated, 'server did not return exact prompt/output IDs'
-        assert len(ids)==response['usage']['prompt_tokens']
-        assert len(generated)==response['usage']['completion_tokens']
+        usage = response.get('usage') or {}
+        if external_judge:
+            if response.get('model') != judge_model:
+                raise RuntimeError('Judge returned an unexpected model identity')
+            judgement = json.loads(choice['message']['content'])
+            if not isinstance(judgement.get('results'), list) or not judgement['results']:
+                raise RuntimeError('Judge returned no assertion results')
+        else:
+            assert ids and generated, 'server did not return exact prompt/output IDs'
+            assert len(ids)==usage['prompt_tokens']
+            assert len(generated)==usage['completion_tokens']
         ctx['emit']('llm_response',index=index,role=kind,request_ns=request_ns,response_ns=response_ns,
-                    prompt_tokens=len(ids),D=len(generated),finish_reason=choice['finish_reason'])
+                    prompt_tokens=usage.get('prompt_tokens'),D=usage.get('completion_tokens'),
+                    model=response.get('model'),finish_reason=choice['finish_reason'])
         if choice['finish_reason']=='length':
             raise RuntimeError('output limit; raw response retained')
         # 官方 generate 保持其 schema 转换、消息构造和 JSON 参数解析。
@@ -81,7 +113,7 @@ def install_recording(cfg):
         return result
 
     llm_utils.completion = complete
-    llm_utils.get_response_cost = lambda response:0.0  # 本地推理无 API 费用，不修改官方 reward。
+    llm_utils.get_response_cost = lambda response:0.0  # 采集器不核算 API 费用；原始 usage 单独留存。
     Environment.get_response = get_response
 
 
@@ -120,7 +152,7 @@ def main():
             key = f'{domain}-{hashlib.sha256(task.id.encode()).hexdigest()[:12]}'
             jobs.append((domain,task,key))
             manifest['tasks'].append(dict(domain=domain,id=task.id,key=key))
-    manifest['scope']='官方任务及评分；本地9B用户模拟器；非参考榜单配置；主机延迟不用于手机性能结论'
+    manifest['scope']='官方任务及评分；用户模拟器和裁判见 config；非参考榜单配置；主机延迟不用于手机性能结论'
     manifest['source_sha256'] = {str(p.relative_to(Path(__file__).parents[3])):hashlib.sha256(p.read_bytes()).hexdigest()
                                for p in [Path(__file__),Path(__file__).parents[3]/'scripts/collect/tau2_host.py']}
     if (out/'manifest.json').exists():

@@ -1,5 +1,5 @@
 // 多轮基线：完整 sequence snapshot + 精确的模板前缀；GPU 视觉仅编码新增帧。
-// Prefix/snapshot design reference: dastin359/SplitLM, engine.cpp (see docs/validation/multiturn.md).
+// Prefix/snapshot design reference: dastin359/SplitLM, engine.cpp (see f66e9cc:docs/validation/multiturn.md for the historical validation).
 #include "state/async_preparation.h"
 static int run_session(const std::map<std::string,std::string> & args) {
     auto get=[&](const std::string & key,const std::string & fallback="") {
