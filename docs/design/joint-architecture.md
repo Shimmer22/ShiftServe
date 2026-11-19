@@ -1,50 +1,23 @@
-# 双机制协同架构：Gap 选路（M1）与 NPU 先验指导解码（M2）
+# 研究思路与动机
 
-本文档澄清本仓库两条核心机制的设计初衷、互补相图，以及当前实测与理想目标之间的工程边界。
+多轮 LLM Agent 生成工具调用后，会暂停推理，等待外部工具返回，再结合已有历史和新增结果继续推理。每次恢复时，历史长度 `H`、本轮新增输入长度 `P` 和生成长度 `D` 都可能不同。CPU 与 HTP 的相对性能随阶段和输入规模变化，历史 KV Cache 又会增加 decode、跨后端迁移和内存开销。工具等待时间 `G` 则提供了提前准备已有状态的机会。
 
-## 1. 为什么需要两条机制：`(H, P, G)` 相图接力
+**核心问题是如何根据每轮的计算需求和历史状态，联合安排手机 CPU/HTP 执行与 KV Cache 维护，在保持任务质量的前提下缩短工具返回到响应的延迟。**
 
-在端侧 CPU/HTP 异构 Agent 推理中，单一静态后端或单一机制无法覆盖完整工作负载：
+## 三条实测动机
 
-1. **全 CPU**：无跨后端迁移开销，但长输入（大 `H` / 大 `P`）Prefill 慢，且长历史 `H` 下 CPU Decode 带宽受限、内存膨胀。
-2. **全 HTP（Full HTP）**：Prefill 快，但 HTP Decode 慢且算子/长度受限（如 `τ²-bench` 9B 冻结回放中，Full HTP 累计耗时比 CPU 还慢，比 `HC` 慢 `1.608×`）。
-3. **固定 `HC`（HTP Prefill → CPU Decode）**：大 `H`/大 `P` 时占优，但在小 `P` 或短 `G` 时会被 HTP 固定启动与 `HTP→CPU` 回迁成本反杀。
+1. **Agent 负载跨越不同规模。** `P` 按模板渲染后需要新增计算的 token 计量。ToolSandbox 中有历史已达数千 token、工具返回新增输入仍为几十至数百 token 的轮次。τ²-bench 则提供长历史和较长新增输入同时出现的轮次。例如，一组用来验证 HC 的边界覆盖 `H=5046–7960`、`P=210–750`、`D=74–688`。这些区间描述已测样本。
+2. **CPU 与 HTP 的阶段优势随形状变化。** 短 prefill 会受内核切换和算子回退影响。早期手机测量在 `H=4096` 时观察到 `P=31` 走 CPU 更快，`P=32` 则由 HTP prefill 加 CPU decode 占优。较长输入可能带来 HTP prefill 的计算收益，具体分界取决于模型和 offload 配置。
+3. **历史长度会改变整条路径的成本。** 长历史增加 decode 对 KV 的读取量，也增加全量状态准备和回迁的开销。在一组 Qwen3-8B 实测中，`H` 从 128 增至 8192 时，CPU decode 从约 129 增至 277 ms/token。选路因此需要合计剩余准备、prefill、状态回迁和约 `D` 步 decode 的成本。涉及裁剪时，逻辑历史和实际迁移的状态量分别计量。
 
-因此，系统按 `(H, P, G)` 空间分为两层接力：
+## M1 · 工具等待期间准备，工具返回后选路
 
-| 机制 | 定位与适用区间 | 解决的核心问题 |
-|---|---|---|
-| **M1：Gap 异步准备 + 返回后选路** | **浅水区 / 边界不确定区**<br>（如 ToolSandbox / BFCL 中 `P` 跨交叉点、`G` 波动） | 工具发出时 `P, G` 未知：Gap 内按预算异步准备 HTP 状态；返回后依据实测 `P` 与剩余准备时间在 `CC`（CPU）与 `HC`（HTP prefill → CPU decode）间动态选路，避免小 `P`/短 `G` 被 HTP 开销反杀。 |
-| **M2：NPU Prefill 先验指导 KV 裁剪（`PrefillPrior` + `compact_anchor`）** | **深水区 / `HC` 收敛区**<br>（如 `τ²-bench` 等长历史 `H`、大 `P` 多轮任务，M1 稳定收敛到 `HC`） | 当 M1 收敛为 `HC` 时，纯选路退化为静态 `Always-HC`。M2 的设计初衷是在 **`HC` 管道内部建立跨后端协同**：利用 NPU Prefill 顺带产出的注意力先验（`kq_soft_max`）在 HTP 侧裁剪冗余 KV 并紧凑持久化（`compact_anchor`），同时压低 **HTP→CPU 回迁量**、**CPU Decode 每 token 耗时** 与 **双驻留内存峰值**。 |
+工具发出时，历史状态已经确定，本轮 `P` 和实际等待时间 `G` 仍未知。运行时可以用以往工具返回的 `P` 分布和等待时间估计，判断提前准备 HTP 状态的期望价值。工具返回后，用实际 `P`、预计 `D`、状态就绪程度和 CPU/HTP 路径成本选路。当前主要比较 CC（CPU prefill、CPU decode）和 HC（HTP prefill、CPU decode）。HC 的比较同时计入 CPU→HTP 尚未完成的准备以及 HTP→CPU 的回迁。
 
----
+**M1-Explorer** 处理贪心选路的观测缺口。每轮通常只得到所选路径的耗时，未选路径的成本误差可能长期得不到纠正。受限探索用少量对侧测量更新路径成本，减少选路对初始标定的依赖。
 
-## 2. M2 的异构协同逻辑（为什么需要 NPU 指导 CPU Decode）
+## M2 · 用 HTP prefill 先验缩减回迁和 decode 状态
 
-单纯在 CPU 上做 KV 裁剪虽有工程收益（Qwen3-1.7B 单驻留 CPU 实测公共 5 题服务耗时 `1.512×` 加速、`VmHWM` 降 `2.46 GiB`），但从异构协同视角看，**在 CPU 上计算先验代价高昂**：
+在长输入边界，HTP prefill 可以为 HC 带来阶段收益。全量历史 KV 的回迁和后续 CPU decode 可能抵消这部分收益。M2 使用 HTP prefill 期间得到的注意力先验，结合需要保护的系统与工具前缀及近期上下文，在回迁前裁剪并紧凑化 KV。CPU 接收的状态更少，后续每步 decode 读取的活跃 KV 也更少。紧凑锚点使这份状态可在后续轮次复用。
 
-- 以 Qwen3-4B 成本表（[qwen3-4b-kv-reduce-cost.json](../../configs/qwen3-4b-kv-reduce-cost.json)）为例：CPU 提取先验的 `cb_eval` 固定税约 `1030.6 ms`，而 HTP 侧约 `291.1 ms`（低约 `3.5×`），且 HTP Prefill 本身在大 `P` 下快于 CPU。
-- **理想闭环**：NPU 在执行 Prefill 的同时以低边际代价产出 `PrefillPrior` → 在 HTP→CPU 回迁前完成物理紧凑化 → CPU 仅接收并恢复紧凑后的活跃 KV 槽位执行更快 Decode，并将紧凑锚点跨轮持久化（保持逻辑 RoPE 位置不变）。
-
----
-
-## 3. 当前实测与理想闭环的差距（诚实边界）
-
-以下边界基于已有实测，不得在结论中越界宣称：
-
-1. **M1 在 `τ²-bench` 单独退化为 `Always-HC`，尚未在混合分布上证明“动态分岔优于静态 `Always-HC`”**
-   - [tau2-greedy-return.md](../validation/tau2-greedy-return.md) 中 18/18 次 Route 均选 HC；证明了 `Route > CPU (1.258×)` 与 `Route > Full HTP (1.608×)`，但尚缺含小 `P`/短 `G` 的混合回放来证明 `Router` 严格优于静态 `Always-HC`。
-   - 真实 Gap 需区分：BFCL 内存沙箱 `G` 中位数仅 `0.193 ms`（[tool-return-structure.md](../validation/tool-return-structure.md)），`τ²-bench` 本地工具调用 Gap 趋近于 0（当前隐藏准备时间来自远端 27B user-sim 网络延迟）。
-2. **M2 在 Qwen3-4B 上的联合闭环尚未成立（待修复项）**
-   - **`k_floor` 基数与前缀保护**：[kv_reduce_cost.h](../../src/a2o/native/scheduling/kv_reduce_cost.h) 当前按已压缩的 `h_eff + P` 计算下限，多轮中第 0 轮即裁剪系统/工具前缀，后期保留率跌至约 `17%`；需改为按 `H_anchor + P` 计算并对系统/工具前缀加 pin。
-   - **裁剪后 Handoff 慢路径**：4B 实测裁剪后 `state_bytes` 虽降为 `226.5 MB`（1536 token），但 `handoff_ms` 反从 `232–271 ms` 升至 `329–470 ms`，导致“NPU 先验缩小回迁耗时”的协同假设在当前导出路径上尚未兑现。
-   - **`htp_prior_tax` 仍偏高**：当前通过 `cb_eval` 获取 `kq_soft_max` 在 1.7B（`655.7 + 1.145·P` ms）与 4B（`~291 ms`）上仍有显式回调税，需通过成本门控避开短历史死区，尚未实现“近零额外税”的算子内聚合导出。
-3. **E2E 联合对照尚不完整**：4B 上 `cpu_baseline`、`route_m1_only`、`m2_only`、`joint` 四个条件尚未在统一任务集、统一驻留模式与同批 user-sim 下完整跑齐并做配对比较。
-
----
-
-## 4. 关键文档索引
-
-- M1 设计与边界：[Tool Gap 中面向不确定需求的状态准备](gap-aware-state-preparation.md)、[P 分布与投机准备期望价值](p-distribution-value.md)、[τ² 贪心继续准备](../validation/tau2-greedy-return.md)
-- M2 历史探索（已暂停）：[NPU 草稿、CPU 验证探索](second-mechanism.md)
-- M2 当前主线（KV Reduce + `compact_anchor`）：[Qwen3-1.7B 压缩曲线与端到端实测](../validation/qwen3-1_7b-kv-cost-and-e2e.md)、[Qwen3-1.7B τ² 双驻留 HC + KV Reduce](../validation/tau2-qwen3-1_7b-hc-kv.md)
+M1 估计路径成本，M2 改变路径成本。两者联合时，要把先验提取与裁剪成本计入选路，并比较保留全量 KV 与裁剪两种方案。评价以同一工具返回边界的实际响应延迟为主，同时检查工具调用、历史信息召回和任务质量。
