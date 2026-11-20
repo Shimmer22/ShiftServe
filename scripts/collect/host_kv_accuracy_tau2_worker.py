@@ -20,6 +20,10 @@ import urllib.error
 import urllib.request
 
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+from a2o.profiling.host_accuracy import run_metadata, same_run, select_tasks
+
 def _http_post(url: str, body: dict, timeout: int = 1800, api_key: str = "dummy") -> dict:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
@@ -82,6 +86,8 @@ def main():
     p.add_argument("--user-base", required=True)
     p.add_argument("--tau2-src", type=Path, default=Path("/workspace/references/tau2-bench-v0.1.0-source/src"))
     p.add_argument("--limit-tasks", type=int, default=0)
+    p.add_argument("--task-id", action="append", default=[])
+    p.add_argument("--runtime-identity", type=json.loads, default={})
     args = p.parse_args()
 
     judge_base = os.environ["JUDGE_BASE_URL"].rstrip("/")
@@ -90,6 +96,9 @@ def main():
 
     sys.path.insert(0, str(args.tau2_src))
     cfg = json.loads(args.config.read_text())
+    meta = run_metadata("tau2-v2", cfg, args.condition_name, args.limit_tasks,
+                        args.task_id, args.runtime_identity)
+    use_judge_for_user = cfg.get("user_provider", "local") == "judge_api"
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
 
@@ -118,17 +127,28 @@ def main():
                 "max_tokens": int(cfg["agent_max_tokens"]),
                 "expected_decode_tokens": int(cfg.get("expected_decode_tokens", 96)),
                 "omit_verbose_prompt": True,
+                "chat_template_kwargs": {"enable_thinking": bool(cfg.get("agent_enable_thinking", False))},
             }
             if oai_tools:
                 req_body["tools"] = oai_tools
                 req_body["tool_choice"] = tool_choice or "auto"
-        elif is_user:
+        elif is_user and not use_judge_for_user:
             req_body = {
                 "model": user_model_tag,
                 "messages": litellm_messages,
                 "temperature": float(kwargs.get("temperature", 0.0)),
                 "max_tokens": int(cfg["user_max_tokens"]),
                 "chat_template_kwargs": {"enable_thinking": False},
+            }
+            if oai_tools:
+                req_body["tools"] = oai_tools
+                req_body["tool_choice"] = tool_choice or "auto"
+        elif is_user:
+            req_body = {
+                "model": user_model_tag or judge_model,
+                "messages": litellm_messages,
+                "temperature": float(kwargs.get("temperature", 0.0)),
+                "max_tokens": int(cfg["user_max_tokens"]),
             }
             if oai_tools:
                 req_body["tools"] = oai_tools
@@ -149,7 +169,7 @@ def main():
             turn_n = sum(1 for c in active_trace["calls"] if c["is_agent"])
             rid = f"{active_trace['task_key']}:t{turn_n}"
             resp = _agent_chat_resilient(args.agent_base, req_body, rid, total_timeout=1800.0)
-        elif is_user:
+        elif is_user and not use_judge_for_user:
             resp = _http_post_resilient(
                 args.user_base.rstrip("/") + "/v1/chat/completions", req_body, timeout=180, retries=10
             )
@@ -233,9 +253,10 @@ def main():
     from tau2.evaluator.evaluator import EvaluationType
     from tau2.run import get_tasks, run_task
 
-    task_specs = cfg["tasks"][: args.limit_tasks] if args.limit_tasks > 0 else cfg["tasks"]
+    task_specs = select_tasks(list(enumerate(cfg["tasks"])), lambda pair: pair[1]["task_id"],
+                              args.task_id, args.limit_tasks)
     by_domain = {}
-    for spec in task_specs:
+    for _, spec in task_specs:
         dom = spec["domain"]
         if dom not in by_domain:
             by_domain[dom] = {t.id: t for t in get_tasks(dom)}
@@ -244,14 +265,17 @@ def main():
     traces_dir = out / "tasks"
     traces_dir.mkdir(parents=True, exist_ok=True)
 
-    for idx, spec in enumerate(task_specs):
+    for task_number, (idx, spec) in enumerate(task_specs, 1):
         dom = spec["domain"]
         tid = spec["task_id"]
         key = f"{idx:02d}-{dom}-" + hashlib.sha256(tid.encode()).hexdigest()[:10]
         task_path = traces_dir / f"{key}.json"
         if task_path.exists():
             cached = json.loads(task_path.read_text())
-            if cached.get("complete"):
+            if (
+                cached.get("complete")
+                and same_run(cached, meta)
+            ):
                 tasks_out.append(cached)
                 continue
             fail_idx = 0
@@ -293,7 +317,7 @@ def main():
         record = {
             "index": idx,
             "key": key,
-            "condition": args.condition_name,
+            **meta,
             "domain": dom,
             "task_id": tid,
             "complete": err is None and sim_dump is not None,
@@ -315,14 +339,15 @@ def main():
         task_path.write_text(json.dumps(record, indent=2) + "\n")
         tasks_out.append(record)
         print(
-            f"[{args.condition_name}] {idx+1}/{len(task_specs)} {dom}:{tid[:28]} "
+            f"[{args.condition_name}] {task_number}/{len(task_specs)} {dom}:{tid[:28]} "
             f"complete={record['complete']} reward={record['reward']} "
             f"term={record['termination_reason']} agent_turns={record['agent_turns']} dur={elapsed_s:.1f}s",
             flush=True,
         )
 
     summary = {
-        "condition": args.condition_name,
+        **meta,
+        "selected_task_ids": [spec["task_id"] for _, spec in task_specs],
         "total_tasks": len(tasks_out),
         "completed_tasks": sum(1 for r in tasks_out if r["complete"]),
         "reward_sum": sum(float(r["reward"] or 0.0) for r in tasks_out),

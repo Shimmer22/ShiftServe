@@ -81,7 +81,7 @@ static std::map<std::string, long long> resource_sample() {
     while(std::getline(status,line)) {
         std::istringstream in(line); std::string key; long long value;
         in >> key;
-        if(key=="VmRSS:" || key=="VmSwap:" || key=="RssAnon:" || key=="RssFile:") {
+        if(key=="VmRSS:" || key=="VmSwap:" || key=="RssAnon:" || key=="RssFile:" || key=="RssShmem:") {
             in >> value; sample[key.substr(0,key.size()-1)+"_kib"]=value;
         }
     }

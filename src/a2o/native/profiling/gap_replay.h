@@ -46,7 +46,7 @@ J gap_replay(const J &body) {
     for(const auto &mode:order) {
         lane.close();
         auto *resident=mode=="htp"?htp->ctx:cpu->ctx;
-        begin=now_ms();restore_session(resident,frozen);double fixture=now_ms()-begin;
+        begin=now_ms();restore_session(resident,frozen,nullptr,kv_verification);double fixture=now_ms()-begin;
         const uint64_t generation=++version;
         double preparation_ms=0;bool started=false;
         begin=now_ms();
@@ -54,7 +54,7 @@ J gap_replay(const J &body) {
             // frozen.state 已由夹具持有；生产服务也在上一响应保存锚点。
             started=lane.start(generation,[&](const auto &valid){
                 double start=now_ms();if(!valid())return false;
-                restore_session(htp->ctx,frozen);preparation_ms=now_ms()-start;return valid();
+                restore_session(htp->ctx,frozen,nullptr,kv_verification);preparation_ms=now_ms()-start;return valid();
             });
             require(started,"always-prepare failed to start on empty lane");
         }
@@ -91,7 +91,7 @@ J gap_replay(const J &body) {
         // 当前生产服务在返回时恢复上一输入锚点，回滚已经生成的 assistant。
         // ready HC 的恢复已在 G 内完成；CPU 与 Full HTP 的真实恢复仍计入响应。
         double stage=now_ms();
-        if(!(mode=="route" && route=="htp"))restore_session(pre,frozen);
+        if(!(mode=="route" && route=="htp"))restore_session(pre,frozen,nullptr,kv_verification);
         double restore=now_ms()-stage;
         J kv_cost_decision=nullptr;
         bool kv_admit=kv_reduce_req && ((mode=="route"&&route=="htp") || (kv_reduce_cpu&&mode=="cpu"));
@@ -122,7 +122,7 @@ J gap_replay(const J &body) {
         stage=now_ms();
         if(mode=="route" && route=="htp"){
             if(!kv_info.is_null())llama_memory_clear(llama_get_memory(cpu->ctx),true);
-            handoff_bytes=transfer(pre,cpu->ctx);
+            handoff_bytes=transfer(pre,cpu->ctx,kv_verification);
             if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["handoff_bytes"]=handoff_bytes;}
         }
         double handoff=now_ms()-stage;

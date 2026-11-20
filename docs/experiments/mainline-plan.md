@@ -39,16 +39,16 @@ python3 scripts/run/frozen_ablation.py \
 | `shared_cc` | 已有 (`20261118-multibench`) | 1,395.8 s | −7.8% | 746.1 s | 581.9 s (190.1) | 0.0 s | 0.0 s | 41.8 s | 0.0 |
 | `shared_m1` | 已有 (`20261118-multibench`) | 1,264.8 s | −16.5% | 544.7 s | 614.3 s (200.7) | 63.0 s | 13.5 s | 4.3 s | 0.0 |
 | `shared_recent` | 已有 (`20261118-multibench`) | 1,175.3 s | −22.4% | 513.3 s | 569.2 s (185.9) | 59.3 s | 6.9 s | 3.8 s | 0.0 |
-| **`shared_prior` (封版)** | *待重跑* | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| **`shared_prior` (封版)** | 实测 (`main-4b-ablation`) | 1,220.9 s | −19.4% | 549.2 s | 582.1 s (190.2) | 58.0 s | 4.2 s | 4.2 s | 37.5 |
 | `static_hc` *(扩展)* | *待脚本支持后补跑* | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
 
 #### 表 A-2：`shared_prior`（封版）分 Benchmark 拆解
 | Benchmark | 轨迹 / Warm 轮 | `shared_prior` Post-Return | 相比 `full_cpu` | 相比 `shared_m1` | 相比 `shared_recent` | 触发 `prefill_prior` 轮次 |
 |---|---:|---:|---:|---:|---:|---:|
-| `tau2-airline` | 5 / 10 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| `tau2-retail` | 3 / 6 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| `tau2-telecom` | 6 / 39 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| `toolsandbox` | 5 / 9 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| `tau2-airline` | 5 / 10 | 185.4 s | −29.7% | −7.8% | −1.2% | 3 / 10 |
+| `tau2-retail` | 3 / 6 | 198.2 s | −22.3% | +0.3% | +2.9% | 2 / 6 |
+| `tau2-telecom` | 6 / 39 | 788.1 s | −13.5% | −3.2% | +6.1% | 2 / 39 |
+| `toolsandbox` | 5 / 9 | 49.2 s | −41.2% | −6.2% | −5.8% | 0 / 9 |
 
 ---
 
@@ -63,11 +63,11 @@ python3 scripts/run/frozen_ablation.py \
 #### 表 B-1：`tau2-ratio-8b` 完整结果（Qwen3-8B, 36 题）
 | 条件 | 比例 | 完成 / 总题 | Reward 合计 | `reward_mean` | Retail / Airline / Telecom | 状态 |
 |---|---:|---:|---:|---:|---|---|
-| `full_kv` | −1.0 | 36 / 36 | 4.0 | 0.1111 | _待提取分域_ | 已完成 |
-| `recent_only` | 0.50 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 运行/排队中 |
-| `m2_prior_low` | 0.25 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 运行中 |
-| `m2_prior_mid` | 0.50 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 排队中 |
-| `m2_prior_high` | 0.75 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | 排队中 |
+| `full_kv` | −1.0 | 35 / 36 | 4.0 | 0.1111 | `0.0 / 1.0 / 3.0` | 已完成 |
+| `recent_only` | 0.50 | 36 / 36 | 1.0 | 0.0278 | `0.0 / 0.0 / 1.0` | 已完成 |
+| `m2_prior_low` | 0.25 | 36 / 36 | 2.0 | 0.0556 | `0.0 / 0.0 / 2.0` | 已完成 |
+| `m2_prior_mid` | 0.50 | 36 / 36 | 2.0 | 0.0556 | `0.0 / 2.0 / 0.0` | 已完成 |
+| `m2_prior_high` | 0.75 | 23 / 36 | 1.0 | 0.0435 | `0.0 / 1.0 / -` | 部分完成（`telecom` 缺 13 题） |
 
 #### 表 B-2：BFCL 4B 稀疏层采样口径对齐（`stride=1` vs `stride=4`）
 | 条件 | `kv_layer_stride` | `kv_min_evict_tokens` | Complete | Valid | Accuracy | 相对 `full_kv` / `recent_only` |
@@ -91,16 +91,24 @@ python3 scripts/run/frozen_ablation.py \
   3. 长历史大 `P`（τ²-retail）：`retail-1da51b8d8ff9-26`
 - **扫描变量**：`--gap-ms` ∈ `{0, 250, 500, 1000, 2000}`（条件：`full_cpu`、`shared_m1`、`shared_prior`；以及扩展后的 `static_hc`）。输出目录：`results/mainline-eval/gap-sensitivity/`。
 
-### 2. 预留记录表（Warm Post-Return 耗时，单位：秒）
+### 2. 实测记录表（Warm Post-Return 耗时，单位：秒；构建 `20261119-runtime-fix-build`，`1231c04`）
 | 轨迹类型 | `gap_ms` | `full_cpu` | `static_hc` *(可选)* | `shared_m1` | `shared_prior` (封版) | `shared_prior` 平均 `wait_ms` |
 |---|---:|---:|---:|---:|---:|---:|
-| 短历史 (`send_message`) | 0 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 短历史 (`send_message`) | 250 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 短历史 (`send_message`) | 500 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 短历史 (`send_message`) | 1000 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 短历史 (`send_message`) | 2000 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 长历史小 `P` (`airline-9`) | 0 / 250 / 500 / 1000 / 2000 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| 长历史大 `P` (`retail-26`) | 0 / 250 / 500 / 1000 / 2000 | _TBD_ | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| 短历史 (`send_message`) | 0 | 29.35 | — | 29.66 | **20.36** | 293.4 ms |
+| 短历史 (`send_message`) | 250 | 28.52 | — | 18.10 | **15.66** | 13.0 ms |
+| 短历史 (`send_message`) | 500 | 28.98 | — | **17.66** | 25.51 | 0.0 ms |
+| 短历史 (`send_message`) | 1000 | 27.42 | — | 27.30 | **26.53** | 0.0 ms |
+| 短历史 (`send_message`) | 2000 | 29.39 | — | 21.73 | **21.73** | 0.0 ms |
+| 长历史小 `P` (`airline-9`) | 0 | 34.40 | — | 33.48 | **22.98** | 483.4 ms |
+| 长历史小 `P` (`airline-9`) | 250 | 27.39 | — | 23.68 | **21.63** | 326.4 ms |
+| 长历史小 `P` (`airline-9`) | 500 | 27.89 | — | 28.32 | **26.08** | 0.0 ms |
+| 长历史小 `P` (`airline-9`) | 1000 | 31.48 | — | 30.19 | **30.04** | 0.0 ms |
+| 长历史小 `P` (`airline-9`) | 2000 | 34.61 | — | 31.67 | **31.56** | 0.0 ms |
+| 长历史大 `P` (`retail-26`) | 0 | 178.87 | — | 116.78 *(Swap 1064M)* | **105.05** *(Swap 0M)* | 669.0 ms |
+| 长历史大 `P` (`retail-26`) | 250 | 153.62 | — | 121.42 *(Swap 565M)* | **104.47** *(Swap 0M)* | 358.2 ms |
+| 长历史大 `P` (`retail-26`) | 500 | 147.31 | — | **127.40** *(Swap 1667M)* | 127.90 *(Swap 0M)* | 320.6 ms |
+| 长历史大 `P` (`retail-26`) | 1000 | 177.56 | — | 153.51 *(Swap 2358M)* | **133.86** *(Swap 0M)* | 0.0 ms |
+| 长历史大 `P` (`retail-26`) | 2000 | 174.50 | — | 147.48 *(Swap 338M)* | **124.42** *(Swap 0M)* | 0.0 ms |
 
 ---
 

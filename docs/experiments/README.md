@@ -26,7 +26,7 @@
 
 | 编号 | 实验名称 | 优先级 | 执行端 | 当前状态 | 对应结果目录 | 记录位置 |
 |---|---|---|---|---|---|---|
-| **A** | `main-4b-ablation`（19 轨 `shared_prior` 封版重跑 + `static_hc` / `cold_route` 扩展） | **P0** | 手机（SM8650） | **待启动**（`shared_prior` 可直接开跑） | `results/mainline-eval/main-4b-ablation/` | [实验 A 记录](mainline-plan.md#a-main-4b-ablation4b-多-benchmark-封版主表--p0) |
-| **B** | `host-accuracy-align`（`tau2-ratio-8b` 收尾 + `stride=4` 准确率对齐） | **P1** | 主机（`wins` 4090） | **`tau2-ratio-8b` 后台运行中**；`stride=4` 待跑 | `results/mainline-eval/host-accuracy-align/` | [实验 B 记录](mainline-plan.md#b-host-accuracy-align主机准确率收尾与稀疏层对齐--p1) |
-| **C** | `gap-sensitivity`（Tool Wait Gap 与输入形状敏感性扫描） | **P1** | 手机（SM8650） | 待启动 | `results/mainline-eval/gap-sensitivity/` | [实验 C 记录](mainline-plan.md#c-gap-sensitivitytool-wait-gap-敏感性扫描--p1) |
+| **A** | `main-4b-ablation`（19 轨 `shared_prior` 封版重跑 + `static_hc` / `cold_route` 扩展） | **P0** | 手机（SM8650） | **第一阶段已完成**（`shared_prior` `1,220.9 s`）；第二阶段待扩展脚本 | `results/mainline-eval/main-4b-ablation/` | [实验 A 记录](mainline-plan.md#a-main-4b-ablation4b-多-benchmark-封版主表--p0) |
+| **B** | `host-accuracy-align`（`tau2-ratio-8b` 收尾 + `stride=4` 准确率对齐） | **P1** | 主机（`wins` 4090） | **`tau2-ratio-8b` 已结束**（`m2_prior_high` 23/36）；`stride=4` 待跑 | `results/mainline-eval/host-accuracy-align/` | [实验 B 记录](mainline-plan.md#b-host-accuracy-align主机准确率收尾与稀疏层对齐--p1) |
+| **C** | `gap-sensitivity`（Tool Wait Gap 与输入形状敏感性扫描） | **P1** | 手机（SM8650） | **已完成**（`1231c04` 构建，5 档 × 3 条件 × 3 轨全通过） | `results/mainline-eval/gap-sensitivity/` | [实验 C 记录](mainline-plan.md#c-gap-sensitivitytool-wait-gap-敏感性扫描--p1) |
 | **D** | `main-8b-scaling`（Qwen3-8B 长上下文 4–6 轨扩展验证） | **P1** | 手机（SM8650） | 待启动 | `results/mainline-eval/main-8b-scaling/` | [实验 D 记录](mainline-plan.md#d-main-8b-scalingqwen3-8b-长上下文扩展验证--p1) |

@@ -12,6 +12,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.model_digest import verify_model_digest
 
 REMOTE = '/data/data/com.termux/files/home/.local/a2o'
 OWNER = 'qwen35-phone-server'
@@ -22,6 +23,7 @@ def main():
     parser.add_argument('action', choices=['start', 'status', 'stop'])
     parser.add_argument('--config', type=Path, default=ROOT / 'configs/toolsandbox-qwen35-phone.json')
     parser.add_argument('--output', type=Path, default=ROOT / 'results/20261106-qwen35-toolsandbox')
+    parser.add_argument('--rehash-model', action='store_true', help='启动前重新读取整个模型进行 SHA-256 校验')
     args = parser.parse_args()
     cfg = json.loads(args.config.read_text())
     if cfg['backend'] != 'CPU' or cfg['concurrency'] != 1:
@@ -41,9 +43,8 @@ def main():
         expected = cfg['model_sha256']
         # 模型未完整传输、锁被占用、已有进程时直接失败。
         remote('test ! -e ' + lock + ' && test ! -e ' + service + '/pid')
-        digest = remote('sha256sum ' + shlex.quote(model), 300).split()[0]
-        if digest != expected:
-            raise RuntimeError('手机模型 SHA-256 不一致，拒绝启动')
+        verification = verify_model_digest(lambda command: remote(command, 300), transport.identity,
+                                           model, expected, force=args.rehash_model)
         binary_digest = remote('sha256sum ' + shlex.quote(service + '/llama-server')).split()[0]
         if binary_digest != cfg['server_binary_sha256']:
             raise RuntimeError('手机 CPU server SHA-256 不一致，拒绝启动')
@@ -65,7 +66,8 @@ def main():
         launch_ns = time.monotonic_ns()
         output = remote('nohup ' + shlex.join(command) + ' > ' + service +
                         '/server.log 2>&1 < /dev/null & echo $! > ' + service + '/pid; cat ' + service + '/pid')
-        manifest = dict(command=command, pid=int(output.strip()), phone_model_sha256=digest,
+        manifest = dict(command=command, pid=int(output.strip()), phone_model_sha256=verification["sha256"],
+                        model_verification=verification,
                         phone_binary_sha256=binary_digest,
                         backend='CPU only; compiled without OpenCL or Hexagon',
                         lock_owner=OWNER, kv_policy='none', pre_move=False,

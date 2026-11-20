@@ -17,10 +17,15 @@ import traceback
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
+sys.path.insert(0,str(ROOT/'src'))
+from a2o.profiling.memory_ledger import validate_turn
 from scripts.collect.tau2_e2e_worker import _agent_chat_resilient, _http_post, _http_post_resilient
 
 BASE = 'http://10.29.131.50:18780'
-ARMS = ('full_cpu', 'shared_cc', 'shared_m1', 'shared_recent', 'shared_prior')
+ARMS = (
+    'full_cpu', 'shared_cc', 'shared_m1', 'shared_recent', 'shared_prior',
+    'dual_unshared', 'shiftserve_joint', 'forced_cc', 'forced_hc_full', 'forced_hc_compact',
+)
 
 
 def read(path):
@@ -59,9 +64,29 @@ class Campaign:
         self.output = args.output
         self.fixture_hash = digest(args.fixtures)
         self.model = read(args.model)
-        self.build = read(args.build/'manifest.json')['artifacts']
+        build_manifest = read(args.build/'manifest.json')
+        self.build = build_manifest['artifacts']
+        self.git_commit = build_manifest.get('git_commit') or subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+        self.build_id = build_manifest.get('build_id', args.build.name)
+        self.metadata = dict(
+            git_commit=self.git_commit,
+            build_id=self.build_id,
+            device=args.device,
+            model=self.model['model_id'],
+            shared_weights=any(a not in ('full_cpu','dual_unshared') for a in args.conditions),
+            compact_anchor=bool(args.compact_anchor),
+            kv_hwm_trim=bool(args.kv_hwm_trim),
+            kv_layer_stride=args.kv_layer_stride,
+            kv_min_evict_tokens=args.kv_min_evict_tokens,
+            gap_ms=args.gap_ms,
+        )
         self.context = math.ceil(max(len(t['request']['frozen_prompt_ids'])+t['D']
                             for c in corpus['cases'] for t in c['turns'])/256)*256
+        if args.context_size is not None:
+            if args.context_size < self.context or args.context_size % 256:
+                raise ValueError('context override must fit fixtures and align to 256 tokens')
+            self.context = args.context_size
         if self.context > 14336:
             raise ValueError('Frozen cases exceed device admission')
         reserved = set(corpus['calibration_cases'])
@@ -70,8 +95,17 @@ class Campaign:
             raise ValueError('incomplete held-out calibration cohort')
         cases = [c for c in corpus['cases'] if c['id'] not in reserved]
         self.cases = sorted(cases,key=lambda c:(c['turns'][0]['P'],c['id']))
+        if args.verify_kv_state is not None:
+            self.metadata['verify_kv_state'] = bool(args.verify_kv_state)
+        if args.memory_ledger:
+            self.metadata['memory_ledger'] = True
+        if args.case:
+            self.cases = [c for c in self.cases if c['id'] in args.case]
+            if len(self.cases) != len(set(args.case)):
+                raise ValueError('unknown or reserved case')
         self.status = dict(status='running',stage='starting',completed={})
         self.plan = dict(fixtures_sha256=self.fixture_hash, build=self.build, context=self.context,
+                         metadata=self.metadata,
                          model=self.model, cpu_registry_sha256=digest(args.cpu_registry),
                          conditions=args.conditions,gap_ms=args.gap_ms,
                          cases=[c['id'] for c in self.cases],reserved=sorted(reserved))
@@ -83,23 +117,40 @@ class Campaign:
 
     def service(self, action, arm, directory):
         cpu = arm=='full_cpu'
-        policy = {'shared_prior':'prefill_prior','shared_recent':'recent'}.get(arm)
+        shared = arm not in ('full_cpu', 'dual_unshared')
+        policy = {'shared_prior':'prefill_prior','shared_recent':'recent',
+                  'forced_hc_compact':'prefill_prior','shiftserve_joint':'prefill_prior'}.get(arm)
+        use_m1 = (arm == 'shiftserve_joint') or (arm == 'shared_m1' and bool(self.args.m1_explorer))
         command = [sys.executable,str(ROOT/'scripts/run/route_phone.py'),action,
                    '--condition','cpu' if cpu else 'route','--output',str(directory),'--logs-only','--retry-network']
         if action=='start':
             m=self.model
             command += ['--runtime-overlay',str(self.args.build),'--model',m['model_path'],
                         '--model-id',m['model_id'],'--model-sha256',m['model_sha256'],
-                        '--context-size',str(self.context),'--cpu-repack','0','--kv-hwm-trim','0']
-            command += ['--registry',str(self.args.cpu_registry)] if cpu else ['--shared-weights']
+                        '--context-size',str(self.context),'--cpu-repack','0',
+                        '--kv-hwm-trim',str(self.args.kv_hwm_trim),
+                        '--device',self.args.device,'--gap-ms',str(self.args.gap_ms)]
+            if cpu:
+                command += ['--registry',str(self.args.cpu_registry)]
+            if shared:
+                command += ['--shared-weights']
+            if self.args.verify_kv_state is not None:
+                command += ['--verify-kv-state',str(self.args.verify_kv_state)]
+            if self.args.memory_ledger:
+                command += ['--memory-ledger']
+            if use_m1:
+                command += ['--m1-explorer','1']
             if policy:
                 command += ['--kv-reduce','1','--kv-policy',policy,'--kv-recent-tokens','32',
-                            '--kv-tail-tokens','16','--compact-anchor','1']
+                            '--kv-tail-tokens','16','--compact-anchor',str(self.args.compact_anchor),
+                            '--kv-layer-stride',str(self.args.kv_layer_stride),
+                            '--kv-min-evict-tokens',str(self.args.kv_min_evict_tokens)]
         subprocess.run(command,cwd=ROOT,check=True)
         if action=='start':
             health = read(directory/'health.json')
-            if (health['shared_weights']!= (not cpu) or health['kv_reduce']!= bool(policy) or
+            if (health['shared_weights']!=shared or health['kv_reduce']!= bool(policy) or
                 health['context_size']!=self.context or health['frozen_decode_version']!=1 or
+                health.get('build_id')!=self.build_id or
                 read(directory/'manifest.json')['runtime_overlay']!=self.build):
                 raise RuntimeError(f'mismatched phone condition {arm}')
         elif cpu:
@@ -169,11 +220,19 @@ class Campaign:
         return dict(model=table)
 
     def replay(self, arm, case, path):
-        request('/a2o/reset',{})
+        reset = request('/a2o/reset',{})
+        if self.args.memory_ledger:
+            save(path/'reset.json',reset)
         results=[]
-        compact = arm in ('shared_prior','shared_recent')
-        routed = arm not in ('full_cpu','shared_cc')
-        for i, turn in enumerate(case['turns']):
+        compact = arm in ('shared_prior','shared_recent','forced_hc_compact')
+        routed = arm not in ('full_cpu','shared_cc','dual_unshared')
+        force_path = self.args.force_path if self.args.force_path != 'none' else {
+            'forced_cc': 'cc',
+            'forced_hc_full': 'hc_full',
+            'forced_hc_compact': 'hc_compact',
+        }.get(arm)
+        turns = case['turns'][:2] if self.args.single_turn else case['turns']
+        for i, turn in enumerate(turns):
             self.state(stage='replay',condition=arm,case=case['id'],turn=i,H=turn['H'],P=turn['P'],D=turn['D'])
             prep, gap = None, None
             if i:
@@ -185,6 +244,8 @@ class Campaign:
             body=dict(turn['request'],max_tokens=turn['D'],expected_decode_tokens=turn['D'])
             if compact:
                 body['frozen_kv_keep_tokens']=case['keep_tokens'] if i else self.context
+            if i and force_path:
+                body['frozen_force_path']=force_path
             rid=f"{path.parent.parent.name}:{arm}:{case['id']}:{i}"
             response=_agent_chat_resilient(BASE,body,rid,total_timeout=2400)
             timing=response['timings']
@@ -197,6 +258,19 @@ class Campaign:
             effective=last['anchor_live_tokens'] if last and last.get('compact_anchor') else turn['H']
             if timing['H_effective']!=effective or (not routed and timing['route']!='cpu'):
                 raise RuntimeError('effective history or backend mismatch')
+            if i and force_path == 'cc':
+                if timing['route'] != 'cpu' or timing['kv_reduce'] is not None or timing['handoff_bytes'] != 0:
+                    raise RuntimeError(f"forced CC check failed on {case['id']} turn {i}: route={timing['route']}")
+            elif i and force_path == 'hc_full':
+                if timing['route'] != 'htp' or timing['kv_reduce'] is not None or timing['handoff_bytes'] <= 0:
+                    raise RuntimeError(f"forced HC-Full check failed on {case['id']} turn {i}: route={timing['route']}")
+            elif i and force_path == 'hc_compact':
+                kvr = timing.get('kv_reduce') or {}
+                if (timing['route'] != 'htp' or not kvr.get('compacted') or
+                    kvr.get('evicted_count', 0) <= 0 or timing['handoff_bytes'] <= 0):
+                    raise RuntimeError(f"forced HC-Compact check failed on {case['id']} turn {i}: route={timing['route']} kv={kvr}")
+            if self.args.memory_ledger:
+                validate_turn(timing, bool(self.args.kv_hwm_trim))
             results.append(timing)
         warm=results[1:]
         summary=dict(benchmark=case['benchmark'],source_model=case['source_model'],id=case['id'],arm=arm,
@@ -209,6 +283,11 @@ class Campaign:
                      max_sampled_rss_mib=max(t['decode_resources'][p]['VmRSS_kib']/1024 for t in results for p in ('before','after')),
                      max_sampled_swap_mib=max(t['decode_resources'][p]['VmSwap_kib']/1024 for t in results for p in ('before','after')),
                      handoff_bytes=sum(t['handoff_bytes'] for t in warm))
+        if self.args.memory_ledger:
+            samples = [(i, s) for i, t in enumerate(results) for s in t['memory_ledger']['samples']]
+            turn, peak = max(samples, key=lambda item: item[1]['process']['VmSwap_kib'])
+            summary['memory_ledger_peak_swap'] = dict(
+                turn=turn, stage=peak['stage'], swap_kib=peak['process']['VmSwap_kib'])
         save(path/'summary.json',summary)
 
     def summarize(self):
@@ -225,13 +304,18 @@ class Campaign:
              by_condition=dict(collections.Counter(r['arm'] for r in rows))))
 
     def run(self):
+        print('A2O_META', json.dumps(self.metadata, ensure_ascii=False), flush=True)
+        save(self.output/'metadata.json', self.metadata)
         plan=self.output/'plan.json'
         if plan.exists() and read(plan)!=self.plan:
             raise ValueError('resume requires same build, fixtures, hardware settings and arms')
         save(plan,self.plan)
         epoch=f'{time.time_ns()}'
         calibration=self.output/f'{self.output.name}-cal-{epoch}'
-        if not (self.output/'route-costs.json').exists():
+        needs_costs = any(a not in ('full_cpu','shared_cc','dual_unshared') for a in self.args.conditions)
+        if self.args.memory_ledger and not needs_costs:
+            costs = None
+        elif not (self.output/'route-costs.json').exists():
             try:
                 self.state(stage='starting_calibration')
                 self.service('start','shared_m1',calibration)
@@ -248,8 +332,18 @@ class Campaign:
             try:
                 self.state(stage='starting_condition',condition=arm)
                 self.service('start',arm,service)
-                if arm not in ('full_cpu','shared_cc'):
-                    request('/a2o/costs',costs)
+                if self.args.memory_ledger and not needs_costs and not (self.output/'renderer-audit.json').exists():
+                    audit = {case['id']: self.verify_renderer(case) for case in self.cases}
+                    save(self.output/'renderer-audit.json',audit)
+                    if any(audit.values()):
+                        raise RuntimeError('memory ledger renderer audit failed')
+                if arm not in ('full_cpu','shared_cc','dual_unshared'):
+                    payload = dict(costs)
+                    if arm == 'shiftserve_joint' or (arm == 'shared_m1' and self.args.m1_explorer):
+                        payload['m1_explorer'] = {'enabled': True}
+                    if self.args.kv_costs:
+                        payload['kv_model'] = read(self.args.kv_costs)
+                    request('/a2o/costs', payload)
                 for case in pending:
                     path=self.output/arm/case['id']
                     path.mkdir(parents=True,exist_ok=True)
@@ -277,11 +371,31 @@ def main():
     parser.add_argument('--cpu-registry',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--model',type=Path,default=ROOT/'configs/model-default.json')
-    parser.add_argument('--conditions',choices=ARMS,nargs='+',default=list(ARMS))
+    parser.add_argument('--conditions',choices=ARMS,nargs='+',
+                        default=['full_cpu','shared_cc','shared_m1','shared_recent','shared_prior'])
     parser.add_argument('--gap-ms',type=int,default=1000)
+    parser.add_argument('--kv-costs',type=Path,default=None)
+    parser.add_argument('--force-path',choices=['none','cc','hc_full','hc_compact'],default='none')
+    parser.add_argument('--single-turn',action='store_true')
+    parser.add_argument('--device',default='xiaomi14pro')
+    parser.add_argument('--compact-anchor',type=int,choices=[0,1],default=1)
+    parser.add_argument('--kv-hwm-trim',type=int,choices=[0,1])
+    parser.add_argument('--verify-kv-state',type=int,choices=[0,1])
+    parser.add_argument('--memory-ledger',action='store_true')
+    parser.add_argument('--context-size',type=int,help='显式固定上下文容量，256 的倍数')
+    parser.add_argument('--case',action='append',help='仅回放所选 case，可重复指定')
+    parser.add_argument('--kv-layer-stride',type=int,default=4)
+    parser.add_argument('--kv-min-evict-tokens',type=int,default=256)
+    parser.add_argument('--m1-explorer',type=int,choices=[0,1],default=1)
     args=parser.parse_args()
+    if args.memory_ledger and args.kv_hwm_trim is None:
+        parser.error('--memory-ledger 需要显式指定 --kv-hwm-trim 0 或 1')
+    if args.kv_hwm_trim is None:
+        args.kv_hwm_trim = 0
     for key in ('fixtures','build','cpu_registry','output','model'):
         setattr(args,key,getattr(args,key).resolve())
+    if args.kv_costs is not None:
+        args.kv_costs = args.kv_costs.resolve()
     if args.gap_ms<0 or len(set(args.conditions))!=len(args.conditions):
         parser.error('invalid tool gap or duplicate arm')
     args.output.mkdir(parents=True,exist_ok=True)

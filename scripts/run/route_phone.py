@@ -6,10 +6,13 @@ ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
 from a2o.validation.oracle import active_model_processes
 from a2o.runtime.network_retry import retry_network
+from a2o.runtime.model_digest import verify_model_digest
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--model',default='/data/data/com.termux/files/home/.local/a2o/models/Qwen3.5-9B-Q4_0.gguf')
 p.add_argument('--model-id',default='qwen35-9b-q4_0')
 p.add_argument('--model-sha256')
+p.add_argument('--rehash-model',action='store_true',help='启动前重新读取整个模型进行 SHA-256 校验')
+p.add_argument('--verify-kv-state',type=int,choices=[0,1],help='恢复和交接后全量回读核验 KV')
 p.add_argument('--opbatch',type=int,default=1)
 p.add_argument('--opqueue',type=int,default=1)
 p.add_argument('--kv-offload',type=int,choices=[0,1],default=0)
@@ -39,18 +42,28 @@ p.add_argument('--kv-sink-tokens',type=int,default=4)
 p.add_argument('--kv-recent-tokens',type=int,default=64)
 p.add_argument('--kv-pool-window',type=int,default=5)
 p.add_argument('--kv-tail-tokens',type=int,default=16)
+p.add_argument('--kv-layer-stride',type=int,default=4)
+p.add_argument('--kv-min-evict-tokens',type=int,default=256)
 p.add_argument('--compact-anchor',type=int,choices=[0,1],default=0)
-p.add_argument('--kv-hwm-trim',type=int,choices=[0,1],default=1)
+p.add_argument('--kv-hwm-trim',type=int,choices=[0,1])
+p.add_argument('--memory-ledger',action='store_true',help='采集加载与逐轮端侧内存账本')
+p.add_argument('--m1-explorer',type=int,choices=[0,1],default=0)
+p.add_argument('--device',default='xiaomi14pro')
+p.add_argument('--gap-ms',type=int,default=-1)
 p.add_argument('--expected-decode',type=int,default=96)
 p.add_argument('--probe-skel',type=Path)
 p.add_argument('--htp-profile',type=int,choices=[0,2],default=0)
 a=p.parse_args()
+if a.action=='start' and a.memory_ledger and a.kv_hwm_trim is None:
+ p.error('--memory-ledger 需要显式指定 --kv-hwm-trim 0 或 1')
+if a.kv_hwm_trim is None:a.kv_hwm_trim=1
 if bool(a.probe_skel)!=(a.htp_profile==2):p.error('私有DSP探针必须同时使用--probe-skel与--htp-profile 2')
 if a.kv_reduce and a.kv_policy=='adaptive_cost' and not a.kv_costs:p.error('--kv-policy adaptive_cost 需要 --kv-costs')
 if a.shared_weights and (a.condition!='route' or a.single_resident or a.cpu_repack):
  p.error('--shared-weights 需要 route、双上下文和 --cpu-repack 0')
 overlay={}
 hexagon_sha256=None
+build_meta={}
 if a.action=='start':
  if a.cold_costs and (a.condition!='route' or a.single_resident):p.error('--cold-costs 需要 route 和双上下文')
  if a.shared_weights and not a.runtime_overlay:p.error('--shared-weights 需要 --runtime-overlay')
@@ -59,6 +72,7 @@ if a.action=='start':
   build_manifest=json.loads((build/'manifest.json').read_text())
   declared=build_manifest['artifacts']
   hexagon_sha256=build_manifest.get('hexagon_sha256')
+  build_meta={'git_commit':build_manifest.get('git_commit'),'build_id':build_manifest.get('build_id')}
   if a.shared_weights and not hexagon_sha256:p.error('构建清单缺少 Hexagon 布局兼容校验')
   for name in ('agent','libggml-cpu.so','libllama.so'):
    artifact=build/name
@@ -95,9 +109,10 @@ if a.action=='start':
  costs='none'
  if a.costs:t.call('push',str(a.costs),remote+'/costs.json');costs=remote+'/costs.json'
  model=a.model
+ model_verification=None
  if a.model_sha256:
-  digest=t.call('shell','sha256sum '+q(model)).stdout.decode().split()[0]
-  if digest!=a.model_sha256:raise RuntimeError('模型SHA-256不匹配，拒绝启动')
+  model_verification=verify_model_digest(lambda command:t.call('shell',command).stdout.decode(),
+                                         t.identity,model,a.model_sha256,force=a.rehash_model)
  library_dirs=[remote,t.remote_root+'/a2o_oracle_20261106-143411-669461',t.config['runtime_library_dir']]
  if a.shared_weights:
   candidates=shlex.join([path+'/libggml-hexagon.so' for path in library_dirs])
@@ -105,10 +120,15 @@ if a.action=='start':
   if found[0]!=hexagon_sha256:raise RuntimeError('手机 Hexagon 动态库与构建时的权重布局来源不同')
  lib=':'.join(library_dirs+['/vendor/lib64','/vendor/lib64/egl'])
  cache_env=(' A2O_REPLAY_CACHE_DIR='+q(remote+'/replay-cache')) if a.replay_cache else ''
- command='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(remote if a.probe_skel else t.config['runtime_library_dir'])+' GGML_HEXAGON_PROFILE='+str(a.htp_profile)+' GGML_HEXAGON_USE_HMX=1 A2O_CPU_THREADS='+str(a.cpu_threads)+' A2O_CPU_REPACK='+str(a.cpu_repack)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE='+str(a.opqueue)+' GGML_HEXAGON_OPBATCH='+str(a.opbatch)+' A2O_HTP_KV_OFFLOAD='+str(a.kv_offload)+' A2O_FLASH_ATTN='+str(a.flash_attention)+' A2O_KV_REDUCE='+str(a.kv_reduce)+' A2O_KV_POLICY='+q(a.kv_policy)+' A2O_KV_KEEP_TOKENS='+str(a.kv_keep_tokens)+' A2O_KV_SINK_TOKENS='+str(a.kv_sink_tokens)+' A2O_KV_RECENT_TOKENS='+str(a.kv_recent_tokens)+' A2O_KV_POOL_WINDOW='+str(a.kv_pool_window)+' A2O_KV_TAIL_TOKENS='+str(a.kv_tail_tokens)+' A2O_COMPACT_ANCHOR='+str(a.compact_anchor)+' A2O_KV_HWM_TRIM='+str(a.kv_hwm_trim)+' A2O_EXPECTED_DECODE='+str(a.expected_decode)+' A2O_SINGLE_RESIDENT='+str(int(a.single_resident))+' A2O_SHARED_WEIGHTS='+str(int(a.shared_weights))+' A2O_MODEL_ID='+q(a.model_id)+cache_env+'; exec '+shlex.join([remote+'/service',model,a.condition,str(a.context_size),'18780',costs])
+ verify_env='' if a.verify_kv_state is None else ' A2O_VERIFY_KV_STATE='+str(a.verify_kv_state)
+ command='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(remote if a.probe_skel else t.config['runtime_library_dir'])+' GGML_HEXAGON_PROFILE='+str(a.htp_profile)+' GGML_HEXAGON_USE_HMX=1 A2O_CPU_THREADS='+str(a.cpu_threads)+' A2O_CPU_REPACK='+str(a.cpu_repack)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE='+str(a.opqueue)+' GGML_HEXAGON_OPBATCH='+str(a.opbatch)+' A2O_HTP_KV_OFFLOAD='+str(a.kv_offload)+' A2O_FLASH_ATTN='+str(a.flash_attention)+' A2O_KV_REDUCE='+str(a.kv_reduce)+' A2O_KV_POLICY='+q(a.kv_policy)+' A2O_KV_KEEP_TOKENS='+str(a.kv_keep_tokens)+' A2O_KV_SINK_TOKENS='+str(a.kv_sink_tokens)+' A2O_KV_RECENT_TOKENS='+str(a.kv_recent_tokens)+' A2O_KV_POOL_WINDOW='+str(a.kv_pool_window)+' A2O_KV_TAIL_TOKENS='+str(a.kv_tail_tokens)+' A2O_KV_LAYER_STRIDE='+str(a.kv_layer_stride)+' A2O_KV_MIN_EVICT_TOKENS='+str(a.kv_min_evict_tokens)+' A2O_COMPACT_ANCHOR='+str(a.compact_anchor)+' A2O_KV_HWM_TRIM='+str(a.kv_hwm_trim)+' A2O_MEMORY_LEDGER='+str(int(a.memory_ledger))+' A2O_M1_EXPLORER='+str(a.m1_explorer)+' A2O_DEVICE='+q(a.device)+' A2O_GAP_MS='+str(a.gap_ms)+' A2O_EXPECTED_DECODE='+str(a.expected_decode)+' A2O_SINGLE_RESIDENT='+str(int(a.single_resident))+' A2O_SHARED_WEIGHTS='+str(int(a.shared_weights))+' A2O_MODEL_ID='+q(a.model_id)+cache_env+verify_env+'; exec '+shlex.join([remote+'/service',model,a.condition,str(a.context_size),'18780',costs])
  launch='nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/runtime.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid')
  t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else '+launch+'; fi; }')
- (out/'manifest.json').write_text(json.dumps(dict(condition=a.condition,shared_weights=a.shared_weights,runtime_overlay=overlay,hexagon_sha256=hexagon_sha256,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,cpu_repack=bool(a.cpu_repack),htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model=model,model_id=a.model_id,model_sha256=a.model_sha256,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy=(a.kv_policy if a.kv_reduce else 'none'),kv_reduce=bool(a.kv_reduce),kv_keep_tokens=(a.kv_keep_tokens if a.kv_reduce else None),kv_sink_tokens=(a.kv_sink_tokens if a.kv_reduce else None),kv_recent_tokens=(a.kv_recent_tokens if a.kv_reduce else None),kv_pool_window=(a.kv_pool_window if a.kv_reduce else None),kv_tail_tokens=(a.kv_tail_tokens if a.kv_reduce else None),compact_anchor=(bool(a.compact_anchor) if a.kv_reduce else False),expected_decode_tokens=a.expected_decode,kv_costs=(str(a.kv_costs) if a.kv_costs else None),route_costs=(str(a.route_costs) if a.route_costs else None),cold_costs=(str(a.cold_costs) if a.cold_costs else None),pre_move=False,costs=str(a.costs)),indent=2)+'\n')
+ meta_header=dict(git_commit=build_meta.get('git_commit') or subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),build_id=build_meta.get('build_id'),device=a.device,model=a.model_id,shared_weights=a.shared_weights,compact_anchor=(bool(a.compact_anchor) if a.kv_reduce else False),kv_hwm_trim=bool(a.kv_hwm_trim),memory_ledger=a.memory_ledger,kv_layer_stride=a.kv_layer_stride,kv_min_evict_tokens=a.kv_min_evict_tokens,gap_ms=a.gap_ms)
+ print('A2O_META',json.dumps(meta_header,ensure_ascii=False),flush=True)
+ manifest=dict(**meta_header,condition=a.condition,runtime_overlay=overlay,hexagon_sha256=hexagon_sha256,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,cpu_repack=bool(a.cpu_repack),htp_host_threads=4,htp_profile=a.htp_profile,probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model_path=model,model_id=a.model_id,model_sha256=a.model_sha256,model_verification=model_verification,requested_verify_kv_state=a.verify_kv_state,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy=(a.kv_policy if a.kv_reduce else 'none'),kv_reduce=bool(a.kv_reduce),kv_keep_tokens=(a.kv_keep_tokens if a.kv_reduce else None),kv_sink_tokens=(a.kv_sink_tokens if a.kv_reduce else None),kv_recent_tokens=(a.kv_recent_tokens if a.kv_reduce else None),kv_pool_window=(a.kv_pool_window if a.kv_reduce else None),kv_tail_tokens=(a.kv_tail_tokens if a.kv_reduce else None),m1_explorer=bool(a.m1_explorer),expected_decode_tokens=a.expected_decode,kv_costs=(str(a.kv_costs) if a.kv_costs else None),route_costs=(str(a.route_costs) if a.route_costs else None),cold_costs=(str(a.cold_costs) if a.cold_costs else None),pre_move=False,costs=str(a.costs))
+ manifest_path=out/'manifest.json'
+ manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
  deadline=time.monotonic()+300
  while time.monotonic()<deadline:
   try:
@@ -117,6 +137,16 @@ if a.action=='start':
    if health.get('cpu_threads',4)!=a.cpu_threads:raise RuntimeError('CPU线程数与请求不一致')
    if 'model' in health and health['model']!=a.model_id:raise RuntimeError('模型身份与请求不一致')
    if 'htp_kv_offload' in health and health['htp_kv_offload']!=bool(a.kv_offload):raise RuntimeError('KV offload配置不一致')
+   if a.verify_kv_state is not None and health.get('verify_kv_state') is not bool(a.verify_kv_state):
+    raise RuntimeError('服务不支持请求的 KV 核验模式，或启动配置不一致')
+   manifest['verify_kv_state']=health.get('verify_kv_state')
+   manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+   if a.memory_ledger:
+    if health.get('memory_ledger_version')!=1 or health.get('kv_hwm_trim') is not bool(a.kv_hwm_trim):
+     raise RuntimeError('内存账本或 KV HWM trim 配置不一致')
+    with urllib.request.urlopen('http://10.29.131.50:18780/a2o/memory-ledger',timeout=10) as r:
+     ledger=json.load(r)
+    (out/'startup-memory.json').write_text(json.dumps(ledger,indent=2)+'\n')
    cost_payload={}
    if a.cold_costs:cost_payload['cold_model']=json.loads(a.cold_costs.read_text())
    if a.kv_costs:cost_payload['kv_model']=json.loads(a.kv_costs.read_text())

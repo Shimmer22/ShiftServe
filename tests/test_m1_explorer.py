@@ -111,6 +111,94 @@ class M1ExplorerTest(unittest.TestCase):
         after_shift = exp.predict_paths(4096, 64)["cc_mean_ms"]
         self.assertGreater(after_shift, 8000.0)
 
+    def test_three_way_joint_routing_and_cpp_parity(self) -> None:
+        import json
+        import shutil
+        import subprocess
+        import tempfile
+
+        kv_cfg = json.loads((ROOT / "configs/qwen3-1_7b-kv-reduce-cost.json").read_text())
+        exp = M1Explorer(beta=1.25, max_explore_penalty_ms=4000.0, exploration_enabled=True)
+        probes = [
+            {"H": 128, "P": 32, **_synth_true_costs(128, 32)},
+            {"H": 128, "P": 128, **_synth_true_costs(128, 128)},
+            {"H": 1024, "P": 32, **_synth_true_costs(1024, 32)},
+            {"H": 1024, "P": 128, **_synth_true_costs(1024, 128)},
+        ]
+        exp.bootstrap_probes(probes)
+        for _ in range(4):
+            exp.observe(h=4096, p=256, route="htp", prefill_ms=6500.0, handoff_ms=1100.0, decode_ms=6500.0, predicted_n=96, h_active=4352)
+            exp.observe(h=4096, p=256, route="cpu", restore_ms=410.0, prefill_ms=23500.0, decode_ms=6500.0, predicted_n=96, h_active=4352)
+
+        # 1. Small P (< routing_p_min=32) -> CC
+        d_cc = exp.select_joint_route(4096, 16, 96, kv_model=kv_cfg, htp_ready=True, kv_enabled=True)
+        self.assertEqual(d_cc.path, "cc")
+        self.assertEqual(d_cc.route, "cpu")
+        self.assertFalse(d_cc.kv_admit)
+
+        # 2. Moderate H, large P, short D -> HC-Full (compaction tax outweighs savings)
+        d_hc_full = exp.select_joint_route(1024, 256, 16, kv_model=kv_cfg, htp_ready=True, kv_enabled=True)
+        self.assertEqual(d_hc_full.path, "hc_full")
+        self.assertEqual(d_hc_full.route, "htp")
+        self.assertFalse(d_hc_full.kv_admit)
+
+        # 3. Large H, large P, long D -> HC-Compact (H_active = keep_tokens < H+P)
+        d_hc_cmp = exp.select_joint_route(8192, 256, 192, kv_model=kv_cfg, htp_ready=True, kv_enabled=True)
+        self.assertEqual(d_hc_cmp.path, "hc_compact")
+        self.assertEqual(d_hc_cmp.route, "htp")
+        self.assertTrue(d_hc_cmp.kv_admit)
+        self.assertLess(d_hc_cmp.h_active, 8192 + 256)
+        self.assertGreater(d_hc_cmp.handoff_saving_ms, 0.0)
+        self.assertGreater(d_hc_cmp.decode_saving_ms, 0.0)
+
+        # 4. Verify C++ M1JointExplorer header compiles cleanly and matches Python decisions
+        compiler = shutil.which("clang++") or shutil.which("g++")
+        self.assertIsNotNone(compiler)
+        cpp_src = r"""
+#include "scheduling/m1_explorer.h"
+#include <cassert>
+#include <iostream>
+int main() {
+    KvReduceCostTable kt;
+    kt.valid = true;
+    kt.expected_decode_tokens = 96;
+    kt.quality_k_min = 1536;
+    kt.quality_keep_ratio_min = 0.25;
+    kt.align_pad = 256;
+    kt.min_evict_savings_tokens = 512;
+    kt.min_gain_ms = 100.0;
+    kt.candidates = {1536, 2048, 2560, 3072, 4096};
+    kt.decode_per_tok = {41.74211604447541, 0.006359819563889574};
+    kt.handoff = {102.90720255782043, 0.09779201752845793};
+    kt.evict = {0.3391706124856704, 0.000274793336113983};
+    kt.htp_prior_tax = {655.6884210187457, 1.1448914769712997};
+    kt.cpu_prior_tax = {612.7050909996033, 0.0};
+
+    a2o_m1::M1JointExplorer exp;
+    auto p1 = exp.select_joint(4096, 16, 96, kt, true, true, true);
+    assert(p1.path == "cc" && p1.route == "cpu" && !p1.kv_admit);
+    auto p2 = exp.select_joint(1024, 256, 16, kt, true, true, true);
+    assert(p2.path == "hc_full" && p2.route == "htp" && !p2.kv_admit);
+    auto p3 = exp.select_joint(8192, 256, 192, kt, true, true, true);
+    assert(p3.path == "hc_compact" && p3.route == "htp" && p3.kv_admit && p3.h_active < 8448);
+    // Pinned + recent floor prevents false admission when total - (pinned + recent) < min_evict
+    auto p4 = exp.select_joint(1792, 257, 192, kt, true, true, true, 1792, 1536, 4, 32);
+    assert(p4.k_floor == 1568 && !p4.hc_compact_valid);
+    std::cout << p1.path << "," << p2.path << "," << p3.path << "," << p3.h_active << "\n";
+    return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as folder:
+            src_path = Path(folder) / "m1_test.cpp"
+            bin_path = Path(folder) / "m1_test"
+            src_path.write_text(cpp_src)
+            subprocess.run(
+                [compiler, "-std=c++17", "-I" + str(ROOT / "src/a2o/native"), str(src_path), "-o", str(bin_path)],
+                check=True,
+            )
+            out = subprocess.check_output([str(bin_path)], text=True, timeout=10).strip()
+            self.assertTrue(out.startswith("cc,hc_full,hc_compact,"))
+
 
 if __name__ == "__main__":
     unittest.main()

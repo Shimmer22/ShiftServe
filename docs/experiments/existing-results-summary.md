@@ -135,7 +135,7 @@
 
 ## 五、主机大规模 KV 准确率评测（`20261118-host-kv-accuracy`）
 
-注：以下已完成组均使用优化前主干二进制在 `wins` RTX 4090 上运行（`kv_layer_stride=1`）；其中 `tau2-ratio-8b` 当前**仍在后台运行中**（`m2_prior_low` 进行中）。
+注：以下组均使用优化前主干二进制在 `wins` RTX 4090 上运行（`kv_layer_stride=1`）；其中 `tau2-ratio-8b` 已停止在 `m2_prior_high` 23/36。
 
 | 评测集 | 模型 | 指标口径 | `full_kv` | `recent_only` | `m2_prior_low` | `m2_prior_mid` | `m2_prior_high` | 状态 |
 |---|---|---|---:|---:|---:|---:|---:|---|
@@ -145,7 +145,7 @@
 | [toolsandbox-8b](../../results/20261118-host-kv-accuracy/toolsandbox-8b/summary.json) | 8B | 比例 `0.25/0.5/0.75`，28 题 `mean_similarity` | 0.2357 | 0.2233 | 0.2333 | 0.2291 | **0.2527** | 已完成 |
 | [tau2](../../results/20261118-host-kv-accuracy/tau2/summary.json) | 4B | 固定 `1536/3072/4608`，36 题 `reward_mean` | **0.1111** (4/36) | 0.0556 (2/36) | 0.0556 (2/36) | 0.0556 (2/36) | 0.0556 (2/36) | 已完成 |
 | [tau2-ratio](../../results/20261118-host-kv-accuracy/tau2-ratio/summary.json) | 4B | 比例 `0.25/0.5/0.75`，36 题 `reward_mean` | 0.0556 (2/36) | 0.0833 (3/36) | 0.0278 (1/36) | 0.0556 (2/36) | 0.0000 (0/36) | 已完成 |
-| [tau2-ratio-8b](../../results/20261118-host-kv-accuracy/tau2-ratio-8b/summary.json) | 8B | 比例 `0.25/0.5/0.75`，36 题 `reward_mean` | 0.1111 (4/36) | *运行中* | *运行中* | *排队中* | *排队中* | **后台运行中** |
+| [tau2-ratio-8b](../../results/20261118-host-kv-accuracy/tau2-ratio-8b/summary.json) | 8B | 比例 `0.25/0.5/0.75`，36 题 `reward_mean` | **0.1111** (4/36) | 0.0278 (1/36) | 0.0556 (2/36) | 0.0556 (2/36) | 0.0435 (1/23) | 部分完成（缺 13 题） |
 
 > **待对齐项**：需在 `tau2-ratio-8b` 完成后用 `03ca4e4` / `179acb1` 重建主机版 `phone_service_host`（启用 `kv_layer_stride=4` 与 `kv_min_evict_tokens=256`），在 BFCL 上补验稀疏层采样是否保持准确率不掉点。
 
