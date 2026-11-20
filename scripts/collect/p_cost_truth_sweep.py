@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import random
 import statistics
 import subprocess
 import sys
@@ -40,7 +41,10 @@ def save(path, data):
 
 
 def load_prompt_slice(fixtures_path, tokens):
-    for case in read(fixtures_path)['cases']:
+    fixtures = read(fixtures_path)
+    if 'prefix_ids' in fixtures and len(fixtures['prefix_ids']) >= tokens:
+        return dict(case_id=fixtures_path.stem, turn_index=None, ids=fixtures['prefix_ids'][:tokens])
+    for case in fixtures.get('cases', []):
         for turn in case['turns']:
             ids = turn['request']['frozen_prompt_ids']
             if len(ids) >= tokens:
@@ -127,6 +131,8 @@ def validate_truth(row, paths, decode_ids, gap_ms):
         raise ValueError('CPU/HTP Prefill 数值校验失败')
     if 'HC-Compact' in paths and (row['hc_compact_evicted_count'] <= 0 or row['hc_compact_handoff_bytes'] <= 0):
         raise ValueError('HC-Compact 缺少裁剪或状态迁移')
+    if not row.get('passed'):
+        raise ValueError('设备未通过 CPU/HTP 配对校验')
     for path in paths:
         measured = truth[path]
         if measured['decode_ids'] != decode_ids:
@@ -138,17 +144,28 @@ def validate_truth(row, paths, decode_ids, gap_ms):
             raise ValueError(f'{path} 的返回后总耗时小于各阶段之和')
 
 
-def calibrate_once(args, prefix, input_ids, decode_ids, raw_reply):
+def calibrate(args, prefix, input_ids, decode_ids, repetitions, raw_reply):
     result = _http_post(BASE + '/a2o/calibrate', dict(
         prefix_ids=prefix, input_ids=input_ids, truth_decode_ids=decode_ids,
-        truth_gap_ms=args.gap_ms, repetitions=1, include_hc_compact=args.force_hc_compact,
+        truth_gap_ms=args.gap_ms, repetitions=repetitions, include_hc_compact=args.force_hc_compact,
         keep_tokens=args.keep_tokens,
-    ), timeout=600)
+    ), timeout=1800 if args.batch_reps else 600)
     expected = (len(prefix), len(input_ids), len(decode_ids))
-    if (result['H'], result['P'], result['D']) != expected:
+    if ((result['H'], result['P'], result['D']) != expected
+            or [row['repetition'] for row in result['rows']] != list(range(repetitions))):
         save(raw_reply, result)
-        raise ValueError('设备返回的 H/P/D 不符')
-    return result['rows'][0]
+        raise ValueError('设备返回的 H/P/D 或重复次数不符')
+    return result['rows']
+
+
+def measurement_batches(p_points, reps, seed, batch_reps):
+    rng = random.Random(seed)
+    if batch_reps or seed is None:
+        order = p_points if seed is None else rng.sample(p_points, len(p_points))
+        return [[(p, rep) for rep in range(reps)] for p in order] if batch_reps else [
+            [(p, rep)] for p in order for rep in range(reps)
+        ]
+    return [[(p, rep)] for rep in range(reps) for p in rng.sample(p_points, len(p_points))]
 
 
 def trimmed_mean(values):
@@ -214,6 +231,9 @@ def main():
     parser.add_argument('--kv-layer-stride', type=int, default=4)
     parser.add_argument('--kv-min-evict-tokens', type=int, default=256)
     parser.add_argument('--gap-ms', type=int, default=1000)
+    parser.add_argument('--context-size', type=int, help='固定跨切片上下文和夹具取样范围')
+    parser.add_argument('--order-seed', type=int, help='每次重复独立打乱 P 点顺序')
+    parser.add_argument('--batch-reps', action='store_true', help='同一 P 的重复在一个请求内共享历史预填充')
     args = parser.parse_args()
     args.modes = args.modes or (['shared'] if args.force_hc_compact else ['dual', 'shared'])
     if args.force_hc_compact and args.modes != ['shared']:
@@ -236,8 +256,10 @@ def run(args, p_points):
     build = build_identity(args.build)
     model = read(args.model)
     tokens = args.h + p_points[-1] + args.decode_tokens
-    context_size = math.ceil((tokens + 1) / 256) * 256
-    prompt = load_prompt_slice(args.fixtures, tokens)
+    context_size = args.context_size or math.ceil((tokens + 1) / 256) * 256
+    if tokens >= context_size:
+        raise ValueError('固定 context_size 必须大于最大 H+P+D')
+    prompt = load_prompt_slice(args.fixtures, args.context_size or tokens)
     prefix = prompt['ids'][:args.h]
     # Reuse the same continuation for every path and P point. The source is
     # frozen text for the model under test, not an independently generated answer.
@@ -258,6 +280,10 @@ def run(args, p_points):
                 fixture_sha256=sha256(args.fixtures), source_case=prompt['case_id'],
                 source_turn=prompt['turn_index'], decode_ids=decode_ids,
                 collector_sha256=sha256(Path(__file__)), launcher_sha256=sha256(LAUNCHER))
+    if args.order_seed is not None:
+        plan['order_seed'] = args.order_seed
+    if args.batch_reps:
+        plan['batch_reps'] = True
     plan_sha = ensure_plan(args.output, plan)
     print('A2O_META', json.dumps(metadata, ensure_ascii=False), flush=True)
     save(args.output / 'metadata.json', metadata)
@@ -271,30 +297,35 @@ def run(args, p_points):
     try:
         for mode in args.modes:
             pending = []
-            for p in p_points:
-                for rep in range(args.reps):
+            for batch in measurement_batches(p_points, args.reps, args.order_seed, args.batch_reps):
+                missing = []
+                for p, rep in batch:
                     path = sample_path(args.output, mode, p, rep)
                     if path.exists():
                         old = read_sample(path, plan_sha, mode, args.h, p, args.decode_tokens, rep)
                         validate_truth(old, paths, decode_ids, args.gap_ms)
                     else:
-                        pending.append((p, rep, path))
+                        missing.append((rep, path))
+                if missing:
+                    pending.append((batch[0][0], missing))
             if pending:
                 directory = args.output / f'{args.output.name}-{mode}-{time.time_ns()}'
                 try:
                     update_status(stage='starting_service', mode=mode)
                     service('start', mode, args, directory, plan)
-                    for p, rep, path in pending:
-                        update_status(stage='measuring', mode=mode, P=p, rep=rep)
-                        row = calibrate_once(args, prefix, prompt['ids'][args.h:args.h + p],
-                                             decode_ids, directory / f'p{p:03d}-r{rep:02d}-bad-shape.json')
-                        try:
-                            validate_truth(row, paths, decode_ids, args.gap_ms)
-                        except (ValueError, KeyError) as exc:
-                            save(directory / f'p{p:03d}-r{rep:02d}-failed.json', dict(error=str(exc), row=row))
-                            raise
-                        save(path, dict(plan_sha256=plan_sha, mode=mode, H=args.h, P=p,
-                                        D=args.decode_tokens, rep=rep, row=row))
+                    for p, missing in pending:
+                        update_status(stage='measuring', mode=mode, P=p, reps=[rep for rep, _ in missing])
+                        stem = f'p{p:03d}-r{missing[0][0]:02d}'
+                        rows = calibrate(args, prefix, prompt['ids'][args.h:args.h + p], decode_ids,
+                                         len(missing), directory / f'{stem}-bad-shape.json')
+                        for (rep, path), row in zip(missing, rows):
+                            try:
+                                validate_truth(row, paths, decode_ids, args.gap_ms)
+                            except (ValueError, KeyError) as exc:
+                                save(directory / f'{stem}-failed.json', dict(error=str(exc), rows=rows))
+                                raise
+                            save(path, dict(plan_sha256=plan_sha, mode=mode, H=args.h, P=p,
+                                            D=args.decode_tokens, rep=rep, row=row))
                 finally:
                     service('stop', mode, args, directory, plan)
             status['completed'][mode] = len(summarize_mode(args.output, plan, plan_sha, mode))
@@ -304,6 +335,9 @@ def run(args, p_points):
     except Exception as exc:
         update_status(status='failed', error=str(exc))
         traceback.print_exc()
+        raise
+    except KeyboardInterrupt:
+        update_status(status='interrupted')
         raise
 
 

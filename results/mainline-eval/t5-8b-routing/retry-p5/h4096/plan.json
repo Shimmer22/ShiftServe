@@ -1,0 +1,94 @@
+{
+  "protocol": "paired-post-return-v1",
+  "build": {
+    "build_id": "t1-t2-paired-truth-21d2e5ce0abe46fcaa47dd77e08398ce",
+    "git_commit": "1231c0447ea0cd7f42ad5992135b804e84e07e68",
+    "artifacts": {
+      "agent": "3834f299afd2404bf7d250d463070c4d1cc0eec96e9ac67ca09d2c5ad6469598",
+      "libggml-cpu.so": "1c8ee90c7cc23a87f72dd8928e3a4aefde3d1861018cea5f7dd6cd8fea723e91",
+      "libllama.so": "6048ea85a684dc5fa2bfd5ab555da203818a2c3a1160e152520c22838cd0d855"
+    },
+    "hexagon_sha256": "ab20b0ff91ff76319e5f79903e5522e91cd1f7627791da4ea6c4ce9749a50eff"
+  },
+  "model": {
+    "model": "Qwen3-8B-Q4_0.gguf",
+    "model_id": "qwen3-8b-q4_0",
+    "model_path": "/data/data/com.termux/files/home/.local/a2o/models/Qwen3-8B-Q4_0.gguf",
+    "model_sha256": "7578dd44850f97bea0f89d6553a2b3260de07185aa363852dbbe582539ce8066"
+  },
+  "metadata": {
+    "git_commit": "1231c0447ea0cd7f42ad5992135b804e84e07e68",
+    "build_id": "t1-t2-paired-truth-21d2e5ce0abe46fcaa47dd77e08398ce",
+    "device": "xiaomi14pro",
+    "model": "qwen3-8b-q4_0",
+    "shared_weights": true,
+    "compact_anchor": true,
+    "kv_hwm_trim": false,
+    "kv_layer_stride": 4,
+    "kv_min_evict_tokens": 256,
+    "gap_ms": 1000
+  },
+  "H": 4096,
+  "D": 32,
+  "p_points": [
+    16,
+    24,
+    40,
+    56,
+    128
+  ],
+  "reps": 3,
+  "paths": [
+    "CC",
+    "HC-Full",
+    "HC-Compact"
+  ],
+  "modes": [
+    "shared"
+  ],
+  "context_size": 4352,
+  "keep_tokens": 1536,
+  "verify_kv_state": true,
+  "htp_kv_offload": false,
+  "fixture_sha256": "7318d5ed4c9f9b942942923652862c5384ec2a7e36700199eb898284013a0be0",
+  "source_case": "fixture",
+  "source_turn": null,
+  "decode_ids": [
+    497,
+    330,
+    4684,
+    788,
+    330,
+    1986,
+    5392,
+    17180,
+    311,
+    279,
+    4856,
+    5333,
+    11,
+    892,
+    374,
+    1483,
+    311,
+    10091,
+    1196,
+    21880,
+    304,
+    264,
+    27514,
+    13,
+    13474,
+    4008,
+    25,
+    2126,
+    13142,
+    911,
+    6605,
+    369
+  ],
+  "collector_sha256": "323c88eeb3b6352513db3e962db97e2612629ead5ffc99b0ac036de79e7fcf28",
+  "launcher_sha256": "bab76348743bd1b718ff83982a891608de4164573d35973d65e64a5a7c33df20",
+  "order_seed": 20261120,
+  "batch_reps": true
+}

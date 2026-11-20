@@ -298,8 +298,10 @@ class M1Explorer:
         pinned_tokens: int = 0,
         sink_tokens: int = 4,
         recent_tokens: int = 32,
+        *,
+        compact_keep_tokens: int | None = None,
     ) -> JointDecision:
-        """Three-way joint decision over CC, HC-Full, and HC-Compact using bounded LCB."""
+        """Use bounded LCB, optionally restricting replay to its measured compact budget."""
         total = h + p
         r_mu, r_sd = self.cpu_restore.predict([1.0, float(h)])
         cp_mu, cp_sd = self.cpu_prefill.predict(self._prefill_feat(h, p))
@@ -338,7 +340,9 @@ class M1Explorer:
 
         if kv_enabled and kv_model is not None and total > k_floor + min_evict:
             base_cands = list(kv_model.get("candidates", [1536, 2048, 2560, 3072, 4096]))
-            cands = sorted({c for c in base_cands + [k_floor + off for off in (0, 512, 1024, 2048)] if c >= k_floor and c + min_evict <= total})
+            available = (base_cands + [k_floor + off for off in (0, 512, 1024, 2048)]
+                         if compact_keep_tokens is None else [compact_keep_tokens])
+            cands = sorted({c for c in available if k_floor <= c <= total - min_evict})
             if cands:
                 tax_ms = self._eval_linear_term(kv_model["htp_prior_tax"], float(p))
                 evict_ms = self._eval_linear_term(kv_model["evict"], float(total))
