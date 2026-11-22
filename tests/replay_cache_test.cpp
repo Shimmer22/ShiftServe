@@ -19,7 +19,12 @@ void require(bool ok,const char *message){if(!ok)throw std::runtime_error(messag
 std::string read(const std::string &file){std::ifstream in(file,std::ios::binary);return {std::istreambuf_iterator<char>(in),{}};}
 llama_context *llama_get_memory(llama_context *ctx){return ctx;}
 void llama_memory_clear(llama_context *ctx,bool){ctx->state.clear();}
-void restore_session(llama_context *ctx,const SessionSnapshot &snapshot){ctx->state=snapshot.state;}
+enum class KvVerification { import_size, full_bytes };
+KvVerification restored_mode=KvVerification::full_bytes;
+void restore_session(llama_context *ctx,const SessionSnapshot &snapshot,double *,KvVerification mode){
+    ctx->state=snapshot.state;
+    restored_mode=mode;
+}
 void evaluate(llama_context *ctx,const std::vector<int> &ids,int &pos){
     for(int id:ids){ctx->state.push_back(id);++pos;++evaluated;}
 }
@@ -28,22 +33,26 @@ std::vector<uint8_t> export_seq(llama_context *ctx){return ctx->state;}
 int main(int argc,char **argv){
     assert(argc==2);std::string directory=argv[1];llama_context ctx;J report;
     FrozenReplayCache cache("model-build-a");
-    auto a=cache.get(&ctx,{1,2,3},directory,report);
+    const auto mode=KvVerification::import_size;
+    auto a=cache.get(&ctx,{1,2,3},directory,report,mode);
     assert(evaluated==3 && report["source"]=="bootstrap");
     ctx.state={99};
-    auto b=cache.get(&ctx,{1,2,3},directory,report);
+    auto b=cache.get(&ctx,{1,2,3},directory,report,mode);
     assert(evaluated==3 && report["source"]=="memory" && a.state==b.state);
     // The caller restores fixtures before measurement; a hit returns saved bytes.
-    auto c=cache.get(&ctx,{1,2,3,4},directory,report);
+    auto c=cache.get(&ctx,{1,2,3,4},directory,report,mode);
     assert(evaluated==4 && report["extended_prefix_tokens"]==3);
+    assert(restored_mode==mode);
     assert(c.state==std::vector<uint8_t>({1,2,3,4}));
-    cache.get(&ctx,{7,8},directory,report);
+    cache.get(&ctx,{7,8},directory,report,mode);
     assert(evaluated==6 && report["extended_prefix_tokens"]==0);
     FrozenReplayCache restarted("model-build-a");
-    auto d=restarted.get(&ctx,{1,2,3},directory,report);
+    restored_mode=KvVerification::full_bytes;
+    auto d=restarted.get(&ctx,{1,2,3},directory,report,mode);
     assert(evaluated==6 && report["source"]=="disk" && d.state==a.state);
+    assert(restored_mode==mode);
     FrozenReplayCache different_build("model-build-b");
-    different_build.get(&ctx,{1,2,3},directory,report);
+    different_build.get(&ctx,{1,2,3},directory,report,mode);
     assert(evaluated==9 && !report["hit"].get<bool>());
     // Same-length corruption must fail before importing state.
     for(const auto &entry:std::filesystem::directory_iterator(directory)){
@@ -54,6 +63,6 @@ int main(int argc,char **argv){
         file.put('x');
     }
     FrozenReplayCache corrupted("model-build-a");bool rejected=false;
-    try{corrupted.get(&ctx,{1,2,3},directory,report);}catch(const std::runtime_error &){rejected=true;}
+    try{corrupted.get(&ctx,{1,2,3},directory,report,mode);}catch(const std::runtime_error &){rejected=true;}
     assert(rejected);
 }

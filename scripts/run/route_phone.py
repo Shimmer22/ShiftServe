@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """持锁启动/停止私有 CPU、HTP offload 或 route 手机研究服务。"""
-import argparse,hashlib,json,shlex,subprocess,sys,time,urllib.request
+import argparse,hashlib,json,os,shlex,subprocess,sys,time,urllib.error,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
 from a2o.validation.oracle import active_model_processes
 from a2o.runtime.network_retry import retry_network
 from a2o.runtime.model_digest import verify_model_digest
+BASE=os.environ.get('A2O_PHONE_HTTP_BASE','http://10.29.131.50:18780').rstrip('/')
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--model',default='/data/data/com.termux/files/home/.local/a2o/models/Qwen3.5-9B-Q4_0.gguf')
 p.add_argument('--model-id',default='qwen35-9b-q4_0')
@@ -132,7 +133,7 @@ if a.action=='start':
  deadline=time.monotonic()+300
  while time.monotonic()<deadline:
   try:
-   with urllib.request.urlopen('http://10.29.131.50:18780/health',timeout=3) as r:health=json.load(r)
+   with urllib.request.urlopen(BASE+'/health',timeout=3) as r:health=json.load(r)
    if health.get('shared_weights',False)!=a.shared_weights:raise RuntimeError('共享权重配置不一致')
    if health.get('cpu_threads',4)!=a.cpu_threads:raise RuntimeError('CPU线程数与请求不一致')
    if 'model' in health and health['model']!=a.model_id:raise RuntimeError('模型身份与请求不一致')
@@ -144,7 +145,7 @@ if a.action=='start':
    if a.memory_ledger:
     if health.get('memory_ledger_version')!=1 or health.get('kv_hwm_trim') is not bool(a.kv_hwm_trim):
      raise RuntimeError('内存账本或 KV HWM trim 配置不一致')
-    with urllib.request.urlopen('http://10.29.131.50:18780/a2o/memory-ledger',timeout=10) as r:
+    with urllib.request.urlopen(BASE+'/a2o/memory-ledger',timeout=10) as r:
      ledger=json.load(r)
     (out/'startup-memory.json').write_text(json.dumps(ledger,indent=2)+'\n')
    cost_payload={}
@@ -154,12 +155,14 @@ if a.action=='start':
     rc=json.loads(a.route_costs.read_text())
     cost_payload['model']=rc['model'] if ('model' in rc and isinstance(rc['model'],dict)) else rc
    if cost_payload:
-    req=urllib.request.Request('http://10.29.131.50:18780/a2o/costs',data=json.dumps(cost_payload).encode(),headers={'Content-Type':'application/json'},method='POST')
+    req=urllib.request.Request(BASE+'/a2o/costs',data=json.dumps(cost_payload).encode(),headers={'Content-Type':'application/json'},method='POST')
     with urllib.request.urlopen(req,timeout=15) as kr:health['cost_install']=json.load(kr)
     if a.cold_costs:
      if not health['cost_install'].get('cold_cost_loaded'):raise RuntimeError('首轮选路成本安装失败')
      health['cold_cost_loaded']=True
    (out/'health.json').write_text(json.dumps(health));print(health);break
+  except urllib.error.HTTPError:
+   raise
   except OSError:
    # 仅网络等待不消耗初始化预算；SSH连通后继续检查服务。
    before=time.monotonic()
@@ -178,10 +181,20 @@ else:
   if state=='stopped':break
   time.sleep(1)
  else:raise RuntimeError('私有服务未退出，保留锁；禁止并行启动下一模型')
- if a.logs_only:
-  device=out/'device';device.mkdir(exist_ok=True)
-  for name in ['runtime.log','pid']:t.call('pull',remote+'/'+name,str(device/name))
-  (out/'remote-artifacts.json').write_text(json.dumps(dict(remote=remote,replay_cache=remote+'/replay-cache',retained_on_phone=True,downloaded=['runtime.log','pid']),indent=2)+'\n')
- else:t.call('pull',remote+'/.',str(out/'device'))
- t.release_lock()
- retry(lambda:subprocess.run(t.prefix+['termux-wake-unlock'],check=True,capture_output=True,timeout=30))
+ try:
+  if a.logs_only:
+   device=out/'device';device.mkdir(exist_ok=True)
+   downloaded,missing=[],[]
+   for name in ('runtime.log','pid'):
+    source=remote+'/'+name
+    present=t.call('shell','if [ -f '+q(source)+' ]; then echo yes; fi').stdout.decode().strip()
+    if present=='yes':
+     t.call('pull',source,str(device/name));downloaded.append(name)
+    else:missing.append(name)
+   (out/'remote-artifacts.json').write_text(json.dumps(dict(remote=remote,replay_cache=remote+'/replay-cache',retained_on_phone=True,downloaded=downloaded,missing=missing),indent=2)+'\n')
+  elif t.call('shell','if [ -d '+q(remote)+' ]; then echo yes; fi').stdout.decode().strip()=='yes':
+   t.call('pull',remote+'/.',str(out/'device'))
+ finally:
+  # Termux's am wrapper works from the SSH app UID. Android's am does not.
+  try:t.call('shell','if '+owner_check+'; then PATH=/data/data/com.termux/files/usr/bin:"$PATH" termux-wake-unlock; fi')
+  finally:t.release_lock()

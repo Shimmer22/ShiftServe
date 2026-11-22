@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Container-side official tau2-bench E2E runner splitting agent (phone) and user/judge (host vLLM)."""
+from __future__ import annotations
+
 import argparse
 import hashlib
 import http.client
@@ -28,33 +30,53 @@ def _http_post(url: str, body: dict, timeout: int = 1800, api_key: str = "dummy"
 
 
 def _http_post_resilient(
-    url: str, body: dict, timeout: int = 25, retries: int = 120, api_key: str = "dummy"
+    url: str, body: dict, timeout: int = 25, retries: int = 120, api_key: str = "dummy",
+    *, deadline: float | None = None,
 ) -> dict:
     last_exc = None
     for attempt in range(retries):
+        remaining = timeout if deadline is None else deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"POST {url} exceeded the request deadline") from last_exc
         try:
-            return _http_post(url, body, timeout=timeout, api_key=api_key)
+            return _http_post(url, body, timeout=min(timeout, remaining), api_key=api_key)
         except (http.client.HTTPException, urllib.error.URLError, TimeoutError, OSError) as exc:
             last_exc = exc
-            time.sleep(min(4.0, 0.5 + 0.25 * attempt))
+            if attempt + 1 < retries:
+                delay = min(4.0, 0.5 + 0.25 * attempt)
+                if deadline is not None:
+                    delay = min(delay, max(0.0, deadline - time.monotonic()))
+                time.sleep(delay)
     raise RuntimeError(f"POST {url} failed after {retries} network retries: {last_exc}") from last_exc
 
 
 def _agent_chat_resilient(agent_base: str, req_body: dict, request_id: str, total_timeout: float = 2400.0) -> dict:
     base = agent_base.rstrip("/")
-    _http_post_resilient(f"{base}/a2o/chat-start", {**req_body, "request_id": request_id}, timeout=20, retries=120)
     deadline = time.monotonic() + total_timeout
+    start = {**req_body, "request_id": request_id}
+    _http_post_resilient(f"{base}/a2o/chat-start", start, timeout=20, retries=120, deadline=deadline)
+    gateway_errors = 0
     while time.monotonic() < deadline:
-        poll = _http_post_resilient(
-            f"{base}/a2o/chat-wait", {"request_id": request_id, "wait_ms": 15000}, timeout=25, retries=120
-        )
+        try:
+            poll = _http_post_resilient(
+                f"{base}/a2o/chat-wait", {"request_id": request_id, "wait_ms": 15000},
+                timeout=25, retries=120, deadline=deadline,
+            )
+        except RuntimeError as exc:
+            cause = exc.__cause__
+            if not isinstance(cause, urllib.error.HTTPError) or cause.code not in (502, 503, 504) or gateway_errors >= 5:
+                raise
+            gateway_errors += 1
+            time.sleep(min(2.0, max(0.0, deadline - time.monotonic())))
+            continue
+        gateway_errors = 0
         status = poll.get("status")
         if status == "done":
             return poll["result"]
         if status == "error":
             raise RuntimeError(f"Agent async chat failed ({request_id}): {poll.get('error')}")
         if status == "unknown":
-            _http_post_resilient(f"{base}/a2o/chat-start", {**req_body, "request_id": request_id}, timeout=20, retries=120)
+            _http_post_resilient(f"{base}/a2o/chat-start", start, timeout=20, retries=120, deadline=deadline)
     raise TimeoutError(f"Agent async chat timed out after {total_timeout}s ({request_id})")
 
 

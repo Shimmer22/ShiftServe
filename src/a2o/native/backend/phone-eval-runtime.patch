@@ -1,0 +1,97 @@
+--- a/src/llama-context.h
++++ b/src/llama-context.h
+@@ -55,6 +55,7 @@
+     void sched_reserve();
+
+     void synchronize();
++    void a2o_set_eval_callback(ggml_backend_sched_eval_callback callback, void * user_data);
+
+     const llama_model   & get_model()   const;
+     const llama_cparams & get_cparams() const;
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -629,12 +629,56 @@
+             __func__, (t_end_us - t_start_us)/1000.0, ggml_backend_sched_get_n_copies(sched.get()));
+ }
+
++namespace {
++struct a2o_graph_profile {
++    int64_t build_us = 0, dispatch_us = 0, sync_us = 0;
++    int64_t builds = 0, graphs = 0, callback_graphs = 0;
++};
++thread_local a2o_graph_profile * a2o_active_graph_profile = nullptr;
++thread_local a2o_graph_profile a2o_graph_profile_storage;
++
++struct a2o_graph_timer {
++    int64_t * target;
++    int64_t start;
++    explicit a2o_graph_timer(int64_t * target) : target(target), start(target ? ggml_time_us() : 0) {}
++    ~a2o_graph_timer() { if (target) *target += ggml_time_us() - start; }
++};
++}
++
++extern "C" LLAMA_API void llama_a2o_graph_profile_begin() {
++    a2o_graph_profile_storage = {};
++    a2o_active_graph_profile = &a2o_graph_profile_storage;
++}
++
++extern "C" LLAMA_API void llama_a2o_graph_profile_end(int64_t * out) {
++    const auto & p = a2o_graph_profile_storage;
++    out[0] = p.build_us; out[1] = p.dispatch_us; out[2] = p.sync_us;
++    out[3] = p.builds; out[4] = p.graphs; out[5] = p.callback_graphs;
++    a2o_active_graph_profile = nullptr;
++}
++
++void llama_context::a2o_set_eval_callback(ggml_backend_sched_eval_callback callback, void * user_data) {
++    cparams.cb_eval = callback;
++    cparams.cb_eval_user_data = user_data;
++    if (sched) {
++        ggml_backend_sched_set_eval_callback(sched.get(), callback, user_data);
++    }
++}
++
++extern "C" LLAMA_API void llama_a2o_set_eval_callback(llama_context * ctx,
++        ggml_backend_sched_eval_callback callback, void * user_data) {
++    ctx->a2o_set_eval_callback(callback, user_data);
++}
++
+ void llama_context::synchronize() {
+     if (!sched) {
+         return;
+     }
+
+-    ggml_backend_sched_synchronize(sched.get());
++    {
++        a2o_graph_timer timer(a2o_active_graph_profile ? &a2o_active_graph_profile->sync_us : nullptr);
++        ggml_backend_sched_synchronize(sched.get());
++    }
+
+     // FIXME: if multiple single tokens are evaluated without a synchronization,
+     // the stats will be added to the prompt evaluation stats
+@@ -1194,6 +1238,10 @@
+
+         n_reused++;
+     } else {
++        if (a2o_active_graph_profile) {
++            ++a2o_active_graph_profile->builds;
++        }
++        a2o_graph_timer timer(a2o_active_graph_profile ? &a2o_active_graph_profile->build_us : nullptr);
+         res->reset();
+
+         ggml_backend_sched_reset(sched.get());
+@@ -2188,7 +2236,14 @@
+         set_n_threads_fn.second(set_n_threads_fn.first, n_threads);
+     }
+
+-    auto status = ggml_backend_sched_graph_compute_async(sched.get(), gf);
++    if (a2o_active_graph_profile) {
++        ++a2o_active_graph_profile->graphs;
++        a2o_active_graph_profile->callback_graphs += cparams.cb_eval != nullptr;
++    }
++    const auto status = [&] {
++        a2o_graph_timer timer(a2o_active_graph_profile ? &a2o_active_graph_profile->dispatch_us : nullptr);
++        return ggml_backend_sched_graph_compute_async(sched.get(), gf);
++    }();
+     if (status != GGML_STATUS_SUCCESS) {
+         LLAMA_LOG_ERROR("%s: ggml_backend_sched_graph_compute_async failed with error %d\n", __func__, status);
+     }

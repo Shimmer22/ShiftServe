@@ -176,7 +176,7 @@ struct M1JointDecision {
 
 class M1JointExplorer {
 public:
-    int routing_p_min = 32;
+    int routing_p_min = 16;
     double beta = 1.25;
     double max_explore_penalty_ms = 4000.0;
     int min_obs_before_guard = 6;

@@ -1,11 +1,13 @@
 #pragma once
 #include <cstdlib>
 #include <cstring>
+#include <dlfcn.h>
 // 只在计时前的观察prefill收集逐通道平方和或注意力分数，不接触decode未来token。
 struct PrefillPrior {
     bool enabled=false,collect_ffn=true,collect_kv=false,record_n_kv=false;
     int kv_tail_tokens=0;
     int kv_layer_stride=4;
+    double kv_callback_ms=0.0;
     int64_t last_n_kv=-1;
     std::map<int,std::vector<double>> ffn,query;
     std::vector<double> kv_scores;
@@ -26,6 +28,7 @@ struct PrefillPrior {
         if(!is_ffn&&!is_query&&!is_kq)return true;
         require(t->type==GGML_TYPE_F32&&ggml_is_contiguous(t),"prefill prior requires contiguous F32");
         if(is_kq){
+            const double start=now_ms();
             const int64_t n_kv=t->ne[0],n_tok=t->ne[1],n_head=t->ne[2];
             require(t->ne[3]==1,"kq_soft_max prior expects single stream");
             const int64_t q0=(self.kv_tail_tokens>0&&n_tok>self.kv_tail_tokens)?(n_tok-self.kv_tail_tokens):0;
@@ -60,6 +63,7 @@ struct PrefillPrior {
                 float v=acc[k];require(std::isfinite(v),"kq prior nonfinite");
                 self.kv_scores[size_t(k)]+=double(v);
             }
+            self.kv_callback_ms+=now_ms()-start;
             return true;
         }
         std::string name=cname;
@@ -119,7 +123,19 @@ static void evaluate_with_prior_tail(llama_context *ctx,const std::vector<llama_
         prior.enabled=false;
         evaluate(ctx,std::vector<llama_token>(ts.begin(),ts.begin()+split),pos);
     }
+    using Setter = void (*)(llama_context *, ggml_backend_sched_eval_callback, void *);
+    static const auto set_callback = reinterpret_cast<Setter>(dlsym(RTLD_DEFAULT, "llama_a2o_set_eval_callback"));
+    require(set_callback, "runtime does not support scoped prefill callbacks");
+    struct ScopedPrior {
+        Setter set;
+        llama_context * ctx;
+        PrefillPrior & prior;
+        ~ScopedPrior() {
+            set(ctx,nullptr,nullptr);
+            prior.enabled=false;
+        }
+    } scope{set_callback,ctx,prior};
     prior.enabled=true;
+    set_callback(ctx,&PrefillPrior::callback,&prior);
     evaluate(ctx,std::vector<llama_token>(ts.begin()+split,ts.end()),pos);
-    prior.enabled=false;
 }

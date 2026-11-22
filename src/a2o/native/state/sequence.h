@@ -4,7 +4,9 @@ enum class KvVerification { import_size, full_bytes };
 
 static std::vector<uint8_t> export_seq(llama_context * ctx) {
     llama_synchronize(ctx);
-    std::vector<uint8_t> state(llama_state_seq_get_size(ctx, 0));
+    const size_t bytes=llama_state_seq_get_size(ctx, 0);
+    require(bytes>0,"seq export size unavailable");
+    std::vector<uint8_t> state(bytes);
     require(llama_state_seq_get_data(ctx, state.data(), state.size(), 0) == state.size(), "seq export failed");
     return state;
 }

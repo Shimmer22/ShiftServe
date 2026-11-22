@@ -40,8 +40,9 @@ def compile_overlay(git_commit: str = "unknown", build_id: str = "unknown"):
         dest = overlay / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes((source / relative).read_bytes())
-    patch = native / "backend/htp_shared_weights_runtime.patch"
-    subprocess.run(["git", "apply", "--whitespace=error", str(patch)], cwd=overlay, check=True)
+    for name in ("htp_shared_weights_runtime.patch", "phone-eval-runtime.patch"):
+        patch = native / "backend" / name
+        subprocess.run(["git", "apply", "--whitespace=error", str(patch)], cwd=overlay, check=True)
 
     def build_object(relative):
         original = source / relative

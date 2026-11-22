@@ -1,11 +1,21 @@
 #pragma once
+#include <limits>
+#include <string_view>
+
 // Tokenizer、模板、增量评估与采样。
-static std::vector<llama_token> tokens(const llama_vocab * v, const std::string & s, bool first) {
-    int n = llama_tokenize(v, s.data(), s.size(), nullptr, 0, first, true);
-    require(n <= 0, "unexpected tokenizer size");
-    std::vector<llama_token> out(-n);
-    n = llama_tokenize(v, s.data(), s.size(), out.data(), out.size(), first, true);
-    require(n >= 0, "tokenization failed"); out.resize(n); return out;
+static std::vector<llama_token> tokens(const llama_vocab * v, std::string_view s, bool first) {
+    require(s.size()<=size_t(std::numeric_limits<int32_t>::max()),"tokenizer input too large");
+    // llama_tokenize runs the tokenizer even when called only to size its output.
+    std::vector<llama_token> out(std::min<size_t>(s.size()+8,65536));
+    int32_t n=llama_tokenize(v,s.data(),s.size(),out.data(),out.size(),first,true);
+    if(n<0){
+        require(n!=std::numeric_limits<int32_t>::min(),"tokenizer output too large");
+        out.resize(-n);
+        n=llama_tokenize(v,s.data(),s.size(),out.data(),out.size(),first,true);
+    }
+    require(n>=0,"tokenization failed");
+    out.resize(n);
+    return out;
 }
 static void evaluate(llama_context * ctx, const std::vector<llama_token> & ts, llama_pos & pos) {
     for (size_t i = 0; i < ts.size(); i += batch_size) {
@@ -17,7 +27,8 @@ static void evaluate(llama_context * ctx, const std::vector<llama_token> & ts, l
             b.n_seq_id[j] = 1; b.seq_id[j][0] = 0; b.logits[j] = j == n-1;
         }
         int rc = llama_decode(ctx, b); llama_batch_free(b);
-        require(rc == 0, "llama_decode failed: " + std::to_string(rc)); pos += n;
+        if (rc != 0) throw std::runtime_error("llama_decode failed: " + std::to_string(rc));
+        pos += n;
     }
     llama_synchronize(ctx);
 }

@@ -16,7 +16,7 @@ J stage_sweep(const J &body) {
     lane.close();anchor={};anchor_ids.clear();
     J cache;double boot=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
     if(single_resident && !replay_cache->matches(prefix))select_stage_backend("cpu",prefix);
-    auto frozen=replay_cache->get(home().ctx,prefix,dir?dir:"",cache);
+    const auto &frozen=replay_cache->get(home().ctx,prefix,dir?dir:"",cache,KvVerification::full_bytes);
     double bootstrap=now_ms()-boot;
     J rows=J::array();std::vector<float> reference;double cosine=1,nrmse=0;
     for(const auto &backend:order) {

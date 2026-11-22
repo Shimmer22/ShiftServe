@@ -40,7 +40,7 @@ J gap_replay(const J &body) {
     lane.close();anchor={};anchor_ids.clear();
     htp->ensure_ctx();
     J cache;double begin=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
-    auto frozen=replay_cache->get(cpu->ctx,prefix,dir?dir:"",cache);
+    const auto &frozen=replay_cache->get(cpu->ctx,prefix,dir?dir:"",cache,kv_verification);
     double bootstrap=now_ms()-begin;
     J rows=J::array();
     for(const auto &mode:order) {

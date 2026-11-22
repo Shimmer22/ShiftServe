@@ -197,6 +197,10 @@ public:
 
     double overhead_ms() const { return overhead_ms_; }
 
+    J checkpoint_process() const {
+        return enabled_ ? samples_.back().at("process") : J(resource_sample());
+    }
+
     J result() {
         return {{"version", 1}, {"kv_hwm_trim", trim_}, {"collection_ms", overhead_ms_},
                 {"samples", std::move(samples_)}};

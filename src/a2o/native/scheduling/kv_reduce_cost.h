@@ -189,7 +189,7 @@ inline JsonT kv_reduce_plan_to_json(const KvReducePlan &p) {
 
 struct RouteLinearCostTable {
     bool valid = false;
-    int routing_p_min = 32;
+    int routing_p_min = 16;
     size_t h_min = 0;
     size_t h_max = 0;
     size_t p_min = 0;
@@ -227,7 +227,7 @@ inline RouteLinearCostTable parse_route_linear_cost_table(const JsonT &m) {
     }
     RouteLinearCostTable r;
     r.valid = true;
-    r.routing_p_min = m.value("routing_p_min", 32);
+    r.routing_p_min = m.value("routing_p_min", 16);
     r.h_min = m.value("h_min", size_t(0));
     r.h_max = m.value("h_max", size_t(0));
     r.p_min = m.value("p_min", size_t(0));
