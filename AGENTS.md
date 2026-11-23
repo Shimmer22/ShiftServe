@@ -7,6 +7,7 @@
 - 中文说明，复用 shared/ 下已有运行时、模型与工具链，不复制大资产。默认文本成本实验使用 Qwen3-8B Q4_0（configs/model-default.json），明确记录 CPU / HTP offload；Qwen2.5-VL-3B 与 F16 mmproj 仅保留为历史视觉验证入口。
 - 远端编译用 `ssh wins`（`10.29.243.183`）的缓存镜像 `ghcr.io/snapdragon-toolchain/arm64-android:v0.3`：SDK 6.4.0.2、Hexagon Clang 19.0.04；原源码/产物在 `/home/wins/ai-workspace/tools/llama.cpp-hexagon-build/`，探针另建私有目录。
 - CPU / HTP / hybrid 必须显式配置并记录，设备不可用时直接失败，不静默回退。模型设备实验串行执行，避免不同条件争抢手机资源。
+- 论文端侧正式实验默认使用 CPU 4 线程（Prefill 和 Decode 均为 4）及 HTP 主机 4 线程。线程专项诊断单独记录偏离配置。
 - 默认关闭 KV 整理和预搬移；先通过正常响应和状态迁移检查，再比较策略与延迟。
 - 同一条件的 prefill/decode 使用一个进程内的上下文；模型初始化、视觉初始化、观察处理、状态迁移和 decode 分别计时。
 - 保留失败输出与原始日志；退出码成功不等于响应通过。实际图像输入、JSON 响应、历史记忆和状态迁移分别验证。

@@ -183,7 +183,6 @@ public:
     int routing_p_min = 16;
     double beta = 1.25;
     double max_explore_penalty_ms = 4000.0;
-    int min_obs_before_guard = 6;
     bool exploration_enabled = true;
     bool online_update_enabled = true;
 
@@ -382,9 +381,7 @@ public:
         std::string reason = explored ? "m1_lcb_explore" : "m1_lcb_agree";
         if (explored) {
             const double mean_gap = lcb_it->mean_ms - greedy_it->mean_ms;
-            const bool enough_data =
-                cpu_prefill.n_obs >= min_obs_before_guard && htp_prefill.n_obs >= min_obs_before_guard;
-            if (enough_data && mean_gap > max_explore_penalty_ms) {
+            if (mean_gap > max_explore_penalty_ms) {
                 chosen = greedy_it;
                 reason = "m1_safe_guard_greedy";
             } else {

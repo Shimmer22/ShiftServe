@@ -1186,7 +1186,6 @@ int main(int argc,char **argv){try{
                 service.m1_explorer.routing_p_min=m1c.value("routing_p_min",16);
                 service.m1_explorer.beta=m1c.value("beta",1.25);
                 service.m1_explorer.max_explore_penalty_ms=m1c.value("max_explore_penalty_ms",4000.0);
-                service.m1_explorer.min_obs_before_guard=m1c.value("min_obs_before_guard",6);
                 service.m1_explorer.exploration_enabled=m1c.value("exploration_enabled",true);
                 service.m1_explorer.online_update_enabled=m1c.value("online_update_enabled",true);
                 if(m1c.contains("probes") && m1c.at("probes").is_array()){
