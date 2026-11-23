@@ -16,6 +16,7 @@ from a2o.runtime.device_transport import DeviceTransport
 
 def run(port, command):
     with socket.socket() as listener:
+        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(('127.0.0.1', port))
     device = DeviceTransport(ROOT, 'ssh', config=ROOT / 'configs/termux-ssh.json')
     ssh = [*device.prefix[:-1], '-N', '-o', 'ExitOnForwardFailure=yes',

@@ -142,6 +142,8 @@ def verify_agent_health(health, runtime, cfg, cond, pid):
     }.items():
         if health.get(key) != expected:
             raise RuntimeError(f"服务配置不匹配 {key}: {health.get(key)} != {expected}")
+    if "kv_hwm_trim" in cfg and health.get("kv_hwm_trim") != bool(cfg["kv_hwm_trim"]):
+        raise RuntimeError(f"服务配置不匹配 kv_hwm_trim: {health.get('kv_hwm_trim')} != {bool(cfg['kv_hwm_trim'])}")
     if runtime["build_id"] and health.get("build_id") != runtime["build_id"]:
         raise RuntimeError(f"服务构建不匹配: {health.get('build_id')}")
     actual = subprocess.check_output(["ssh", "-n", WINS_HOST, f"sha256sum /proc/{int(pid)}/exe"],
@@ -203,7 +205,7 @@ def start_agent_server(cond: dict, cfg: dict, port: int, wins_out_base: str, run
     log_path = f"{cdir}/agent-server.log"
     pid_path = f"{cdir}/agent-server.pid"
     env_vars = {
-        "LD_LIBRARY_PATH": WINS_CUDA_BIN,
+        "LD_LIBRARY_PATH": f"{Path(runtime['binary']).parent}:{WINS_CUDA_BIN}",
         "A2O_HOST_GPU_LAYERS": "99",
         "A2O_CPU_THREADS": str(cfg["cpu_threads"]),
         "A2O_FLASH_ATTN": "0",
@@ -222,6 +224,8 @@ def start_agent_server(cond: dict, cfg: dict, port: int, wins_out_base: str, run
         "A2O_SINGLE_RESIDENT": "1",
         "A2O_MODEL_ID": cfg["model_id"],
     }
+    if "kv_hwm_trim" in cfg:
+        env_vars["A2O_KV_HWM_TRIM"] = str(int(bool(cfg["kv_hwm_trim"])))
     pid = _spawn_remote_bg(
         [runtime["binary"], cfg["model_path"], "cpu", str(cfg["context_size"]), str(port), "none"],
         cwd=WINS_CUDA_BIN,

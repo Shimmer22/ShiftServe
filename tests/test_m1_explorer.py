@@ -130,8 +130,8 @@ class M1ExplorerTest(unittest.TestCase):
             exp.observe(h=4096, p=256, route="htp", prefill_ms=6500.0, handoff_ms=1100.0, decode_ms=6500.0, predicted_n=96, h_active=4352)
             exp.observe(h=4096, p=256, route="cpu", restore_ms=410.0, prefill_ms=23500.0, decode_ms=6500.0, predicted_n=96, h_active=4352)
 
-        # 1. Small P (< routing_p_min=32) -> CC
-        d_cc = exp.select_joint_route(4096, 16, 96, kv_model=kv_cfg, htp_ready=True, kv_enabled=True)
+        # 1. Small P (< routing_p_min=16) -> CC
+        d_cc = exp.select_joint_route(4096, 8, 96, kv_model=kv_cfg, htp_ready=True, kv_enabled=True)
         self.assertEqual(d_cc.path, "cc")
         self.assertEqual(d_cc.route, "cpu")
         self.assertFalse(d_cc.kv_admit)
@@ -175,7 +175,7 @@ int main() {
     kt.cpu_prior_tax = {612.7050909996033, 0.0};
 
     a2o_m1::M1JointExplorer exp;
-    auto p1 = exp.select_joint(4096, 16, 96, kt, true, true, true);
+    auto p1 = exp.select_joint(4096, 8, 96, kt, true, true, true);
     assert(p1.path == "cc" && p1.route == "cpu" && !p1.kv_admit);
     auto p2 = exp.select_joint(1024, 256, 16, kt, true, true, true);
     assert(p2.path == "hc_full" && p2.route == "htp" && !p2.kv_admit);

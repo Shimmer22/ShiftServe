@@ -53,7 +53,7 @@ def _http_post_resilient(
         except RuntimeError as exc:
             if any(code in str(exc) for code in ("HTTP 429", "HTTP 500", "HTTP 502", "HTTP 503", "HTTP 504")) and attempt + 1 < retries:
                 last_exc = exc
-                time.sleep(min(8.0, 1.0 + 0.5 * attempt))
+                time.sleep(min(20.0, 2.0 + 1.5 * attempt))
                 continue
             raise
     raise RuntimeError(f"POST {url} failed after {retries} network retries: {last_exc}") from last_exc
@@ -175,7 +175,7 @@ def main():
             )
         else:
             resp = _http_post_resilient(
-                judge_base + "/chat/completions", req_body, timeout=120, retries=6, api_key=judge_key
+                judge_base + "/chat/completions", req_body, timeout=120, retries=20, api_key=judge_key
             )
         wall_ms = (time.monotonic() - t0) * 1000.0
 

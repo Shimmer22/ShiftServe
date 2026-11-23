@@ -1,5 +1,6 @@
 """显式设备传输；SSH 在 Termux UID 执行，禁止自动回退。"""
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -28,6 +29,8 @@ class DeviceTransport:
                 '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=15',
                 '-o', 'ServerAliveCountMax=3', '-o', 'StrictHostKeyChecking=yes',
                 '-o', 'UserKnownHostsFile=' + str(known)]
+            if proxy := os.environ.get('A2O_TERMUX_PROXY_COMMAND'):
+                self.options += ['-o', 'ProxyCommand=' + proxy]
             self.target = c['user'] + '@' + c['host']
             self.prefix = ['ssh', '-T', '-p', str(c['port']), *self.options, self.target]
             self.remote_root = c['remote_root']

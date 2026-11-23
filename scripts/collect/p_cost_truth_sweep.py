@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import random
 import statistics
@@ -19,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from scripts.collect.tau2_e2e_worker import _http_post
 
-BASE = 'http://10.29.131.50:18780'
+BASE = os.environ.get('A2O_PHONE_HTTP_BASE', 'http://10.29.131.50:18780').rstrip('/')
 LAUNCHER = ROOT / 'scripts/run/route_phone.py'
 DEFAULT_P_POINTS = list(range(16, 65)) + [66, 68, 72, 80, 96, 128]
 PHASES = ('prepare_ms', 'wait_ms', 'restore_ms', 'prefill_ms', 'compact_ms', 'handoff_ms', 'decode_ms')
@@ -119,14 +120,18 @@ def service(action, mode, args, directory, plan):
                 health.get('model') != plan['model']['model_id'] or
                 health.get('verify_kv_state') is not bool(args.verify_kv_state) or
                 health.get('kv_hwm_trim') is not bool(args.kv_hwm_trim) or
-                health.get('kv_reduce') is not args.force_hc_compact):
+                health.get('kv_reduce') is not args.force_hc_compact or
+                (not args.verify_kv_state and health.get('paired_truth_version', 1) < 2)):
             raise RuntimeError(f'手机实际配置与计划不符: {directory}')
 
 
-def validate_truth(row, paths, decode_ids, gap_ms):
+def validate_truth(row, paths, decode_ids, gap_ms, verify_kv_state=True):
     truth = row['paired_truth']
-    if (truth['version'], truth['D'], truth['gap_ms']) != (1, len(decode_ids), gap_ms):
+    version = truth['version']
+    if version not in (1, 2) or (truth['D'], truth['gap_ms']) != (len(decode_ids), gap_ms):
         raise ValueError('设备返回的三路计时协议或形状不符')
+    if version < 2 and not verify_kv_state:
+        raise ValueError('轻量 KV 核验需要提供三路交接字节数的计时协议')
     if not math.isfinite(row['cosine']) or row['cosine'] < 0.99:
         raise ValueError('CPU/HTP Prefill 数值校验失败')
     if 'HC-Compact' in paths and (row['hc_compact_evicted_count'] <= 0 or row['hc_compact_handoff_bytes'] <= 0):
@@ -135,6 +140,10 @@ def validate_truth(row, paths, decode_ids, gap_ms):
         raise ValueError('设备未通过 CPU/HTP 配对校验')
     for path in paths:
         measured = truth[path]
+        if version >= 2:
+            handoff = measured['handoff_bytes']
+            if type(handoff) is not int or (handoff != 0 if path == 'CC' else handoff <= 0):
+                raise ValueError(f'{path} 的实际交接字节数不符')
         if measured['decode_ids'] != decode_ids:
             raise ValueError(f'{path} 的冻结 Decode token 不一致')
         if any(not math.isfinite(measured[k]) or measured[k] < 0 for k in (*PHASES, 'post_return_ms')):
@@ -227,10 +236,11 @@ def main():
     parser.add_argument('--device', default='xiaomi14pro')
     parser.add_argument('--compact-anchor', type=int, choices=[0, 1], default=1)
     parser.add_argument('--kv-hwm-trim', type=int, choices=[0, 1], default=0)
-    parser.add_argument('--verify-kv-state', type=int, choices=[0, 1], default=1)
+    parser.add_argument('--verify-kv-state', type=int, choices=[0, 1], default=0,
+                        help='诊断模式 1 启用全量 KV 回读，默认只核对导入长度和末位置')
     parser.add_argument('--kv-layer-stride', type=int, default=4)
     parser.add_argument('--kv-min-evict-tokens', type=int, default=256)
-    parser.add_argument('--gap-ms', type=int, default=1000)
+    parser.add_argument('--gap-ms', type=int, default=0)
     parser.add_argument('--context-size', type=int, help='固定跨切片上下文和夹具取样范围')
     parser.add_argument('--order-seed', type=int, help='每次重复独立打乱 P 点顺序')
     parser.add_argument('--batch-reps', action='store_true', help='同一 P 的重复在一个请求内共享历史预填充')
@@ -272,7 +282,7 @@ def run(args, p_points):
         kv_hwm_trim=bool(args.kv_hwm_trim), kv_layer_stride=args.kv_layer_stride,
         kv_min_evict_tokens=args.kv_min_evict_tokens, gap_ms=args.gap_ms,
     )
-    plan = dict(protocol='paired-post-return-v1', build=build, model=model, metadata=metadata,
+    plan = dict(protocol='paired-post-return', build=build, model=model, metadata=metadata,
                 H=args.h, D=args.decode_tokens, p_points=p_points, reps=args.reps,
                 paths=paths, modes=args.modes, context_size=context_size,
                 keep_tokens=args.keep_tokens if args.force_hc_compact else None,
@@ -303,7 +313,7 @@ def run(args, p_points):
                     path = sample_path(args.output, mode, p, rep)
                     if path.exists():
                         old = read_sample(path, plan_sha, mode, args.h, p, args.decode_tokens, rep)
-                        validate_truth(old, paths, decode_ids, args.gap_ms)
+                        validate_truth(old, paths, decode_ids, args.gap_ms, bool(args.verify_kv_state))
                     else:
                         missing.append((rep, path))
                 if missing:
@@ -320,7 +330,7 @@ def run(args, p_points):
                                          len(missing), directory / f'{stem}-bad-shape.json')
                         for (rep, path), row in zip(missing, rows):
                             try:
-                                validate_truth(row, paths, decode_ids, args.gap_ms)
+                                validate_truth(row, paths, decode_ids, args.gap_ms, bool(args.verify_kv_state))
                             except (ValueError, KeyError) as exc:
                                 save(directory / f'{stem}-failed.json', dict(error=str(exc), rows=rows))
                                 raise

@@ -40,7 +40,7 @@ FIELDS = {'cpu_restore': ('H', 'cc_restore_ms'),
 
 def fit_model(responses):
     # 每个形状取中位数，数值差异不用于筛选性能数据；质量另外报告。
-    model = dict(kind='linear_hp_v1', routing_p_min=32,
+    model = dict(kind='linear_hp_v1', routing_p_min=16,
                  h_min=min(r['H'] for r in responses), h_max=max(r['H'] for r in responses),
                  p_min=min(r['P'] for r in responses), p_max=max(r['P'] for r in responses),
                  formula='CC=R(H)+C(P); HC=N(P)+M(H+P); common CPU decode excluded',
@@ -60,7 +60,7 @@ def predict(model, h, p):
         return max(0, fit['intercept_ms']+fit['slope_ms_per_token']*x)
     cc = line('cpu_restore', h)+line('cpu_prefill', p)
     hc = line('htp_prefill', p)+line('htp_to_cpu', h+p)
-    return dict(cc_ms=cc, hc_ms=hc, route='htp' if p >= model.get('routing_p_min',32) and hc < cc else 'cpu')
+    return dict(cc_ms=cc, hc_ms=hc, route='htp' if p >= model.get('routing_p_min',16) and hc < cc else 'cpu')
 
 
 def threshold(model, h):

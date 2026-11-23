@@ -101,6 +101,7 @@ def run_toolsandbox_8b(cfg_path: Path, out_dir: Path, max_workers: int = 2) -> N
                 "backend": "CPU",
                 "context_size": cfg["context_size"],
                 "max_tokens": cfg["max_tokens"],
+                "enable_thinking": cfg.get("enable_thinking", False),
                 "request_timeout_s": cfg["request_timeout_s"],
                 "seed": cfg["seed"],
                 "kv_policy": cond["kv_policy"] if cond["kv_reduce"] else "none",

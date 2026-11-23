@@ -1,0 +1,57 @@
+{
+  "name": "20261122-host-kv-accuracy-droidtask-full-8b",
+  "dataset_path": "scenarios/droidtask/profile_no_answer.json",
+  "model_path": "/home/wins/ai-workspace/cache/a2o-qwen3-8b/Qwen3-8B-Q4_0.gguf",
+  "model_id": "qwen3-8b-q4_0",
+  "model_sha256": "7578dd44850f97bea0f89d6553a2b3260de07185aa363852dbbe582539ce8066",
+  "context_size": 8192,
+  "cpu_threads": 8,
+  "max_tokens": 2048,
+  "enable_thinking": true,
+  "request_timeout_s": 300,
+  "seed": 20261115,
+  "min_cum_chars": 0,
+  "kv_hwm_trim": false,
+  "conditions": [
+    {
+      "name": "full_kv",
+      "kv_reduce": 0,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 8192,
+      "kv_keep_ratio": -1.0,
+      "compact_anchor": 0
+    },
+    {
+      "name": "recent_only",
+      "kv_reduce": 1,
+      "kv_policy": "recent",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.5,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_low",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.25,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_mid",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.5,
+      "compact_anchor": 1
+    },
+    {
+      "name": "m2_prior_high",
+      "kv_reduce": 1,
+      "kv_policy": "prefill_prior",
+      "kv_keep_tokens": 0,
+      "kv_keep_ratio": 0.75,
+      "compact_anchor": 1
+    }
+  ]
+}

@@ -37,9 +37,10 @@ def write_csv(path, rows):
 def load_slice(directory):
     plan_path = directory / "plan.json"
     plan = read(plan_path)
+    verify = plan["verify_kv_state"]
     if (read(directory / "status.json")["status"] != "passed"
             or plan["paths"] != list(PATHS) or plan["modes"] != ["shared"]
-            or plan["reps"] < 3 or not plan["verify_kv_state"]):
+            or plan["reps"] < 3 or type(verify) is not bool):
         raise ValueError(f"T5 切片未完成或缺少三路验证配置: {directory}")
     h, d, k = (plan[key] for key in ("H", "D", "keep_tokens"))
     digest = sha256(plan_path)
@@ -49,7 +50,7 @@ def load_slice(directory):
             path = sample_path(directory, "shared", p, rep)
             row = read_sample(path, digest, "shared", h, p, d, rep)
             gap = plan["metadata"]["gap_ms"]
-            validate_truth(row, PATHS, plan["decode_ids"], gap)
+            validate_truth(row, PATHS, plan["decode_ids"], gap, verify)
             truth = row["paired_truth"]
             compact = truth["HC-Compact"]
             if (not compact["collect_prior"] or row["hc_compact_kept_count"] != k
@@ -77,7 +78,8 @@ def load_slice(directory):
                 or launch["hexagon_sha256"] != plan["build"]["hexagon_sha256"]
                 or health["context_size"] != plan["context_size"]
                 or health["htp_kv_offload"] is not False
-                or health["verify_kv_state"] is not True
+                or health["verify_kv_state"] is not verify
+                or (not verify and health.get("paired_truth_version", 1) < 2)
                 or health["kv_keep_tokens"] != k
                 or not re.search(r"llama_prepare_model_devices: using device HTP0", log)
                 or not re.search(r"layer\s+\d+ assigned to device HTP0", log)
@@ -89,7 +91,10 @@ def load_slice(directory):
                          verified_transfers=len(readbacks), htp_graph_reservations=graphs,
                          cpu_threads=health["cpu_threads"],
                          htp_host_threads=health["htp_host_threads"]))
-    for check in ("verified_transfers", "htp_graph_reservations"):
+    checks = ["htp_graph_reservations"]
+    if verify:
+        checks.append("verified_transfers")
+    for check in checks:
         if sum(log[check] for log in logs) < 2 * len(samples):
             raise ValueError(f"{check} 少于每个样本的两条 HTP 路径: {directory}")
     return plan, digest, samples, logs
@@ -250,8 +255,10 @@ def main():
     save(args.output / "summary.json", dict(
         slices=plans, build=reference["build"], model=reference["model"], D=d, K=k,
         paired_samples=len(boundary_samples), grid_samples=len(samples), shuffle_seed=SEED,
+        verify_kv_state=reference["verify_kv_state"],
+        paired_truth_version=next(iter(samples.values()))["paired_truth"]["version"],
         training_rep=0, bootstrap_cells=bootstrap,
-        static_p_min=P_MIN, kv_model=kv, winners=dict(winners), unanimous_winners=dict(stable),
+        static_p_min=P_MIN, m1_routing_p_min=M1Explorer().routing_p_min, kv_model=kv, winners=dict(winners), unanimous_winners=dict(stable),
         all_paths_have_unanimous_win=all(stable[path] for path in PATHS),
         decode_config_sha256=sha256(DECODE_CONFIG), decode_curve_sha256=sha256(DECODE_CURVE),
         analyzer_sha256=sha256(Path(__file__)),

@@ -43,7 +43,10 @@ BFCL_ROOT = "/workspace/references/gorilla-bfcl/berkeley-function-call-leaderboa
 BFCL_PORTS = [18931, 18932, 18933]
 
 
-def start_bfcl_agent(cond: dict, cfg: dict, port: int, wins_out_base: str, runtime: dict) -> str:
+def start_bfcl_agent(
+    cond: dict, cfg: dict, port: int, wins_out_base: str, runtime: dict,
+    *, recent_tokens: int = 128, tail_tokens: int = 32,
+) -> str:
     cname = cond["name"]
     cdir = f"{wins_out_base}/conditions/{cname}"
     env_vars = {
@@ -59,9 +62,9 @@ def start_bfcl_agent(cond: dict, cfg: dict, port: int, wins_out_base: str, runti
         "A2O_KV_KEEP_TOKENS": str(cond["kv_keep_tokens"]),
         "A2O_KV_KEEP_RATIO": str(cond.get("kv_keep_ratio", -1.0)),
         "A2O_KV_SINK_TOKENS": "4",
-        "A2O_KV_RECENT_TOKENS": "128",
+        "A2O_KV_RECENT_TOKENS": str(recent_tokens),
         "A2O_KV_POOL_WINDOW": "5",
-        "A2O_KV_TAIL_TOKENS": "32",
+        "A2O_KV_TAIL_TOKENS": str(tail_tokens),
         "A2O_COMPACT_ANCHOR": str(cond["compact_anchor"]),
         "A2O_SINGLE_RESIDENT": "1",
         "A2O_MODEL_ID": cfg["model_id"],

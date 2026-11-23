@@ -70,7 +70,7 @@ def run_case(name, scenario, cfg, out):
                         tools=list(openai_tools), temperature=0, seed=cfg['seed'],
                         max_tokens=cfg['max_tokens'], stream=False, cache_prompt=True,
                         parallel_tool_calls=False, return_tokens=True,
-                        chat_template_kwargs={'enable_thinking': False})
+                        chat_template_kwargs={'enable_thinking': cfg.get('enable_thinking', False)})
             save(folder / f'{idx:03d}.request.json', body)
             prep_start = time.monotonic_ns()
             if task_started_ns is None:

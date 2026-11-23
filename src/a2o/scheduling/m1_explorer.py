@@ -178,7 +178,7 @@ class JointDecision:
 class M1Explorer:
     """Online adaptive router with H*P coupling and bounded LCB exploration."""
 
-    routing_p_min: int = 32
+    routing_p_min: int = 16
     beta: float = 1.25
     max_explore_penalty_ms: float = 4000.0
     min_obs_before_guard: int = 6

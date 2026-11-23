@@ -3,10 +3,12 @@
 
 import argparse
 import collections
+import csv
 import fcntl
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import re
 import statistics
@@ -20,12 +22,18 @@ sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.profiling.memory_ledger import validate_turn
 from scripts.collect.tau2_e2e_worker import _agent_chat_resilient, _http_post, _http_post_resilient
+from scripts.run.t6_table1_summary import TABLE1_ARMS, write_table1
 
-BASE = 'http://10.29.131.50:18780'
+BASE = os.environ.get('A2O_PHONE_HTTP_BASE', 'http://10.29.131.50:18780')
 ARMS = (
     'full_cpu', 'shared_cc', 'shared_m1', 'shared_recent', 'shared_prior',
     'dual_unshared', 'shiftserve_joint', 'forced_cc', 'forced_hc_full', 'forced_hc_compact',
+    'dual_static_hc', 'shared_static_hc', 'full_htp', 'shifttrim',
 )
+UNSHARED_ARMS = {'full_cpu', 'full_htp', 'dual_unshared', 'dual_static_hc'}
+CPU_REPLAY_ARMS = {'full_cpu', 'dual_unshared', 'shared_cc'}
+STATIC_HC_ARMS = {'dual_static_hc', 'shared_static_hc'}
+COST_ARMS = set(ARMS) - CPU_REPLAY_ARMS - STATIC_HC_ARMS - {'full_htp'}
 
 
 def read(path):
@@ -46,6 +54,14 @@ def request(path, data, timeout=30, retries=4):
     return _http_post_resilient(BASE+path,data,timeout=timeout,retries=retries)
 
 
+def kv_cost_payload(path):
+    model = read(path)
+    # T5 fits these two terms as constants. The phone expects explicit affine coefficients.
+    for key in ('htp_prior_tax', 'evict'):
+        model[key].setdefault('slope_ms_per_token', 0.0)
+    return model
+
+
 def fit(xs, values):
     xbar, ybar = sum(xs)/len(xs), sum(values)/len(values)
     spread = sum((x-xbar)**2 for x in xs)
@@ -57,6 +73,31 @@ def fit(xs, values):
     return dict(intercept_ms=intercept,slope_ms_per_token=slope)
 
 
+def post_return_phases(turns):
+    totals = collections.Counter()
+    for timing in turns:
+        phases = dict(
+            prep_wait=timing['wait_ms'],
+            observation=timing['observation_ms']-timing['wait_ms'],
+            restore=timing['restore_ms'],
+            prefill_including_prior=timing['prompt_ms'],
+            snapshot=timing['snapshot_ms'],
+            compact=timing['kv_reduce_ms'],
+            handoff=timing['handoff_ms'],
+            decode=timing['predicted_ms'],
+        )
+        other = timing['total_ms']-math.fsum(phases.values())
+        if any(not math.isfinite(ms) or ms < -0.1 for ms in (*phases.values(), other)):
+            raise ValueError('invalid or overlapping post-return phase timings')
+        totals.update(dict(phases, other=other))
+        if 'prior_ms' in timing:
+            prior = timing['prior_ms']
+            if not math.isfinite(prior) or not 0 <= prior <= timing['prompt_ms']:
+                raise ValueError('invalid prior callback time within prefill')
+            totals['prior'] += prior
+    return dict(totals)
+
+
 class Campaign:
     def __init__(self, args, corpus):
         self.args = args
@@ -64,6 +105,7 @@ class Campaign:
         self.output = args.output
         self.fixture_hash = digest(args.fixtures)
         self.model = read(args.model)
+        self.route_costs = getattr(args, 'route_costs', None)
         build_manifest = read(args.build/'manifest.json')
         self.build = build_manifest['artifacts']
         self.git_commit = build_manifest.get('git_commit') or subprocess.check_output(
@@ -74,7 +116,7 @@ class Campaign:
             build_id=self.build_id,
             device=args.device,
             model=self.model['model_id'],
-            shared_weights=any(a not in ('full_cpu','dual_unshared') for a in args.conditions),
+            shared_weights=any(a not in UNSHARED_ARMS for a in args.conditions),
             compact_anchor=bool(args.compact_anchor),
             kv_hwm_trim=bool(args.kv_hwm_trim),
             kv_layer_stride=args.kv_layer_stride,
@@ -108,7 +150,11 @@ class Campaign:
                          metadata=self.metadata,
                          model=self.model, cpu_registry_sha256=digest(args.cpu_registry),
                          conditions=args.conditions,gap_ms=args.gap_ms,
-                         cases=[c['id'] for c in self.cases],reserved=sorted(reserved))
+                         cases=[c['id'] for c in self.cases],reserved=sorted(reserved),
+                         force_path=args.force_path,single_turn=args.single_turn,m1_explorer=bool(args.m1_explorer),
+                         kv_costs_sha256=digest(args.kv_costs) if args.kv_costs else None)
+        if self.route_costs is not None:
+            self.plan['route_costs_sha256'] = digest(self.route_costs)
 
     def state(self, **items):
         self.status.update(items)
@@ -117,12 +163,14 @@ class Campaign:
 
     def service(self, action, arm, directory):
         cpu = arm=='full_cpu'
-        shared = arm not in ('full_cpu', 'dual_unshared')
+        shared = arm not in UNSHARED_ARMS
+        condition = 'cpu' if cpu else 'htp' if arm == 'full_htp' else 'route'
         policy = {'shared_prior':'prefill_prior','shared_recent':'recent',
-                  'forced_hc_compact':'prefill_prior','shiftserve_joint':'prefill_prior'}.get(arm)
+                  'forced_hc_compact':'prefill_prior','shiftserve_joint':'prefill_prior',
+                  'shifttrim':'prefill_prior'}.get(arm)
         use_m1 = (arm == 'shiftserve_joint') or (arm == 'shared_m1' and bool(self.args.m1_explorer))
         command = [sys.executable,str(ROOT/'scripts/run/route_phone.py'),action,
-                   '--condition','cpu' if cpu else 'route','--output',str(directory),'--logs-only','--retry-network']
+                   '--condition',condition,'--output',str(directory),'--logs-only','--retry-network']
         if action=='start':
             m=self.model
             command += ['--runtime-overlay',str(self.args.build),'--model',m['model_path'],
@@ -148,7 +196,7 @@ class Campaign:
         subprocess.run(command,cwd=ROOT,check=True)
         if action=='start':
             health = read(directory/'health.json')
-            if (health['shared_weights']!=shared or health['kv_reduce']!= bool(policy) or
+            if (health['condition']!=condition or health['shared_weights']!=shared or health['kv_reduce']!= bool(policy) or
                 health['context_size']!=self.context or health['frozen_decode_version']!=1 or
                 health.get('build_id')!=self.build_id or
                 read(directory/'manifest.json')['runtime_overlay']!=self.build):
@@ -157,6 +205,10 @@ class Campaign:
             log = (directory/'device/runtime.log').read_text()
             if re.findall(r'backend_ptrs.size\(\) = (\d+)',log)!=['1'] or 'HTP0-REPACK model buffer size' in log:
                 raise RuntimeError('Full CPU backend audit failed')
+        elif arm == 'full_htp':
+            log = (directory/'device/runtime.log').read_text()
+            if 'using device HTP0' not in log or 'HTP0 compute buffer size' not in log:
+                raise RuntimeError('Full HTP backend audit failed')
 
     def verify_renderer(self, case):
         for t in case['turns']:
@@ -179,9 +231,13 @@ class Campaign:
                 cleared[case['id']]=self.verify_renderer(case)
                 save(directory/'renderer-progress.json',cleared)
             save(gate,cleared)
+        if self.args.case and any(cleared[c['id']] is not None for c in self.cases):
+            raise RuntimeError('renderer audit failed for a selected frozen case')
         self.cases=[c for c in self.cases if cleared[c['id']] is None]
         if not self.cases:
             raise RuntimeError('no compatible evaluation chains')
+        if self.route_costs is not None:
+            return read(self.route_costs)
         costs = self.output/'route-costs.json'
         if costs.exists():
             return read(costs)
@@ -209,7 +265,7 @@ class Campaign:
                 rows.append(dict(H=H,P=length,**row))
         table=dict(kind='linear_hp_v1',model_id=self.model['model_id']+'-shared-held-out',
                    h_min=min(r['H'] for r in rows),h_max=max(r['H']+r['P'] for r in rows),
-                   p_min=min(r['P'] for r in rows),p_max=max(r['P'] for r in rows),routing_p_min=24)
+                   p_min=min(r['P'] for r in rows),p_max=max(r['P'] for r in rows),routing_p_min=16)
         for key,field,size in [('cpu_restore','cc_restore_ms',lambda r:r['H']),
                                ('cpu_to_htp','hc_prepare_ms',lambda r:r['H']),
                                ('cpu_prefill','cpu_prefill_ms',lambda r:r['P']),
@@ -219,19 +275,11 @@ class Campaign:
         save(costs,dict(model=table))
         return dict(model=table)
 
-    def replay(self, arm, case, path):
+    def replay_turns(self, arm, case, path, turns, routed, force_path):
         reset = request('/a2o/reset',{})
         if self.args.memory_ledger:
             save(path/'reset.json',reset)
-        results=[]
         compact = arm in ('shared_prior','shared_recent','forced_hc_compact')
-        routed = arm not in ('full_cpu','shared_cc','dual_unshared')
-        force_path = self.args.force_path if self.args.force_path != 'none' else {
-            'forced_cc': 'cc',
-            'forced_hc_full': 'hc_full',
-            'forced_hc_compact': 'hc_compact',
-        }.get(arm)
-        turns = case['turns'][:2] if self.args.single_turn else case['turns']
         for i, turn in enumerate(turns):
             self.state(stage='replay',condition=arm,case=case['id'],turn=i,H=turn['H'],P=turn['P'],D=turn['D'])
             prep, gap = None, None
@@ -242,22 +290,59 @@ class Campaign:
                 time.sleep(max(0,self.args.gap_ms/1000-(time.monotonic()-begin)))
                 gap=(time.monotonic()-begin)*1000
             body=dict(turn['request'],max_tokens=turn['D'],expected_decode_tokens=turn['D'])
+            if getattr(self.args, 'graph_profile', False):
+                body['frozen_graph_profile'] = True
             if compact:
                 body['frozen_kv_keep_tokens']=case['keep_tokens'] if i else self.context
             if i and force_path:
                 body['frozen_force_path']=force_path
+            elif arm == 'shifttrim':
+                body['frozen_force_path']='cc'
             rid=f"{path.parent.parent.name}:{arm}:{case['id']}:{i}"
             response=_agent_chat_resilient(BASE,body,rid,total_timeout=2400)
-            timing=response['timings']
-            save(path/f'turn-{i:02d}.json',dict(response=response,prepare=prep,tool_gap_ms=gap,
-                                               observed_source_gap_ms=turn['observed_gap_ms']))
-            if (response['__verbose']['tokens']!=body['frozen_decode_ids'] or response['__verbose']['stop_type']!='forced' or
+            record = dict(response=response, prepare=prep, tool_gap_ms=gap,
+                          observed_source_gap_ms=turn['observed_gap_ms'])
+            save(path/f'turn-{i:02d}.json', record)
+            yield record
+
+    def replay(self, arm, case, path, *, recorded=False):
+        results = []
+        samples = []
+        routed = arm not in CPU_REPLAY_ARMS and arm != 'full_htp'
+        force_path = self.args.force_path if self.args.force_path != 'none' else {
+            'forced_cc': 'cc', 'forced_hc_full': 'hc_full', 'forced_hc_compact': 'hc_compact',
+        }.get(arm)
+        if arm in STATIC_HC_ARMS:
+            force_path = 'hc_full'
+        elif arm == 'shifttrim':
+            force_path = 'hc_trim'
+        turns = case['turns'][:2] if self.args.single_turn else case['turns']
+        records = ((read(path/f'turn-{i:02d}.json') for i in range(len(turns))) if recorded
+                   else self.replay_turns(arm, case, path, turns, routed, force_path))
+        evicted_from_anchor = 0
+        for i, (turn, record) in enumerate(zip(turns, records)):
+            response, prep = record['response'], record['prepare']
+            timing = response['timings']
+            if (response['__verbose']['tokens']!=turn['request']['frozen_decode_ids'] or response['__verbose']['stop_type']!='forced' or
                 (timing['H_anchor'],timing['P_evaluated'],timing['predicted_n'])!=(turn['H'],turn['P'],turn['D'])):
                 raise RuntimeError('frozen shape or decode tokens changed')
-            last = results[-1]['kv_reduce'] if results else None
-            effective=last['anchor_live_tokens'] if last and last.get('compact_anchor') else turn['H']
-            if timing['H_effective']!=effective or (not routed and timing['route']!='cpu'):
-                raise RuntimeError('effective history or backend mismatch')
+            effective = turn['H'] - evicted_from_anchor
+            if timing['H_effective'] != effective:
+                raise RuntimeError(f"{case['id']} turn {i}: effective history {timing['H_effective']}, expected {effective}")
+            expected_backend = 'htp' if arm == 'full_htp' else 'cpu'
+            if ((not routed and timing['route']!=expected_backend)
+                    or timing.get('decode_backend', 'cpu') != expected_backend):
+                raise RuntimeError(f"{case['id']} turn {i}: backend mismatch, expected {expected_backend}")
+            kv = timing['kv_reduce']
+            if kv and kv.get('compact_anchor') and i + 1 < len(turns):
+                # Later turns append to the compacted anchor even when they do not trim again.
+                next_h = turns[i + 1]['H']
+                next_live = kv['anchor_live_tokens']
+                if not 0 < next_live <= next_h - evicted_from_anchor:
+                    raise RuntimeError(f"{case['id']} turn {i}: invalid compact anchor length {next_live}")
+                evicted_from_anchor = next_h - next_live
+            if arm == 'full_htp' and (timing['handoff_bytes'] or timing['kv_reduce'] is not None):
+                raise RuntimeError('Full HTP unexpectedly migrated or trimmed state')
             if i and force_path == 'cc':
                 if timing['route'] != 'cpu' or timing['kv_reduce'] is not None or timing['handoff_bytes'] != 0:
                     raise RuntimeError(f"forced CC check failed on {case['id']} turn {i}: route={timing['route']}")
@@ -269,12 +354,24 @@ class Campaign:
                 if (timing['route'] != 'htp' or not kvr.get('compacted') or
                     kvr.get('evicted_count', 0) <= 0 or timing['handoff_bytes'] <= 0):
                     raise RuntimeError(f"forced HC-Compact check failed on {case['id']} turn {i}: route={timing['route']} kv={kvr}")
+            elif i and arm == 'shifttrim':
+                decision = timing['kv_cost_decision']
+                if (timing['route'] != 'htp' or timing['handoff_bytes'] <= 0
+                        or timing['route_reason'] != 'frozen_static_hc_trim'
+                        or bool(decision['admit']) != bool(kv and kv['compacted'])):
+                    raise RuntimeError('ShiftTrim route or compaction did not match the static HC decision')
             if self.args.memory_ledger:
                 validate_turn(timing, bool(self.args.kv_hwm_trim))
+                if prep and prep.get('memory_ledger'):
+                    samples.extend((i, s) for s in prep['memory_ledger']['samples'])
+                samples.extend((i, s) for s in timing['memory_ledger']['samples'])
             results.append(timing)
+        if len(results) != len(turns):
+            raise RuntimeError(f"{case['id']}: incomplete replay")
         warm=results[1:]
         summary=dict(benchmark=case['benchmark'],source_model=case['source_model'],id=case['id'],arm=arm,
                      logical_rounds=len(results),warm_rounds=len(warm),
+                     warm_decode_tokens=sum(t['predicted_n'] for t in warm),
                      post_return_ms=sum(t['total_ms'] for t in warm),
                      inference_ms=sum(t['total_ms'] for t in results),
                      decode_ms_per_token=sum(t['predicted_ms'] for t in warm)/sum(t['predicted_n'] for t in warm),
@@ -283,12 +380,53 @@ class Campaign:
                      max_sampled_rss_mib=max(t['decode_resources'][p]['VmRSS_kib']/1024 for t in results for p in ('before','after')),
                      max_sampled_swap_mib=max(t['decode_resources'][p]['VmSwap_kib']/1024 for t in results for p in ('before','after')),
                      handoff_bytes=sum(t['handoff_bytes'] for t in warm))
+        if all('frozen_validation_ms' in t for t in warm):
+            summary['post_return_frozen_validation_ms'] = math.fsum(t['frozen_validation_ms'] for t in warm)
+            summary['post_return_excluding_frozen_validation_ms'] = math.fsum(
+                t['total_excluding_frozen_validation_ms'] for t in warm)
         if self.args.memory_ledger:
-            samples = [(i, s) for i, t in enumerate(results) for s in t['memory_ledger']['samples']]
+            summary['post_return_phases_ms'] = post_return_phases(warm)
             turn, peak = max(samples, key=lambda item: item[1]['process']['VmSwap_kib'])
             summary['memory_ledger_peak_swap'] = dict(
                 turn=turn, stage=peak['stage'], swap_kib=peak['process']['VmSwap_kib'])
+            physical = [(i, s) for i, s in samples if s.get('pss_plus_identified_dma_kib') is not None]
+            if physical:
+                turn, peak = max(physical, key=lambda item: item[1]['pss_plus_identified_dma_kib'])
+                summary['memory_ledger_peak_pss_plus_dma'] = dict(
+                    turn=turn, stage=peak['stage'], kib=peak['pss_plus_identified_dma_kib'])
+            summary['memory_ledger_missing_pss_plus_dma_samples'] = len(samples) - len(physical)
         save(path/'summary.json',summary)
+
+    def summarize_memory(self, rows):
+        table = []
+        for arm in self.args.conditions:
+            traces = [row for row in rows if row['arm'] == arm]
+            entry = dict(condition=arm, gap_ms=self.args.gap_ms, completed_cases=len(traces),
+                         planned_cases=len(self.cases))
+            for field, units, column in (
+                ('memory_ledger_peak_pss_plus_dma', 'kib', 'peak_pss_plus_dma_mib'),
+                ('memory_ledger_peak_swap', 'swap_kib', 'peak_vmswap_mib'),
+            ):
+                points = [t for t in traces if field in t]
+                peak = max(points, key=lambda t: t[field][units], default=None)
+                entry.update({
+                    column: peak[field][units] / 1024 if peak else None,
+                    column + '_case': peak['id'] if peak else None,
+                    column + '_turn': peak[field]['turn'] if peak else None,
+                    column + '_stage': peak[field]['stage'] if peak else None,
+                })
+            entry['missing_pss_plus_dma_samples'] = sum(
+                t['memory_ledger_missing_pss_plus_dma_samples'] for t in traces)
+            table.append(entry)
+        pending = self.output/'memory-peaks.tmp'
+        with pending.open('w', newline='') as stream:
+            writer = csv.DictWriter(stream, fieldnames=list(table[0]), lineterminator='\n')
+            writer.writeheader()
+            writer.writerows(table)
+        pending.replace(self.output/'memory-peaks.csv')
+        if set(self.args.conditions) == set(TABLE1_ARMS):
+            write_table1(self.output, self.plan['cases'], rows,
+                         {entry['condition']: entry for entry in table})
 
     def summarize(self):
         rows=[read(p) for p in sorted(self.output.glob('*/*/summary.json'))]
@@ -302,20 +440,40 @@ class Campaign:
                     for (benchmark,arm),values in sorted(pairs.items())]
         save(self.output/'summary.json',dict(runs=rows,pairs=aggregates,
              by_condition=dict(collections.Counter(r['arm'] for r in rows))))
+        if self.args.memory_ledger:
+            self.summarize_memory(rows)
 
     def run(self):
-        print('A2O_META', json.dumps(self.metadata, ensure_ascii=False), flush=True)
-        save(self.output/'metadata.json', self.metadata)
         plan=self.output/'plan.json'
-        if plan.exists() and read(plan)!=self.plan:
-            raise ValueError('resume requires same build, fixtures, hardware settings and arms')
+        if plan.exists():
+            old = dict(force_path='none', single_turn=False, m1_explorer=True, kv_costs_sha256=None)
+            old.update(read(plan))
+            if old != self.plan:
+                raise ValueError('resume requires same build, fixtures, hardware settings and arms')
+        print('A2O_META', json.dumps(self.metadata, ensure_ascii=False), flush=True)
         save(plan,self.plan)
+        save(self.output/'metadata.json', self.metadata)
+        completed = self.status['completed']
+        for arm in self.args.conditions:
+            done = sum((self.output/arm/c['id']/'summary.json').exists() for c in self.cases)
+            adaptive = arm == 'shiftserve_joint' or (arm == 'shared_m1' and self.args.m1_explorer)
+            if adaptive and 0 < done < len(self.cases):
+                # A new service cannot recover the posterior accumulated by completed cases.
+                archive = self.output/f'previous-adaptive-{time.time_ns()}'
+                archive.mkdir()
+                (self.output/arm).rename(archive/arm)
+                print(f'重新完整采集 {arm}，原轨迹保存在 {archive}', flush=True)
+                done = 0
+            completed[arm] = done
+        if self.args.memory_ledger:
+            self.summarize()
         epoch=f'{time.time_ns()}'
         calibration=self.output/f'{self.output.name}-cal-{epoch}'
-        needs_costs = any(a not in ('full_cpu','shared_cc','dual_unshared') for a in self.args.conditions)
+        needs_costs = any(a in COST_ARMS for a in self.args.conditions)
         if self.args.memory_ledger and not needs_costs:
             costs = None
-        elif not (self.output/'route-costs.json').exists():
+        elif (not (self.output/'renderer-audit.json').exists()
+                or (self.route_costs is None and not (self.output/'route-costs.json').exists())):
             try:
                 self.state(stage='starting_calibration')
                 self.service('start','shared_m1',calibration)
@@ -330,6 +488,8 @@ class Campaign:
                 continue
             service=self.output/f'{self.output.name}-{arm}-{epoch}'
             try:
+                for field in ('case', 'turn', 'H', 'P', 'D'):
+                    self.status.pop(field, None)
                 self.state(stage='starting_condition',condition=arm)
                 self.service('start',arm,service)
                 if self.args.memory_ledger and not needs_costs and not (self.output/'renderer-audit.json').exists():
@@ -337,13 +497,14 @@ class Campaign:
                     save(self.output/'renderer-audit.json',audit)
                     if any(audit.values()):
                         raise RuntimeError('memory ledger renderer audit failed')
-                if arm not in ('full_cpu','shared_cc','dual_unshared'):
+                if arm in COST_ARMS:
                     payload = dict(costs)
                     if arm == 'shiftserve_joint' or (arm == 'shared_m1' and self.args.m1_explorer):
                         payload['m1_explorer'] = {'enabled': True}
                     if self.args.kv_costs:
-                        payload['kv_model'] = read(self.args.kv_costs)
-                    request('/a2o/costs', payload)
+                        payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
+                    save(service/'cost-request.json', payload)
+                    save(service/'cost-response.json', request('/a2o/costs', payload))
                 for case in pending:
                     path=self.output/arm/case['id']
                     path.mkdir(parents=True,exist_ok=True)
@@ -373,7 +534,8 @@ def main():
     parser.add_argument('--model',type=Path,default=ROOT/'configs/model-default.json')
     parser.add_argument('--conditions',choices=ARMS,nargs='+',
                         default=['full_cpu','shared_cc','shared_m1','shared_recent','shared_prior'])
-    parser.add_argument('--gap-ms',type=int,default=1000)
+    parser.add_argument('--gap-ms',type=int,default=0)
+    parser.add_argument('--route-costs',type=Path,help='独立校准得到的路由成本表')
     parser.add_argument('--kv-costs',type=Path,default=None)
     parser.add_argument('--force-path',choices=['none','cc','hc_full','hc_compact'],default='none')
     parser.add_argument('--single-turn',action='store_true')
@@ -396,6 +558,8 @@ def main():
         setattr(args,key,getattr(args,key).resolve())
     if args.kv_costs is not None:
         args.kv_costs = args.kv_costs.resolve()
+    if args.route_costs is not None:
+        args.route_costs = args.route_costs.resolve()
     if args.gap_ms<0 or len(set(args.conditions))!=len(args.conditions):
         parser.error('invalid tool gap or duplicate arm')
     args.output.mkdir(parents=True,exist_ok=True)

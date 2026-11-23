@@ -96,6 +96,7 @@
     ]
   ],
   "static_p_min": 32,
+  "m1_routing_p_min": 16,
   "kv_model": {
     "quality_k_min": 1536,
     "quality_keep_ratio_min": 0.25,
@@ -129,8 +130,8 @@
   "all_paths_have_unanimous_win": true,
   "decode_config_sha256": "0c7d2ed88e0d27a6d8284c3934e9f5ce7873f2c160d09a85d45a3f13ff8b38b8",
   "decode_curve_sha256": "90dfd79d691c3789cab9f4136e03fb598fe296716c51fbc815a179fa92db69cd",
-  "analyzer_sha256": "67d02545907ef0806c75b4f7200f28724c638203c16a4b44c57bb057f8af9863",
-  "router_sha256": "84a7fd9f0fc7d1d1edd30db2aef6152c5685f5669db4f311f22354d216aac914",
+  "analyzer_sha256": "c70715dd6fbcad3dfb0e51cc1294e0740bcd3e2c8624327166abacfc15055862",
+  "router_sha256": "50c39744004451409bddfc440b9b75bc96fa16005ca02e00ccf14252dd663869",
   "ratios": [
     {
       "policy": "Oracle",
@@ -165,22 +166,22 @@
     {
       "policy": "Greedy-Online",
       "samples": 20,
-      "cumulative_cost_ms": 237199.6402733326,
-      "oracle_ratio": 0.9619335505423888,
-      "regret_ms": 9029.34811782837,
-      "CC": 8,
+      "cumulative_cost_ms": 228342.9440820217,
+      "oracle_ratio": 0.9992438920010794,
+      "regret_ms": 172.65192651748657,
+      "CC": 0,
       "HC-Full": 0,
-      "HC-Compact": 12
+      "HC-Compact": 20
     },
     {
       "policy": "M1-LCB",
       "samples": 20,
-      "cumulative_cost_ms": 237199.6402733326,
-      "oracle_ratio": 0.9619335505423888,
-      "regret_ms": 9029.34811782837,
-      "CC": 8,
+      "cumulative_cost_ms": 228342.9440820217,
+      "oracle_ratio": 0.9992438920010794,
+      "regret_ms": 172.65192651748657,
+      "CC": 0,
       "HC-Full": 0,
-      "HC-Compact": 12
+      "HC-Compact": 20
     }
   ]
 }

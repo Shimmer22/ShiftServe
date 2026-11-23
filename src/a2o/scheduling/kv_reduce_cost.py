@@ -285,7 +285,7 @@ def plan_joint_route_kv(
             htp_best_total if default_route == "htp" else cpu_best_total,
         )
 
-    if route_valid and p < int(route_model.get("routing_p_min", 32)):
+    if route_valid and p < int(route_model.get("routing_p_min", 16)):
         return _result("cpu", "below_routing_p_min", cpu_kv_plan, cpu_best_total)
 
     if htp_best_total < cpu_best_total:
