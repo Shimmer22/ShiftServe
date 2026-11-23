@@ -9,6 +9,7 @@
 #include "httplib.h"
 #include <algorithm>
 #include <condition_variable>
+#include <optional>
 #ifndef _WIN32
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -470,6 +471,27 @@ struct PhoneService {
         std::string ready=lane.availability(anchor_version),route=condition=="htp"?"htp":"cpu",reason="fixed_backend";
         double wait_ms=0.0;
         J prediction=nullptr;
+        J pending_wait=nullptr;
+        std::optional<a2o_m1::M1JointDecision> ready_after_wait;
+        auto select_m1=[&](bool allow_compact, bool allow_exploration){
+            return m1_explorer.select_joint(int(h_eff),int(p),exp_d,kv_cost_table,true,
+                allow_compact && kv_window.can_reduce,true,int(h),int(pinned_tokens),
+                kv_sink_tokens,kv_window.recent,compact_anchor,allow_exploration);
+        };
+        auto m1_prediction=[&](const a2o_m1::M1JointDecision &m1)->J{
+            return {{"kind","m1_explorer_joint_v1"},{"selected_path",m1.path},{"explored",m1.explored},
+                    {"reason",m1.reason},{"h_eff",h_eff},{"h_active",m1.h_active},{"k_floor",m1.k_floor},
+                    {"cc_mean_ms",m1.cc_mean_ms},{"cc_std_ms",m1.cc_std_ms},{"cc_lcb_ms",m1.cc_lcb_ms},
+                    {"hc_full_mean_ms",m1.hc_full_mean_ms},{"hc_full_std_ms",m1.hc_full_std_ms},{"hc_full_lcb_ms",m1.hc_full_lcb_ms},
+                    {"hc_compact_valid",m1.hc_compact_valid},{"hc_compact_eligible",m1.hc_compact_eligible},
+                    {"hc_compact_mean_ms",m1.hc_compact_valid?J(m1.hc_compact_mean_ms):J(nullptr)},
+                    {"hc_compact_std_ms",m1.hc_compact_valid?J(m1.hc_compact_std_ms):J(nullptr)},
+                    {"hc_compact_lcb_ms",m1.hc_compact_valid?J(m1.hc_compact_lcb_ms):J(nullptr)},
+                    {"single_turn_gain_ms",m1.single_turn_gain_ms},
+                    {"delta_next_prefill_ms",m1.delta_next_prefill_ms},{"effective_gain_ms",m1.effective_gain_ms},
+                    {"routing_p_min",m1_explorer.routing_p_min},{"beta",m1_explorer.beta},
+                    {"max_explore_penalty_ms",m1_explorer.max_explore_penalty_ms},{"joint_kv_route",kv_reduce}};
+        };
         J kv_cost_decision=nullptr;
         bool kv_admit=kv_window.can_reduce;
         int eff_keep=kv_keep_tokens;
@@ -525,20 +547,37 @@ struct PhoneService {
             }
         }else if(condition=="route"){
             if(reuse && ready=="pending" && m1_explorer_enabled){
-                auto m1_prep=m1_explorer.select_joint(
-                    int(h_eff),int(p),exp_d,kv_cost_table,true,kv_window.can_reduce,true,int(h),int(pinned_tokens),kv_sink_tokens,kv_window.recent);
-                if(m1_prep.route=="htp"){
-                    double elapsed_ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-prepare_started_at).count();
-                    auto [pred_prep,_]=m1_explorer.cpu_to_htp.predict({1.0,double(h_eff)});
-                    const double htp_cand_ms=m1_prep.kv_admit&&m1_prep.hc_compact_valid?m1_prep.hc_compact_mean_ms:m1_prep.hc_full_mean_ms;
-                    GreedyReturnPlan gp=plan_greedy_return(false,elapsed_ms,pred_prep,m1_prep.cc_mean_ms,htp_cand_ms);
-                    if(gp.continue_prepare && gp.wait_budget_ms>0.0){
-                        double w0=now_ms();
-                        lane.wait_ready(anchor_version,gp.wait_budget_ms);
-                        wait_ms=now_ms()-w0;
-                        ready=lane.availability(anchor_version);
-                    }
+                // A pending lane uses expected costs and keeps the decision once it is ready.
+                const auto m1_prep=select_m1(true,false);
+                auto wait_path=m1_prep;
+                const double elapsed_ms=std::chrono::duration<double,std::milli>(
+                    std::chrono::steady_clock::now()-prepare_started_at).count();
+                const double estimated_prep_ms=m1_explorer.cpu_to_htp.predict({1.0,double(h_eff)}).first;
+                auto plan=[&](const a2o_m1::M1JointDecision &m1){
+                    const double hc_ms=m1.kv_admit?m1.hc_compact_mean_ms:m1.hc_full_mean_ms;
+                    return plan_greedy_return(false,elapsed_ms,estimated_prep_ms,m1.cc_mean_ms,hc_ms);
+                };
+                auto gp=plan(wait_path);
+                // A future saving cannot pay for waiting on the current critical path.
+                if(wait_path.kv_admit && !gp.continue_prepare){
+                    wait_path=select_m1(false,false);
+                    gp=plan(wait_path);
                 }
+                const bool attempted=wait_path.route=="htp" && gp.continue_prepare;
+                if(attempted){
+                    const double w0=now_ms();
+                    lane.wait_ready(anchor_version,gp.wait_budget_ms);
+                    wait_ms=now_ms()-w0;
+                    ready=lane.availability(anchor_version);
+                    if(ready=="ready")ready_after_wait=wait_path;
+                }
+                pending_wait={{"m1_prep",m1_prediction(m1_prep)},{"wait_path",wait_path.path},
+                              {"elapsed_prep_ms",elapsed_ms},{"estimated_total_prep_ms",estimated_prep_ms},
+                              {"estimated_remaining_prep_ms",gp.remaining_ms},{"continue_cost_ms",gp.continue_cost_ms},
+                              {"wait_budget_ms",attempted?gp.wait_budget_ms:0.0},{"wait_ms",wait_ms},
+                              {"attempted",attempted},{"availability_after",ready},
+                              {"result",attempted?(ready=="ready"?"ready":"not_ready_after_wait"):"skipped"},
+                              {"reason",wait_path.reason=="below_routing_p_min"?wait_path.reason:gp.reason}};
             }else if(reuse && ready=="pending" && !cost_model.is_null()){
                 RouteLinearCostTable prep_tbl=parse_route_linear_cost_table(cost_model);
                 JointRouteKvPlan jp_prep=plan_joint_route_kv(
@@ -557,22 +596,10 @@ struct PhoneService {
             }
             reason=ready!="ready"?"candidate_"+ready:!reuse?"anchor_prefix_mismatch":"calibration_missing";
             if(reuse && ready=="ready" && m1_explorer_enabled){
-                auto m1=m1_explorer.select_joint(
-                    int(h_eff),int(p),exp_d,kv_cost_table,true,kv_window.can_reduce,true,int(h),int(pinned_tokens),kv_sink_tokens,kv_window.recent);
+                const auto m1=ready_after_wait?*ready_after_wait:select_m1(true,true);
                 route=m1.route;reason=m1.reason;
-                prediction={
-                    {"kind","m1_explorer_joint_v1"},{"selected_path",m1.path},{"explored",m1.explored},
-                    {"h_eff",h_eff},{"h_active",m1.h_active},{"k_floor",m1.k_floor},
-                    {"cc_mean_ms",m1.cc_mean_ms},{"cc_std_ms",m1.cc_std_ms},{"cc_lcb_ms",m1.cc_lcb_ms},
-                    {"hc_full_mean_ms",m1.hc_full_mean_ms},{"hc_full_std_ms",m1.hc_full_std_ms},{"hc_full_lcb_ms",m1.hc_full_lcb_ms},
-                    {"hc_compact_valid",m1.hc_compact_valid},
-                    {"hc_compact_mean_ms",m1.hc_compact_valid?J(m1.hc_compact_mean_ms):J(nullptr)},
-                    {"hc_compact_std_ms",m1.hc_compact_valid?J(m1.hc_compact_std_ms):J(nullptr)},
-                    {"hc_compact_lcb_ms",m1.hc_compact_valid?J(m1.hc_compact_lcb_ms):J(nullptr)},
-                    {"prepare_ms_hidden",prepare_ms},{"routing_p_min",m1_explorer.routing_p_min},
-                    {"beta",m1_explorer.beta},{"max_explore_penalty_ms",m1_explorer.max_explore_penalty_ms},
-                    {"joint_kv_route",kv_reduce}
-                };
+                prediction=m1_prediction(m1);
+                prediction["prepare_ms_hidden"]=prepare_ms;
                 if(kv_reduce){
                     kv_admit=m1.kv_admit;
                     eff_keep=m1.keep_tokens;
@@ -582,7 +609,9 @@ struct PhoneService {
                         {"admit",m1.kv_admit},{"keep_tokens",m1.keep_tokens},{"h_active",m1.h_active},
                         {"k_floor",m1.k_floor},{"H_total",int(h_eff+p)},
                         {"handoff_saving_ms",m1.handoff_saving_ms},{"decode_saving_ms",m1.decode_saving_ms},
-                        {"prior_tax_ms",m1.prior_tax_ms},{"evict_ms",m1.evict_ms},{"reason",m1.reason}
+                        {"prior_tax_ms",m1.prior_tax_ms},{"evict_ms",m1.evict_ms},{"reason",m1.reason},
+                        {"single_turn_gain_ms",m1.single_turn_gain_ms},
+                        {"delta_next_prefill_ms",m1.delta_next_prefill_ms},{"effective_gain_ms",m1.effective_gain_ms}
                     };
                 }
             }else if(m1_explorer_enabled){
@@ -911,6 +940,7 @@ struct PhoneService {
                   {"H_effective",h_eff},{"pinned_tokens",pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
                   {"P_evaluated",p},{"prepare_ms",ready=="ready"?prepare_ms:0},{"m1_online_updated",m1_online_updated},{"prediction",prediction}};
         timing["verify_kv_state"]=kv_verification==KvVerification::full_bytes;
+        if(!pending_wait.is_null())timing["pending_wait"]=std::move(pending_wait);
         if(profile_graph)timing["graph_profile"]={{"prefill",prefill_graph.json()},
             {"decode",decode_graph.json()},{"clocks",std::move(clocks)}};
         if(!frozen)timing["decode_limit"]=limit;

@@ -165,9 +165,13 @@ struct M1JointDecision {
     double hc_full_std_ms = 0.0;
     double hc_full_lcb_ms = 0.0;
     bool hc_compact_valid = false;
+    bool hc_compact_eligible = false;
     double hc_compact_mean_ms = 0.0;
     double hc_compact_std_ms = 0.0;
     double hc_compact_lcb_ms = 0.0;
+    double single_turn_gain_ms = 0.0;
+    double delta_next_prefill_ms = 0.0;
+    double effective_gain_ms = 0.0;
     double handoff_saving_ms = 0.0;
     double decode_saving_ms = 0.0;
     double prior_tax_ms = 0.0;
@@ -245,7 +249,9 @@ public:
             int h_logical = -1,
             int pinned_tokens = 0,
             int sink_tokens = 4,
-            int recent_tokens = 32) const {
+            int recent_tokens = 32,
+            bool reuse_compact_anchor = true,
+            bool allow_exploration = true) const {
         const int total = h + p;
         auto [r_mu, r_sd] = cpu_restore.predict({1.0, double(h)});
         auto [cp_mu, cp_sd] = cpu_prefill.predict(prefill_feat(h, p));
@@ -283,7 +289,6 @@ public:
         out.hc_full_std_ms = hc_full_sd;
         out.hc_full_lcb_ms = hc_full_lcb;
 
-        bool hc_compact_eligible = false;
         int best_k = total;
         if (kv_enabled && kv_model.valid && total > k_floor + min_evict) {
             std::vector<int> cands;
@@ -299,24 +304,31 @@ public:
             if (!cands.empty()) {
                 out.prior_tax_ms = kv_model.htp_prior_tax.eval(double(p));
                 out.evict_ms = kv_model.evict.eval(double(total));
+                // The next anchor includes this round's input. Use current P as the next P estimate.
+                const double next_full_ms = reuse_compact_anchor ? htp_prefill.predict(prefill_feat(total, p)).first : 0.0;
                 for (int k : cands) {
                     auto [ho_k_mu, ho_k_sd] = htp_to_cpu.predict({1.0, double(k)});
                     auto [dec_k_mu, dec_k_sd] = predict_decode(k, expected_d, kv_model);
                     const double cand_mu = hp_mu + out.prior_tax_ms + out.evict_ms + ho_k_mu + dec_k_mu;
                     const double cand_sd = std::sqrt(hp_sd * hp_sd + ho_k_sd * ho_k_sd + dec_k_sd * dec_k_sd);
-                    if (!out.hc_compact_valid || cand_mu < out.hc_compact_mean_ms) {
+                    const double next_saving_ms = reuse_compact_anchor
+                        ? std::max(0.0, next_full_ms - htp_prefill.predict(prefill_feat(k, p)).first) : 0.0;
+                    const double single_gain_ms = hc_full_mu - cand_mu;
+                    const double gain_ms = single_gain_ms + next_saving_ms;
+                    if (!out.hc_compact_valid || gain_ms > out.effective_gain_ms) {
                         out.hc_compact_valid = true;
                         out.hc_compact_mean_ms = cand_mu;
                         out.hc_compact_std_ms = cand_sd;
                         out.hc_compact_lcb_ms = cand_mu - beta * cand_sd;
+                        out.single_turn_gain_ms = single_gain_ms;
+                        out.delta_next_prefill_ms = next_saving_ms;
+                        out.effective_gain_ms = gain_ms;
                         best_k = k;
                         out.handoff_saving_ms = ho_full_mu - ho_k_mu;
                         out.decode_saving_ms = dec_full_mu - dec_k_mu;
                     }
                 }
-                if (out.hc_compact_valid && (hc_full_mu - out.hc_compact_mean_ms) > min_gain) {
-                    hc_compact_eligible = true;
-                }
+                out.hc_compact_eligible = out.hc_compact_valid && out.effective_gain_ms > min_gain;
             }
         }
 
@@ -345,13 +357,15 @@ public:
             {"cc", "cpu", false, total, cc_mu, cc_lcb},
             {"hc_full", "htp", false, total, hc_full_mu, hc_full_lcb},
         };
-        if (hc_compact_eligible) {
-            cands.push_back({"hc_compact", "htp", true, best_k, out.hc_compact_mean_ms, out.hc_compact_lcb_ms});
+        if (out.hc_compact_eligible) {
+            cands.push_back({"hc_compact", "htp", true, best_k,
+                             out.hc_compact_mean_ms - out.delta_next_prefill_ms,
+                             out.hc_compact_lcb_ms - out.delta_next_prefill_ms});
         }
 
         auto greedy_it = std::min_element(cands.begin(), cands.end(),
             [](const Cand &a, const Cand &b) { return a.mean_ms < b.mean_ms; });
-        if (!exploration_enabled) {
+        if (!exploration_enabled || !allow_exploration) {
             out.path = greedy_it->path;
             out.route = greedy_it->route;
             out.kv_admit = greedy_it->kv_admit;
