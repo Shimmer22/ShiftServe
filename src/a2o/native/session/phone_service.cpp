@@ -975,6 +975,9 @@ struct PhoneService {
         return response;
     }
     #include "../profiling/stage_sweep.h"
+#ifdef A2O_PREFILL_WEIGHT_AB
+    #include "../profiling/prefill_weight_ab.h"
+#endif
     #include "../profiling/state_cost_sweep.h"
     #include "../profiling/model_preflight.h"
     #include "../profiling/gap_replay.h"
@@ -1142,6 +1145,9 @@ int main(int argc,char **argv){try{
     });
     server.Post("/a2o/replay",handle([&](const J &b){return service.replay(b);}));
     server.Post("/a2o/stage-sweep",handle([&](const J &b){return service.stage_sweep(b);}));
+#ifdef A2O_PREFILL_WEIGHT_AB
+    server.Post("/a2o/prefill-weight-ab",handle([&](const J &b){return service.prefill_weight_ab(b);}));
+#endif
     server.Post("/a2o/state-cost-sweep",handle([&](const J &b){return service.state_cost_sweep(b);}));
     server.Post("/a2o/state-residency",handle([&](const J &b){require(b.at("mode")=="dual","invalid residency mode");return service.enable_dual_state();}));
     server.Post("/a2o/model-preflight",handle([&](const J &b){return service.model_preflight(b);}));

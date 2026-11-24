@@ -6,6 +6,12 @@ J stage_sweep(const J &body) {
     auto output=body.at("generated_ids").get<std::vector<llama_token>>();
     auto points=body.at("decode_points").get<std::vector<size_t>>();
     auto order=body.at("backend_order").get<std::vector<std::string>>();
+    const bool thread_probe=body.contains("cpu_prefill_threads");
+    const int prefill_threads=body.value("cpu_prefill_threads",cpu_threads);
+    if(thread_probe) {
+        require(shared_weights && cpu_threads==4 && output.empty(),"CPU thread probe requires a shared four-thread history and no decode");
+        require(prefill_threads>=4 && prefill_threads<=8,"CPU thread probe supports 4–8 batch threads");
+    }
     auto sorted=order;std::sort(sorted.begin(),sorted.end());
     require(sorted==std::vector<std::string>({"cpu","htp"}),"invalid backend order");
     require(!prefix.empty() && !input.empty(),"empty sweep input");
@@ -17,6 +23,10 @@ J stage_sweep(const J &body) {
     J cache;double boot=now_ms();const char *dir=std::getenv("A2O_REPLAY_CACHE_DIR");
     if(single_resident && !replay_cache->matches(prefix))select_stage_backend("cpu",prefix);
     const auto &frozen=replay_cache->get(home().ctx,prefix,dir?dir:"",cache,KvVerification::full_bytes);
+    if(thread_probe) {
+        cache["snapshot_checksum"]=replay_cache->fingerprint();
+        cache["history_cpu_threads"]=cpu_threads;
+    }
     double bootstrap=now_ms()-boot;
     J rows=J::array();std::vector<float> reference;double cosine=1,nrmse=0;
     for(const auto &backend:order) {
@@ -28,7 +38,21 @@ J stage_sweep(const J &body) {
         if(rebuild)setup["model_context_init_ms"]=now_ms()-init_start;
         double start=now_ms();restore_session(ctx,frozen);double restore=now_ms()-start;
         auto resources_before=resource_sample();
-        llama_pos pos=prefix.size();start=now_ms();evaluate(ctx,input,pos);double prefill=now_ms()-start;
+        const bool change_threads=thread_probe && backend=="cpu";
+        const int previous_threads=llama_n_threads(ctx);
+        const int previous_batch_threads=llama_n_threads_batch(ctx);
+        if(change_threads)llama_set_n_threads(ctx,previous_threads,prefill_threads);
+        const int used_batch_threads=llama_n_threads_batch(ctx);
+        llama_pos pos=prefix.size();
+        start=now_ms();
+        try {
+            evaluate(ctx,input,pos);
+        } catch(...) {
+            if(change_threads)llama_set_n_threads(ctx,previous_threads,previous_batch_threads);
+            throw;
+        }
+        const double prefill=now_ms()-start;
+        if(change_threads)llama_set_n_threads(ctx,previous_threads,previous_batch_threads);
         auto resources_after_prefill=resource_sample();
         auto *logits=llama_get_logits_ith(ctx,-1);require(logits,"missing sweep logits");
         std::vector<float> values(logits,logits+llama_vocab_n_tokens(vocab));
@@ -55,8 +79,8 @@ J stage_sweep(const J &body) {
             }
         }
         rows.push_back({{"backend",backend},{"H",prefix.size()},{"P",input.size()},
-            {"D",output.size()},{"n_threads",backend=="cpu"?cpu_threads:4},
-            {"n_threads_batch",backend=="cpu"?cpu_threads:4},{"restore_ms",restore},{"prefill_ms",prefill},
+            {"D",output.size()},{"n_threads",previous_threads},
+            {"n_threads_batch",used_batch_threads},{"restore_ms",restore},{"prefill_ms",prefill},
             {"decode_checkpoints",checkpoints},{"state_restore_verified",true},{"finite_logits",true},
             {"resources_before",resources_before},{"resources_after_prefill",resources_after_prefill},{"resources_after_decode",resource_sample()},
             {"backend_setup",setup},{"single_resident",single_resident}});

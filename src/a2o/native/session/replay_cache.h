@@ -8,6 +8,7 @@ class FrozenReplayCache {
     std::vector<llama_token> ids_;
     SessionSnapshot snapshot_;
     std::string identity_;
+    std::string snapshot_checksum_;
     static std::string checksum(const std::vector<uint8_t> &bytes) {
         uint64_t hash=14695981039346656037ULL;
         for(auto byte:bytes){hash^=byte;hash*=1099511628211ULL;}
@@ -16,6 +17,10 @@ class FrozenReplayCache {
 public:
     explicit FrozenReplayCache(std::string identity):identity_(std::move(identity)) {}
     bool matches(const std::vector<llama_token> &ids) const {return ids==ids_ && !snapshot_.state.empty();}
+    const std::string &fingerprint() {
+        if(snapshot_checksum_.empty())snapshot_checksum_=checksum(snapshot_.state);
+        return snapshot_checksum_;
+    }
     const SessionSnapshot &get(llama_context *ctx,const std::vector<llama_token> &ids,
                                const std::string &directory,J &report,KvVerification verification) {
         double begin=now_ms();
@@ -45,9 +50,11 @@ public:
                 require(bool(in.read(reinterpret_cast<char *>(s.state.data()),s.state.size()))
                         && in.peek()==std::ifstream::traits_type::eof(),"snapshot read failed");
                 s.evaluated_tokens=ids.size();
-                require(checksum(s.state)==stored.at("state_checksum").get<std::string>(),"snapshot checksum mismatch");
+                const auto digest=checksum(s.state);
+                require(digest==stored.at("state_checksum").get<std::string>(),"snapshot checksum mismatch");
                 restore_session(ctx,s,nullptr,verification);
                 ids_=ids;snapshot_=std::move(s);
+                snapshot_checksum_=digest;
                 report["hit"]=true;report["source"]="disk";
                 report["setup_ms"]=now_ms()-begin;return snapshot_;
             }
@@ -63,11 +70,12 @@ public:
         evaluate(ctx,std::vector<llama_token>(ids.begin()+reused,ids.end()),pos);
         SessionSnapshot s;s.state=export_seq(ctx);s.next_pos=ids.size();s.evaluated_tokens=ids.size();
         ids_=ids;snapshot_=std::move(s);
+        snapshot_checksum_.clear();
         if(!directory.empty()) {
             auto statefile=file.string()+".state",tmp=statefile+".tmp";
             {std::ofstream f(tmp,std::ios::binary);f.write(reinterpret_cast<const char*>(snapshot_.state.data()),snapshot_.state.size());require(bool(f),"snapshot write failed");}
             std::filesystem::rename(tmp,statefile);
-            {std::ofstream f(file.string()+".tmp");f<<J{{"metadata",metadata},{"state_bytes",snapshot_.state.size()},{"state_checksum",checksum(snapshot_.state)}}.dump();require(bool(f),"snapshot metadata write failed");}
+            {std::ofstream f(file.string()+".tmp");f<<J{{"metadata",metadata},{"state_bytes",snapshot_.state.size()},{"state_checksum",fingerprint()}}.dump();require(bool(f),"snapshot metadata write failed");}
             std::filesystem::rename(file.string()+".tmp",file);
         }
         report["extended_prefix_tokens"]=reused;

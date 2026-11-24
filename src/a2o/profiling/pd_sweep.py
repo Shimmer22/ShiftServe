@@ -9,6 +9,7 @@ import math
 import os
 import random
 import shlex
+import statistics
 import subprocess
 import sys
 import time
@@ -42,6 +43,11 @@ def validate(request, response):
         times = [p['decode_ms'] for p in points]
         assert all(math.isfinite(t) and t > 0 for t in times)
         assert times == sorted(times)
+        if 'cpu_prefill_threads' in request:
+            expected = request['cpu_prefill_threads'] if row['backend'] == 'cpu' else 4
+            assert row['n_threads'] == 4 and row['n_threads_batch'] == expected
+    if 'cpu_prefill_threads' in request:
+        assert response['cache']['history_cpu_threads'] == 4 and response['cache']['snapshot_checksum']
     comparison = response['logit_comparison']
     assert math.isfinite(comparison['cosine']) and math.isfinite(comparison['nrmse'])
     assert -1.000001 <= comparison['cosine'] <= 1.000001 and comparison['nrmse'] >= 0
@@ -52,6 +58,8 @@ def summarize(out, config):
     rows = []
     cache_sources = {}
     first_backend = Counter()
+    candidates = config.get('cpu_prefill_thread_candidates', [])
+    snapshot_ids = set()
     for path in sorted((out / 'measurements').glob('r*.json')):
         if '.raw.' in path.name:
             continue
@@ -59,32 +67,63 @@ def summarize(out, config):
         validate(data['request'], data['response'])
         source = data['response']['cache']['source']
         cache_sources[source] = cache_sources.get(source, 0) + 1
+        threads = data['request'].get('cpu_prefill_threads', 0)
+        if candidates:
+            snapshot_ids.add(data['response']['cache']['snapshot_checksum'])
         if data['stage'] == 'prefill':
             first = data['response']['rows'][0]
-            first_backend[first['P'], first['backend']] += 1
+            first_backend[first['P'], threads, first['backend']] += 1
         for row in data['response']['rows']:
             base = dict(round=data['round'], stage=data['stage'], backend=row['backend'], H=row['H'],
                         n_threads=row.get('n_threads', 4), n_threads_batch=row.get('n_threads_batch', 4),
                         numerical_match=data['response']['logit_comparison']['passed'],
                         P=row['P'], restore_ms=row['restore_ms'], prefill_ms=row['prefill_ms'])
+            if candidates:
+                base['cpu_prefill_threads'] = threads
             if data['stage'] == 'prefill':
                 rows.append(dict(base, D=0, tokens=row['P'], elapsed_ms=row['prefill_ms']))
             else:
                 rows.extend(dict(base, D=p['D'], tokens=p['D'], elapsed_ms=p['decode_ms'])
                             for p in row['decode_checkpoints'])
-    expected = config['rounds'] * 2 * (len(config['P']) + len(config['D']))
+    count_per_round = len(config['P']) * max(1, len(candidates))
+    expected = config['rounds'] * 2 * (count_per_round + len(config['D']))
     assert len(rows) == expected, (len(rows), expected)
     assert cache_sources.get('memory', 0) + cache_sources.get('disk', 0) > 0
     if config.get('balanced_backend_order'):
-        assert first_backend == Counter({(p, backend): config['rounds'] // 2
-                                        for p in config['P'] for backend in ('cpu', 'htp')})
+        assert first_backend == Counter({(p, threads, backend): config['rounds'] // 2
+                                        for p in config['P'] for threads in candidates or [0]
+                                        for backend in ('cpu', 'htp')})
+    if candidates:
+        warmup = json.loads((out / 'warmup.json').read_text())
+        assert snapshot_ids == {warmup['response']['cache']['snapshot_checksum']}
+        assert cache_sources.get('bootstrap', 0) == 0
     with (out / 'stage-times.csv').open('w') as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows)
-    save(out / 'summary.json', dict(completed=True, stage_rows=len(rows),
-        paired_requests=config['rounds'] * (len(config['P']) + bool(config['D'])), cache_sources=cache_sources,
-        H=config['H'], P=config['P'], D=config['D'], scope=config['scope']))
+    summary = dict(completed=True, stage_rows=len(rows),
+        paired_requests=config['rounds'] * (count_per_round + bool(config['D'])), cache_sources=cache_sources,
+        H=config['H'], P=config['P'], D=config['D'], scope=config['scope'])
+    if candidates:
+        medians = {}
+        points = []
+        for threads in candidates:
+            for p in config['P']:
+                pairs = {(r['round'], r['backend']):r['elapsed_ms'] / 1000 for r in rows
+                         if r['cpu_prefill_threads'] == threads and r['P'] == p}
+                cpu = [pairs[(i, 'cpu')] for i in range(config['rounds'])]
+                htp = [pairs[(i, 'htp')] for i in range(config['rounds'])]
+                medians[threads,p] = statistics.median(cpu)
+                points.append(dict(cpu_prefill_threads=threads, P=p, cpu_s=medians[threads,p],
+                                   htp_s=statistics.median(htp),
+                                   cpu_wins=sum(c < h for c,h in zip(cpu,htp)),
+                                   paired_ratio=statistics.median(c / h for c,h in zip(cpu,htp))))
+        scores = {threads: math.exp(statistics.mean(
+            math.log(medians[threads,p] / medians[4,p]) for p in config['P'])) for threads in candidates}
+        summary.update(snapshot_checksum=next(iter(snapshot_ids)), history_cpu_threads=4,
+                       cpu_geomean_relative_to_4=scores, selected_cpu_threads=min(scores,key=scores.__getitem__),
+                       thread_points=points)
+    save(out / 'summary.json', summary)
 
 
 def main():
@@ -95,6 +134,12 @@ def main():
     parser.add_argument('--runtime-overlay', type=Path, help='使用已封版的双后端构建')
     args = parser.parse_args()
     config = json.loads(args.config.read_text())
+    candidates = config.get('cpu_prefill_thread_candidates', [])
+    if candidates and (not args.runtime_overlay or config['D'] or config.get('cpu_threads') != 4
+                       or 4 not in candidates or len(set(candidates)) != len(candidates)
+                       or any(not isinstance(t,int) or t not in range(4,9) for t in candidates)
+                       or not config.get('balanced_backend_order') or config['rounds'] % 2):
+        parser.error('固定历史的线程试验要求 4–8 线程、包含 4 线程基线、偶数轮、无 Decode 及共享权重构建')
     out = (args.output or ROOT / 'results' / config['name']).resolve()
     out.mkdir(parents=True, exist_ok=True)
     lock = (out / 'driver.lock').open('a')
@@ -122,6 +167,9 @@ def main():
             plan['build'] = json.loads((args.runtime_overlay / 'manifest.json').read_text())
             plan['model'] = json.loads((ROOT / 'configs/model-default.json').read_text())
             plan['backend'] = 'CPU与HTP显式加载并共享权重，F16状态，CPU及HTP主机均4线程，batch128'
+            if candidates:
+                plan['backend'] = 'CPU以4线程建立固定历史。仅CPU增量Prefill改变batch线程数，HTP主机4线程，batch128'
+                plan['diagnostic_only'] = True
         if config.get('htp_probe_skel'):
             plan['htp_probe_skel_sha256'] = hashlib.sha256((ROOT / config['htp_probe_skel']).read_bytes()).hexdigest()
             plan['diagnostic_only'] = True
@@ -216,7 +264,7 @@ def main():
                 raw.rename(path.with_suffix(f'.raw.{time.time_ns()}.json'))
             save(raw, dict(request=body, response=result, **meta))
             validate(body, result)
-            if 'cpu_threads' in config:
+            if 'cpu_threads' in config and 'cpu_prefill_threads' not in body:
                 for row in result['rows']:
                     expected_threads = config['cpu_threads'] if row['backend'] == 'cpu' else 4
                     assert row['n_threads'] == row['n_threads_batch'] == expected_threads
@@ -242,24 +290,32 @@ def main():
             measure(out / 'smoke.json', tiny, stage='smoke', round=-1)
         if not (out / 'warmup.json').exists():
             status('building_history_cache', H=h, note='只计算一次完整历史，后续内存或磁盘恢复')
-            warm = body(config.get('warmup_P', 40), 8, ['htp', 'cpu'])
-            warm['decode_points'] = [1, 8]
+            warm = body(config.get('warmup_P', 40), 0 if candidates else 8, ['htp', 'cpu'])
+            if candidates:
+                warm['cpu_prefill_threads'] = 4
+            else:
+                warm['decode_points'] = [1, 8]
             measure(out / 'warmup.json', warm, stage='warmup', round=-1)
         measurements = out / 'measurements'
         measurements.mkdir(exist_ok=True)
         completed = 0
-        total = config['rounds'] * (len(config['P']) + bool(config['D']))
+        total = config['rounds'] * (len(config['P']) * max(1,len(candidates)) + bool(config['D']))
         for rep in range(config['rounds']):
-            jobs = [('prefill', p, 0) for p in config['P']]
+            jobs = [('prefill', p, 0, threads) for p in config['P'] for threads in candidates or [0]]
             if config['D']:
-                jobs.append(('decode', config['decode_P'], max(config['D'])))
+                jobs.append(('decode', config['decode_P'], max(config['D']), 0))
             random.Random(config['seed'] + rep).shuffle(jobs)
-            for index, (stage, p, d) in enumerate(jobs):
+            for index, (stage, p, d, threads) in enumerate(jobs):
                 order_index = config['P'].index(p) if config.get('balanced_backend_order') and stage == 'prefill' else index
+                if candidates:
+                    order_index += candidates.index(threads)
                 order = ['cpu', 'htp'] if (rep + order_index) % 2 == 0 else ['htp', 'cpu']
                 request = body(p, d, order)
-                path = measurements / f'r{rep:02d}-{stage}-p{p:03d}.json'
-                status('measuring', completed=completed, total=total, round=rep, stage=stage, P=p, D=d)
+                suffix = f'-cpu{threads}' if candidates else ''
+                path = measurements / f'r{rep:02d}-{stage}-p{p:03d}{suffix}.json'
+                thread_status = {'cpu_prefill_threads': threads} if candidates else {}
+                request.update(thread_status)
+                status('measuring', completed=completed, total=total, round=rep, stage=stage, P=p, D=d, **thread_status)
                 measure(path, request, round=rep, stage=stage)
                 completed += 1
         summarize(out, config)
