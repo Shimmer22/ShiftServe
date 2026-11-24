@@ -211,10 +211,12 @@ public:
                 2, {rt.cpu_restore.intercept_ms, rt.cpu_restore.slope_ms_per_token}, {2500.0, 0.02}, 80.0);
             cpu_to_htp = BayesianLinearComponent(
                 2, {rt.cpu_to_htp.intercept_ms, rt.cpu_to_htp.slope_ms_per_token}, {2500.0, 0.04}, 150.0);
+            const double cpu_hp = rt.cpu_prefill.has_hp_slope ? rt.cpu_prefill.hp_slope_ms_per_1k_tokens : 4.0;
+            const double htp_hp = rt.htp_prefill.has_hp_slope ? rt.htp_prefill.hp_slope_ms_per_1k_tokens : 4.0;
             cpu_prefill = BayesianLinearComponent(
-                3, {rt.cpu_prefill.intercept_ms, rt.cpu_prefill.slope_ms_per_token, 4.0}, {250000.0, 900.0, 100.0}, 600.0);
+                3, {rt.cpu_prefill.intercept_ms, rt.cpu_prefill.slope_ms_per_token, cpu_hp}, {250000.0, 900.0, 100.0}, 600.0);
             htp_prefill = BayesianLinearComponent(
-                3, {rt.htp_prefill.intercept_ms, rt.htp_prefill.slope_ms_per_token, 4.0}, {250000.0, 900.0, 100.0}, 500.0);
+                3, {rt.htp_prefill.intercept_ms, rt.htp_prefill.slope_ms_per_token, htp_hp}, {250000.0, 900.0, 100.0}, 500.0);
             htp_to_cpu = BayesianLinearComponent(
                 2, {rt.htp_to_cpu.intercept_ms, rt.htp_to_cpu.slope_ms_per_token}, {40000.0, 0.16}, 300.0);
         }

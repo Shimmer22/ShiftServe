@@ -19,7 +19,7 @@ PROBES = "/home/wins/ai-workspace/tools/llama.cpp-hexagon-probes"
 IMAGE = "ghcr.io/snapdragon-toolchain/arm64-android:v0.3"
 
 
-def compile_overlay(git_commit: str = "unknown", build_id: str = "unknown"):
+def compile_overlay(git_commit: str = "unknown", build_id: str = "unknown", extra_flags: list[str] | None = None):
     base = Path("/base/build-snapdragon")
     probe = Path("/probe")
     native = probe / "native"
@@ -75,6 +75,7 @@ def compile_overlay(git_commit: str = "unknown", build_id: str = "unknown"):
     subprocess.run([
         compiler, "-std=c++17", "-O2", "-fPIE", "-pie",
         f'-DA2O_GIT_COMMIT="{git_commit}"', f'-DA2O_BUILD_ID="{build_id}"',
+        *(extra_flags or []),
         "-I/base/src/include", "-I/base/src/ggml/include", "-I/base/src/tools/mtmd",
         "-I" + str(native), "-I/base/src/common", "-I/base/src/vendor", "-I/base/src/vendor/cpp-httplib",
         str(native / "session/phone_service.cpp"), "/base/src/vendor/cpp-httplib/httplib.cpp",
@@ -88,6 +89,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("output", type=Path)
     p.add_argument("--build-id", metavar="LABEL", help="构建标签，最终 ID 自动追加唯一后缀")
+    p.add_argument("--prefill-weight-ab", action="store_true", help="启用诊断端点 /a2o/prefill-weight-ab")
     args = p.parse_args()
     output = args.output.resolve()
     output.relative_to(root / "results")
@@ -114,9 +116,10 @@ def main():
         sources[str(script.relative_to(root))] = hashlib.sha256(build_script.read_bytes()).hexdigest()
         sources_digest = hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest()
         subprocess.run(["scp", "-r", str(native), str(build_script), f"wins:{remote}/"], check=True)
+    extra_flags = ["-DA2O_PREFILL_WEIGHT_AB"] if args.prefill_weight_ab else []
     command = [
         "docker", "run", "--rm", "--pull=never", "-v", BASE + ":/base:ro", "-v", remote + ":/probe",
-        IMAGE, "python3", "/probe/htp_shared_weights.py", "--inside", git_commit, build_id,
+        IMAGE, "python3", "/probe/htp_shared_weights.py", "--inside", git_commit, build_id, *extra_flags,
     ]
     with (output / "build.log").open("w") as log:
         subprocess.run(["ssh", "wins", shlex.join(command)], stdout=log, stderr=subprocess.STDOUT, check=True)
@@ -132,6 +135,6 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) >= 2 and sys.argv[1] == "--inside":
-        compile_overlay(*(sys.argv[2:4]))
+        compile_overlay(sys.argv[2], sys.argv[3], sys.argv[4:])
     else:
         main()

@@ -624,8 +624,8 @@ struct PhoneService {
                 JointRouteKvPlan jp=plan_joint_route_kv(
                     route_tbl,kv_cost_table,int(h_eff),int(p),exp_d,true,use_kv_cost,"cpu",int(h),kv_window.keep_floor);
                 double restore=route_tbl.cpu_restore.eval(double(h_eff));
-                double cp=route_tbl.cpu_prefill.eval(double(p));
-                double np=route_tbl.htp_prefill.eval(double(p));
+                double cp=route_tbl.cpu_prefill.eval(double(p),double(h_eff));
+                double np=route_tbl.htp_prefill.eval(double(p),double(h_eff));
                 double back=route_tbl.htp_to_cpu.eval(double(h_eff+p));
                 route=jp.route;reason=jp.reason;
                 prediction={{"kind","linear_hp_v1"},{"cpu_restore_ms",restore},{"cpu_prefill_ms",cp},
@@ -1211,7 +1211,8 @@ int main(int argc,char **argv){try{
             const auto &m=b.at("model");require(m.at("kind")=="linear_hp_v1","unsupported cost model");
             for(const char *key:{"cpu_restore","cpu_prefill","htp_prefill","htp_to_cpu","cpu_to_htp"}) {
                 const auto &f=m.at(key);double a=f.at("intercept_ms"),s=f.at("slope_ms_per_token");
-                require(std::isfinite(a)&&std::isfinite(s)&&a>=0&&s>=0,"invalid linear fit");
+                double hp=f.contains("hp_slope_ms_per_1k_tokens")&&!f.at("hp_slope_ms_per_1k_tokens").is_null()?f.at("hp_slope_ms_per_1k_tokens").get<double>():0.0;
+                require(std::isfinite(a)&&std::isfinite(s)&&std::isfinite(hp)&&a>=0&&s>=0&&hp>=0,"invalid linear fit");
             }
             require(m.at("h_max").get<size_t>()>=m.at("h_min").get<size_t>() &&
                     m.at("p_max").get<size_t>()>=m.at("p_min").get<size_t>(),"invalid model domain");

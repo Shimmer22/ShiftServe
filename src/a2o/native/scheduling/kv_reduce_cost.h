@@ -8,12 +8,15 @@
 struct KvLinearTerm {
     double intercept_ms = 0.0;
     double slope_ms_per_token = 0.0;
+    double hp_slope_ms_per_1k_tokens = 0.0;
+    bool has_hp_slope = false;
 
-    double eval(double x) const {
-        if (!std::isfinite(intercept_ms) || !std::isfinite(slope_ms_per_token) || !std::isfinite(x)) {
+    double eval(double x, double h_eff = 0.0) const {
+        if (!std::isfinite(intercept_ms) || !std::isfinite(slope_ms_per_token) ||
+            !std::isfinite(hp_slope_ms_per_1k_tokens) || !std::isfinite(x) || !std::isfinite(h_eff)) {
             throw std::runtime_error("nonfinite kv cost input");
         }
-        return std::max(0.0, intercept_ms + slope_ms_per_token * x);
+        return std::max(0.0, intercept_ms + slope_ms_per_token * x + hp_slope_ms_per_1k_tokens * (h_eff / 1000.0) * x);
     }
 };
 
@@ -140,7 +143,12 @@ inline KvLinearTerm parse_kv_linear_term(const JsonT &obj) {
     KvLinearTerm term;
     term.intercept_ms = obj.at("intercept_ms").template get<double>();
     term.slope_ms_per_token = obj.at("slope_ms_per_token").template get<double>();
-    if (!std::isfinite(term.intercept_ms) || !std::isfinite(term.slope_ms_per_token)) {
+    if (obj.contains("hp_slope_ms_per_1k_tokens") && !obj.at("hp_slope_ms_per_1k_tokens").is_null()) {
+        term.hp_slope_ms_per_1k_tokens = obj.at("hp_slope_ms_per_1k_tokens").template get<double>();
+        term.has_hp_slope = true;
+    }
+    if (!std::isfinite(term.intercept_ms) || !std::isfinite(term.slope_ms_per_token) ||
+        !std::isfinite(term.hp_slope_ms_per_1k_tokens)) {
         throw std::runtime_error("nonfinite linear term in kv_reduce_cost_v1");
     }
     return term;
@@ -262,9 +270,9 @@ inline JointRouteKvPlan plan_joint_route_kv(
 
     double hnd_full = 0.0;
     if (route_model.valid) {
-        out.cc_ms = route_model.cpu_restore.eval(double(h_eff)) + route_model.cpu_prefill.eval(double(p));
+        out.cc_ms = route_model.cpu_restore.eval(double(h_eff)) + route_model.cpu_prefill.eval(double(p), double(h_eff));
         hnd_full = route_model.htp_to_cpu.eval(double(total));
-        out.hc_ms = route_model.htp_prefill.eval(double(p)) + hnd_full;
+        out.hc_ms = route_model.htp_prefill.eval(double(p), double(h_eff)) + hnd_full;
         out.extrapolated =
             size_t(h_eff) < route_model.h_min ||
             size_t(total) > route_model.h_max ||
