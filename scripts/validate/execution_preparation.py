@@ -14,6 +14,8 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.environment import build,native_source_hashes,PKG
 from a2o.runtime.protocol import Protocol
+from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 from a2o.validation.oracle import active_model_processes
 from a2o.validation.contracts import check_response
 
@@ -53,6 +55,7 @@ def main():
         shell='cd /data/local/tmp/llama.cpp; '+env+'echo $$ > '+remote+'/pid; exec '+shlex.join(args)
         (out/'command.txt').write_text(shell)
         with (out/'runtime.log').open('w') as log:
+            require_phone_preflight(DeviceTransport(ROOT, 'adb', device=a.device), out)
             proc=subprocess.Popen(adb+['shell','-T',shell],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=log,text=True,bufsize=1)
             protocol=Protocol(proc,out);protocol.wait('session_ready',timeout=180)
             rows=[]

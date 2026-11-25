@@ -14,7 +14,7 @@ SSH = ['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10',
        '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=2', 'wins']
 
 
-def remote_collector(remote, launch=False, config_tag=''):
+def remote_collector(remote, launch=False, config_tag='', preflight_args=()):
     """短连接查询；采集在 wins 独立会话运行，断线后不重新启动已有采集。"""
     code = r'''
 import fcntl,json,pathlib,subprocess,sys
@@ -34,7 +34,7 @@ active=[x.split()[0] for x in processes if "a2o.workloads" not in x and "toolsan
 if not active:
  if not launch or p.exists():raise RuntimeError("collector absent; partial output retained: "+str(p))
  condition=name.rsplit("-",1)[1]
- command=["docker","exec","a2o-toolsandbox-py311","/workspace/tools/a2o-toolsandbox-py311-env/bin/python","/workspace/projects/a2o-gap-profiling/scripts/collect/toolsandbox.py","--config","/workspace/projects/a2o-gap-profiling/configs/toolsandbox-full-"+condition+config_tag+".json","--output","/workspace/outputs/a2o-gap-profiling/"+name]
+ command=["docker","exec",*json.loads(sys.argv[4]),"a2o-toolsandbox-py311","/workspace/tools/a2o-toolsandbox-py311-env/bin/python","/workspace/projects/a2o-gap-profiling/scripts/collect/toolsandbox.py","--config","/workspace/projects/a2o-gap-profiling/configs/toolsandbox-full-"+condition+config_tag+".json","--output","/workspace/outputs/a2o-gap-profiling/"+name]
  with (base/(name+".detached.log")).open("a") as log:
   proc=subprocess.Popen(command,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
  active=[str(proc.pid)]
@@ -42,7 +42,7 @@ summary=p/"summary.json"
 d=json.loads(summary.read_text()) if summary.exists() else {}
 print(json.dumps(dict(phase="collecting",pids=active,completed=d.get("completed",0))))
 '''
-    command = SSH + [shlex.join(['python3', '-c', code, remote, str(launch), config_tag])]
+    command = SSH + [shlex.join(['python3', '-c', code, remote, str(launch), config_tag, json.dumps(preflight_args)])]
     result = subprocess.run(command, capture_output=True, text=True, timeout=60)
     if result.returncode == 255:
         raise ConnectionError(result.stderr[-1000:])
@@ -54,6 +54,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.workloads.toolsandbox import post
 from a2o.runtime.network_retry import retry_network
+from a2o.runtime.phone_preflight import docker_preflight_args
 
 
 def main():
@@ -147,9 +148,10 @@ def main():
                         report=lambda message:status(round=number, condition=condition, phase='reconnecting_costs', error=message))
                 remote = f'20261107-full-{condition}' if number == 1 else f'20261107-full-r{number:02d}-{condition}'
                 status(round=number, condition=condition, phase='collecting', expected=73)
+                gate = docker_preflight_args(ROOT, service, expected_owner=service.name)
                 while True:
                     try:
-                        current = remote_collector(remote, launch=not adopt, config_tag=args.config_tag)
+                        current = remote_collector(remote, launch=not adopt, config_tag=args.config_tag, preflight_args=gate)
                     except (ConnectionError, subprocess.TimeoutExpired) as exc:
                         status(round=number, condition=condition, phase='reconnecting', error=str(exc))
                         time.sleep(30)

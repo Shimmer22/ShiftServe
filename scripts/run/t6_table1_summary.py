@@ -11,12 +11,22 @@ TABLE1_ARMS = {
     'shifttrim': 'ShiftTrim',
     'shiftserve_joint': 'ShiftServe',
 }
+TABLE1_SEVEN_ARMS = {
+    'full_cpu': 'Full-CPU (Independent)',
+    'shared_cc': 'Full-CPU (Shared)',
+    'full_htp': 'Full-HTP',
+    'shared_static_hc': 'Shared-Static-HC',
+    'shared_m1': 'ShiftRouter',
+    'shifttrim': 'ShiftTrim',
+    'shiftserve_joint': 'ShiftServe',
+}
 
 
-def write_table1(output, cases, rows, memory):
-    by_arm = {arm: {row['id']: row for row in rows if row['arm'] == arm} for arm in TABLE1_ARMS}
+def write_table1(output, cases, rows, memory, arms=None):
+    arm_labels = arms or TABLE1_ARMS
+    by_arm = {arm: {row['id']: row for row in rows if row['arm'] == arm} for arm in arm_labels}
     table = []
-    for arm, name in TABLE1_ARMS.items():
+    for arm, name in arm_labels.items():
         traces = by_arm[arm]
         ledger = memory[arm]
         row = dict(

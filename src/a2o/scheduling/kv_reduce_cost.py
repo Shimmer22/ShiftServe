@@ -202,8 +202,13 @@ def plan_kv_reduce(
     return best
 
 
-def _eval_linear(term: dict, x: float) -> float:
-    return max(0.0, float(term["intercept_ms"]) + float(term["slope_ms_per_token"]) * float(x))
+def _eval_linear(term: dict, x: float, h_eff: float = 0.0) -> float:
+    return max(
+        0.0,
+        float(term["intercept_ms"])
+        + float(term["slope_ms_per_token"]) * float(x)
+        + float(term.get("hp_slope_ms_per_1k_tokens") or 0.0) * (float(h_eff) / 1000.0) * float(x),
+    )
 
 
 def plan_joint_route_kv(
@@ -229,9 +234,9 @@ def plan_joint_route_kv(
     hc_ms = 0.0
     extrapolated = False
     if route_valid:
-        cc_ms = _eval_linear(route_model["cpu_restore"], h_eff) + _eval_linear(route_model["cpu_prefill"], p)
+        cc_ms = _eval_linear(route_model["cpu_restore"], h_eff) + _eval_linear(route_model["cpu_prefill"], p, h_eff)
         hnd_full = _eval_linear(route_model["htp_to_cpu"], total)
-        hc_ms = _eval_linear(route_model["htp_prefill"], p) + hnd_full
+        hc_ms = _eval_linear(route_model["htp_prefill"], p, h_eff) + hnd_full
         p_max = int(route_model.get("p_max", 0))
         extrapolated = (
             h_eff < int(route_model.get("h_min", 0))

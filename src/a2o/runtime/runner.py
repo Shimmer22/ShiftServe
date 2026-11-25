@@ -11,6 +11,8 @@ from zoneinfo import ZoneInfo
 
 from ..environment import ROOT, PKG, build, default_device, native_source_hashes
 from ..validation.contracts import validate, check_response, check_async_preparation
+from .device_transport import DeviceTransport
+from .phone_preflight import require_phone_preflight
 
 
 def run(config_path, scenario_path, device, tag):
@@ -134,6 +136,7 @@ def run(config_path, scenario_path, device, tag):
                  + (f'export GGML_HEXAGON_OPBATCH={int(config["htp_opbatch"])}; ' if 'htp_opbatch' in config else '')
                  + f'echo $$ > {remote}/pid; exec ' + shlex.join(args))
         (out / 'command.txt').write_text(shell)
+        require_phone_preflight(DeviceTransport(ROOT, 'adb', device=device), out)
         wall = call(['shell', shell], 'runtime.log')
         call(['pull', remote + '/result.json', str(out / 'runtime.json')])
         if scenario.get('turns'):

@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.network_retry import is_network_error,retry_network
+from a2o.runtime.phone_preflight import require_attached_phone_preflight
 
 def write(p,d):
  t=p.with_suffix(p.suffix+'.tmp');t.write_text(json.dumps(d,indent=2));t.replace(p)
@@ -50,6 +51,7 @@ def main():
  def status(**kw):write(a.output/'status.json',dict(updated_unix=time.time(),**kw))
  completed=0;start=time.time()
  try:
+  require_attached_phone_preflight(ROOT, a.output)
   post('/a2o/costs',{'model':model})
   # Exact-prefix extension is safe only when tokens actually match.
   order=sorted(range(len(requests)),key=lambda i:(requests[i]['task'],requests[i]['step']))

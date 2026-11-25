@@ -6,10 +6,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+import shlex
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.workloads.toolsandbox import save
+from a2o.runtime.phone_preflight import docker_preflight_args
 
 
 def run(cmd, log_path: Path):
@@ -87,9 +89,11 @@ def main():
                 val_name = f'{args.run_tag}-{cond_name}-validation'
                 run_name = f'{args.run_tag}-{cond_name}'
                 save(out / 'status.json', dict(stage='validate_service', condition=cond_name, elapsed_s=time.monotonic() - campaign_start))
-                run(['ssh', 'wins', f'docker exec a2o-toolsandbox-py311 {py} {workspace}/scripts/validate/phone_server.py --config {workspace}/configs/{cfg_path.name} --output /workspace/outputs/a2o-gap-profiling/{val_name}'], out / f'{cond_name}-validation.log')
+                gate = shlex.join(docker_preflight_args(ROOT, out / f'service-{cond_name}', expected_owner=f'service-{cond_name}'))
+                run(['ssh', 'wins', f'docker exec {gate} a2o-toolsandbox-py311 {py} {workspace}/scripts/validate/phone_server.py --config {workspace}/configs/{cfg_path.name} --output /workspace/outputs/a2o-gap-profiling/{val_name}'], out / f'{cond_name}-validation.log')
                 save(out / 'status.json', dict(stage='collect_toolsandbox', condition=cond_name, elapsed_s=time.monotonic() - campaign_start))
-                run(['ssh', 'wins', f'docker exec a2o-toolsandbox-py311 {py} {workspace}/scripts/collect/toolsandbox.py --config {workspace}/configs/{cfg_path.name} --output /workspace/outputs/a2o-gap-profiling/{run_name}'], out / f'{cond_name}-collect.log')
+                gate = shlex.join(docker_preflight_args(ROOT, out / f'service-{cond_name}', expected_owner=f'service-{cond_name}'))
+                run(['ssh', 'wins', f'docker exec {gate} a2o-toolsandbox-py311 {py} {workspace}/scripts/collect/toolsandbox.py --config {workspace}/configs/{cfg_path.name} --output /workspace/outputs/a2o-gap-profiling/{run_name}'], out / f'{cond_name}-collect.log')
                 run(['rsync', '-a', f'wins:{wins_out}/{val_name}/', str(out / f'{cond_name}-validation') + '/'], out / f'{cond_name}-val-download.log')
                 run(['rsync', '-a', f'wins:{wins_out}/{run_name}/', str(out / cond_name) + '/'], out / f'{cond_name}-download.log')
                 run([sys.executable, 'scripts/analyze/toolsandbox.py', str(out / cond_name)], out / f'{cond_name}-analysis.log')

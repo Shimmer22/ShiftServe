@@ -19,6 +19,7 @@ import traceback
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT/'src')]
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_attached_phone_preflight
 from scripts.run.frozen_ablation import BASE, Campaign, _agent_chat_resilient, _http_post, digest, read, request, save
 
 
@@ -210,6 +211,7 @@ def probe(args,cases,costs):
                     results.append(dict(case=case['id'],mode=mode,**read(directory/'warm.json')['timings']))
                     continue
                 runner.state(stage='gap_probe',case=case['id'],mode=mode)
+                require_attached_phone_preflight(ROOT, service, expected_owner=service.name)
                 request('/a2o/reset',{})
                 reply=_agent_chat_resilient(BASE,seed['request'],f'{service.name}:{case["id"]}:{mode}:seed')
                 save(directory/'seed.json',reply)

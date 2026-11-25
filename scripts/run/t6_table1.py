@@ -73,19 +73,35 @@ def prepare_fixtures(args):
     save(args.output / 'fixtures.json', pending)
 
 
+DEFAULT_ROUTE_COSTS = ROOT / 'configs/qwen3-8b-route-costs.json'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--build', type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument('--route-costs', type=Path, default=DEFAULT_ROUTE_COSTS)
+    parser.add_argument('--cpu-threads', type=int, default=None, choices=range(1, 17))
+    parser.add_argument('--max-quiet-c', type=float, default=37.0)
+    parser.add_argument('--min-prime-khz', type=int, default=2400000)
+    parser.add_argument('--min-mem-avail-kib', type=int, default=4000000)
+    parser.add_argument('--cooldown-timeout-s', type=int, default=240)
+    cli_args = parser.parse_args()
+    args = cli_args
     args.output = args.output.resolve()
     args.build = args.build.resolve()
+    route_src = args.route_costs.resolve()
     args.output.mkdir(parents=True, exist_ok=True)
     args.cpu_registry = ROOT / 'results/20261118-qwen3-8b-strict-cpu-frozen/libggml.so'
-    args.route_costs = args.output / 't5-route-priors.json'
+    args.route_costs = args.output / 'route-costs.json'
     args.kv_costs = args.output / 't5-kv-priors.json'
+    route = read(args.route_costs if args.route_costs.exists() else route_src)
+    route_threads = route.get('model', {}).get('cpu_threads')
+    if args.cpu_threads is None:
+        args.cpu_threads = int(route_threads) if route_threads is not None else 4
+    elif route_threads is not None and int(route_threads) != args.cpu_threads:
+        raise ValueError(f'route_costs cpu_threads={route_threads} 与 --cpu-threads={args.cpu_threads} 不一致')
     if not args.route_costs.exists():
-        route = read(PRIOR / 't5-route-priors.json')
         route['model']['routing_p_min'] = 16
         save(args.route_costs, route)
     if not args.kv_costs.exists():
@@ -108,8 +124,13 @@ def main():
                 '--cpu-registry', str(args.cpu_registry), '--fixtures', str(args.fixtures),
                 '--route-costs', str(args.route_costs), '--kv-costs', str(args.kv_costs),
                 '--gap-ms', '0', '--verify-kv-state', '0', '--memory-ledger', '--kv-hwm-trim', '0',
-                '--compact-anchor', '1', '--context-size', str(args.context_size), '--conditions',
-                *TABLE1_ARMS]
+                '--compact-anchor', '1', '--context-size', str(args.context_size),
+                '--cpu-threads', str(args.cpu_threads),
+                '--max-quiet-c', str(args.max_quiet_c),
+                '--min-prime-khz', str(args.min_prime_khz),
+                '--min-mem-avail-kib', str(args.min_mem_avail_kib),
+                '--cooldown-timeout-s', str(args.cooldown_timeout_s),
+                '--conditions', *TABLE1_ARMS]
     run_campaign()
 
 

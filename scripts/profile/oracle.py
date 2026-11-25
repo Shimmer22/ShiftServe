@@ -24,6 +24,7 @@ from a2o.validation.contracts import check_response
 from a2o.validation.oracle import active_model_processes
 from a2o.validation.observation import measurement_grid
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 from a2o.scheduling.speculative_value import PDistribution, expected_value
 
 
@@ -277,6 +278,7 @@ def main():
             f'{extra_env}GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE={config["htp_queue"]} GGML_HEXAGON_OPBATCH={config["htp_opbatch"]}; '
             f'echo $$ > {remote}/pid; exec ' + shlex.join(args))
         (out / 'command.txt').write_text(shell)
+        require_phone_preflight(transport, out)
         proc = subprocess.Popen(transport.shell_command(shell), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=log, text=True, bufsize=1)
         protocol = Protocol(proc, out); protocol.wait('session_ready', timeout=config['timeout_s'])
         for p in config['new_tokens']:

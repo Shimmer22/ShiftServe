@@ -166,7 +166,7 @@ def main():
                 raise ValueError('binary must match the sealed overlay')
             plan['build'] = json.loads((args.runtime_overlay / 'manifest.json').read_text())
             plan['model'] = json.loads((ROOT / 'configs/model-default.json').read_text())
-            plan['backend'] = 'CPU与HTP显式加载并共享权重，F16状态，CPU及HTP主机均4线程，batch128'
+            plan['backend'] = f"CPU与HTP显式加载并共享权重，F16状态，CPU {config.get('cpu_threads', 4)}线程，HTP主机4线程，batch128"
             if candidates:
                 plan['backend'] = 'CPU以4线程建立固定历史。仅CPU增量Prefill改变batch线程数，HTP主机4线程，batch128'
                 plan['diagnostic_only'] = True
@@ -336,7 +336,7 @@ def main():
         pid = int(ssh('cat ' + q(remote + '/pid')))
         ticks = ssh("awk '{print $22}' /proc/" + str(pid) + '/stat')
         guard = owner + ' && test "$(awk \'{print $22}\' /proc/' + str(pid) + '/stat)" = ' + q(ticks)
-        guard += ' && tr "\\000" " " < /proc/' + str(pid) + '/cmdline | /system/bin/grep -F ' + q(remote + '/service')
+        guard += ' && /system/bin/grep -a -F ' + q(remote + '/service') + ' /proc/' + str(pid) + '/cmdline >/dev/null'
         ssh(guard + ' && kill ' + str(pid))
         for _ in range(30):
             if ssh('if kill -0 ' + str(pid) + ' 2>/dev/null; then echo alive; else echo stopped; fi') == 'stopped':

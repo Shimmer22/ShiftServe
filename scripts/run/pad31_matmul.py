@@ -9,6 +9,7 @@ import sys
 import time
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 out=ROOT/'results/20261111-pad31-matmul';out.mkdir(exist_ok=True)
 t=DeviceTransport(ROOT,'ssh',config=ROOT/'configs/termux-ssh.json');q=shlex.quote;remote=t.remote_root+'/'+out.name
 binary=out/'build/probe';probe_info=json.loads((ROOT/'results/20261111-htp-platform-exploration/probe-build-v75/completion.json').read_text())
@@ -29,6 +30,7 @@ try:
         env='export LD_LIBRARY_PATH='+q(lib)+' ADSP_LIBRARY_PATH='+q(adsp)+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE=1 GGML_HEXAGON_OPBATCH=1 GGML_HEXAGON_USE_HMX=1 GGML_HEXAGON_PROFILE='+str(profile)+'; '
         command=env+shlex.join([remote+'/probe',model,remote+'/'+label+'.json'])+'; result=$?; echo "$result" > '+q(remote+'/'+label+'.exit')
         launch='nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/'+label+'.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid')
+        require_phone_preflight(t, out)
         t.call('shell',launch)
         for _ in range(300):
             result=t.call('shell','if [ -f '+q(remote+'/'+label+'.exit')+' ]; then cat '+q(remote+'/'+label+'.exit')+'; else echo running; fi').stdout.decode().strip()

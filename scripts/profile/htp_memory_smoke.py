@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 out=ROOT/'results'/(datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d-%H%M%S')+'-htp-memory-smoke');out.mkdir()
 lock=(ROOT/'results/.termux-model.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
 t=DeviceTransport(ROOT,'ssh',config=ROOT/'configs/termux-ssh.json')
@@ -25,6 +26,7 @@ try:
     env='export LD_LIBRARY_PATH='+q(t.config['runtime_library_dir']+':/vendor/lib64:/vendor/lib64/egl')+' ADSP_LIBRARY_PATH='+q(t.config['runtime_library_dir'])+' GGML_HEXAGON_EXPERIMENTAL=1 GGML_HEXAGON_OPQUEUE=1 GGML_HEXAGON_OPBATCH=1; '
     shell=env+shlex.join(args)+' > '+q(r+'/stdout.log')+' 2> '+q(r+'/runtime.log')+' & p=$!; echo $p > '+q(r+'/pid')+'; while kill -0 $p 2>/dev/null; do cat /proc/$p/stat >> '+q(r+'/stat.log')+'; if [ ! -f '+q(r+'/maps.txt')+' ] && grep -q "PHASE contexts_ready" '+q(r+'/runtime.log')+'; then cat /proc/$p/maps > '+q(r+'/maps.txt')+'; cat /proc/$p/smaps > '+q(r+'/smaps.txt')+' 2> '+q(r+'/smaps-error.txt')+'; dd if=/proc/$p/pagemap of='+q(r+'/pagemap-first.bin')+' bs=8 count=1 2> '+q(r+'/pagemap-access.txt')+'; fi; sleep 0.1; done; wait $p'
     (out/'command.txt').write_text(shell)
+    require_phone_preflight(t, out)
     with (out/'ssh.log').open('w') as log:result=subprocess.run(t.shell_command(shell),stdout=log,stderr=subprocess.STDOUT,timeout=180)
     t.call('pull',r,str(out/'device'))
     if result.returncode:raise RuntimeError('native exit '+str(result.returncode))

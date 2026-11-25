@@ -14,6 +14,8 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.environment import default_device
+from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 
 
 def main():
@@ -66,6 +68,7 @@ def main():
     (out / 'command.txt').write_text(shell + '\n')
     start = time.perf_counter()
     with (out / 'runtime.log').open('w') as log:
+        require_phone_preflight(DeviceTransport(ROOT, 'adb', device=a.device), out)
         proc = subprocess.run(adb + ['shell', shell], stdout=log, stderr=subprocess.STDOUT)
     wall = time.perf_counter() - start
     if proc.returncode:

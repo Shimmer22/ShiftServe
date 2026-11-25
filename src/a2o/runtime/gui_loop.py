@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 
 from ..environment import ROOT, build, default_device, native_source_hashes
 from .protocol import Protocol
+from .device_transport import DeviceTransport
+from .phone_preflight import require_phone_preflight
 
 
 def validate_tap(action, bounds, width, height, memo):
@@ -137,6 +139,7 @@ def run_gui_loop(config_path, device=None):
                  'MTMD_BACKEND_DEVICE=GPUOpenCL; '
                  f'echo $$ > {remote}/pid; exec ' + shlex.join(args))
         (out / 'command.txt').write_text(shell)
+        require_phone_preflight(DeviceTransport(ROOT, 'adb', device=device), out)
         event('model_process_start')
         proc = subprocess.Popen(adb + ['shell', '-T', shell], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE, stderr=runtime_log, text=True, bufsize=1)

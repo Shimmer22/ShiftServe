@@ -11,6 +11,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 from a2o.validation.oracle import active_model_processes
 
 
@@ -72,6 +73,7 @@ def main():
         hashes = t.call('shell', 'sha256sum ' + q(binary) + ' ' + q(model)).stdout.decode()
         (out / 'asset-hashes.txt').write_text(hashes)
         with (out / 'runtime.log').open('w') as log:
+            require_phone_preflight(t, out)
             result = subprocess.run(t.shell_command(shell), stdout=log, stderr=subprocess.STDOUT,
                                     timeout=args.timeout + 30)
         (out / 'exit-code.json').write_text(json.dumps({'returncode': result.returncode}) + '\n')

@@ -199,6 +199,41 @@ int main() {
             out = subprocess.check_output([str(bin_path)], text=True, timeout=10).strip()
             self.assertTrue(out.startswith("cc,hc_full,hc_compact,"))
 
+    def test_seed_from_linear_table_respects_explicit_hp_slope_and_fallback(self) -> None:
+        import shutil, subprocess, tempfile
+        compiler = shutil.which("clang++") or shutil.which("g++")
+        cpp_src = r"""
+#include "scheduling/m1_explorer.h"
+#include <cassert>
+#include <cmath>
+int main() {
+    KvReduceCostTable kt;
+    RouteLinearCostTable legacy;
+    legacy.valid = true;
+    legacy.cpu_prefill = {100.0, 70.0};
+    legacy.htp_prefill = {1000.0, 50.0};
+    a2o_m1::M1JointExplorer e_old;
+    e_old.seed_from_linear_table(legacy, kt);
+    assert(std::abs(e_old.htp_prefill.mean[2] - 4.0) < 1e-9);
+
+    RouteLinearCostTable r2d;
+    r2d.valid = true;
+    r2d.cpu_prefill = {100.0, 70.0, 6.2, true};
+    r2d.htp_prefill = {1000.0, 30.0, 6.5, true};
+    a2o_m1::M1JointExplorer e_new;
+    e_new.seed_from_linear_table(r2d, kt);
+    assert(std::abs(e_new.cpu_prefill.mean[2] - 6.2) < 1e-9);
+    assert(std::abs(e_new.htp_prefill.mean[2] - 6.5) < 1e-9);
+    return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as folder:
+            src_path = Path(folder) / "m1_seed.cpp"
+            bin_path = Path(folder) / "m1_seed"
+            src_path.write_text(cpp_src)
+            subprocess.run([compiler, "-std=c++17", "-I" + str(ROOT / "src/a2o/native"), str(src_path), "-o", str(bin_path)], check=True)
+            subprocess.run([str(bin_path)], check=True)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -118,6 +118,56 @@ class KvReduceCostTest(unittest.TestCase):
         pinned_guard = plan_kv_reduce(cfg, h=4096, p=512, expected_d=96, is_htp=False, h_logical=4096, pinned_tokens=3800)
         self.assertEqual(pinned_guard["k_floor"], 3800)
 
+    def test_2d_hp_slope_parity(self):
+        cfg = json.loads((ROOT / "configs/qwen3-1_7b-kv-reduce-cost.json").read_text())
+        rm_2d = {
+            "kind": "linear_hp_v1",
+            "routing_p_min": 16,
+            "h_min": 1024,
+            "h_max": 4096,
+            "p_min": 16,
+            "p_max": 2048,
+            "cpu_restore": {"intercept_ms": 40.0, "slope_ms_per_token": 0.067},
+            "cpu_prefill": {"intercept_ms": 120.0, "slope_ms_per_token": 70.0, "hp_slope_ms_per_1k_tokens": 6.2},
+            "htp_prefill": {"intercept_ms": 1080.0, "slope_ms_per_token": 30.0, "hp_slope_ms_per_1k_tokens": 6.5},
+            "htp_to_cpu": {"intercept_ms": 10.0, "slope_ms_per_token": 0.06},
+            "cpu_to_htp": {"intercept_ms": 45.0, "slope_ms_per_token": 0.065},
+        }
+        py_4k_40 = plan_joint_route_kv(rm_2d, cfg, 4096, 40, 96, htp_allowed=True, kv_enabled=False)
+        py_4k_42 = plan_joint_route_kv(rm_2d, cfg, 4096, 42, 96, htp_allowed=True, kv_enabled=False)
+        compiler = shutil.which("clang++") or shutil.which("g++")
+        cpp_src = r"""
+#include "scheduling/kv_reduce_cost.h"
+#include <cassert>
+#include <iomanip>
+#include <iostream>
+int main() {
+    RouteLinearCostTable rm;
+    rm.valid = true;
+    rm.routing_p_min = 16;
+    rm.cpu_restore = {40.0, 0.067};
+    rm.cpu_prefill = {120.0, 70.0, 6.2, true};
+    rm.htp_prefill = {1080.0, 30.0, 6.5, true};
+    rm.htp_to_cpu = {10.0, 0.06};
+    rm.cpu_to_htp = {45.0, 0.065};
+    KvReduceCostTable kt;
+    auto a = plan_joint_route_kv(rm, kt, 4096, 40, 96, true, false);
+    auto b = plan_joint_route_kv(rm, kt, 4096, 42, 96, true, false);
+    std::cout << std::setprecision(15) << a.cc_ms << "," << a.hc_ms << "," << b.cc_ms << "," << b.hc_ms << "\n";
+    return 0;
+}
+"""
+        with tempfile.TemporaryDirectory() as folder:
+            src_path = Path(folder) / "hp2d_test.cpp"
+            bin_path = Path(folder) / "hp2d_test"
+            src_path.write_text(cpp_src)
+            subprocess.run([compiler, "-std=c++17", "-I" + str(ROOT / "src/a2o/native"), str(src_path), "-o", str(bin_path)], check=True)
+            cc40, hc40, cc42, hc42 = map(float, subprocess.check_output([str(bin_path)], text=True).strip().split(","))
+        self.assertAlmostEqual(cc40, py_4k_40["cc_ms"], places=6)
+        self.assertAlmostEqual(hc40, py_4k_40["hc_ms"], places=6)
+        self.assertAlmostEqual(cc42, py_4k_42["cc_ms"], places=6)
+        self.assertAlmostEqual(hc42, py_4k_42["hc_ms"], places=6)
+
         # Default handoff_saving_enabled=False avoids counting unverified handoff savings.
         htp_plan = plan_kv_reduce(cfg, h=4096, p=512, expected_d=96, is_htp=True)
         self.assertEqual(htp_plan["handoff_saving_ms"], 0.0)

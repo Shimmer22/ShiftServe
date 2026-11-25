@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.environment import build, default_device, native_source_hashes
 from a2o.validation.contracts import check_response
+from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 
 
 def main():
@@ -80,6 +82,7 @@ def main():
             print(f'START H={h} output={out}', flush=True)
             try:
                 with (out / f'H{h}.log').open('w') as log:
+                    require_phone_preflight(DeviceTransport(ROOT, 'adb', device=a.device), out)
                     result = subprocess.run(adb + ['shell', shell], stdout=log, stderr=subprocess.STDOUT,
                                             timeout=config['timeout_s_per_history'])
                 if result.returncode:

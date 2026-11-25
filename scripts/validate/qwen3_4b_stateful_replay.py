@@ -14,6 +14,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
+from a2o.runtime.phone_preflight import require_attached_phone_preflight
 from a2o.workloads.toolsandbox import post
 from scripts.collect.tau2_adaptive_kv_e2e import route_phone, sample_phone_memory
 from scripts.collect.tau2_e2e_worker import _agent_chat_resilient, _http_post_resilient
@@ -102,6 +103,7 @@ def run_condition(cfg: dict, cond: dict, turns: list[dict], out: Path, reference
         if any(health[key] != value for key, value in expected.items()):
             raise RuntimeError(f"Unexpected phone configuration for {name}: {health}")
         save(svc_dir / "verified-health.json", health)
+        require_attached_phone_preflight(ROOT, svc_dir, expected_owner=svc_dir.name)
         plan = render_chain(turns)
         if reference is None:
             save(out / "rendered-chain.json", plan)

@@ -10,8 +10,9 @@ import time
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
+from a2o.runtime.phone_preflight import require_attached_phone_preflight
 from scripts.run.frozen_ablation import (
     BASE, Campaign, _agent_chat_resilient, kv_cost_payload, read, request, save,
 )
@@ -43,6 +44,7 @@ def run_block(campaign, directory, case_lengths, *, mode='static', legacy=False,
         for name, last in case_lengths.items():
             dest = directory/name
             dest.mkdir()
+            require_attached_phone_preflight(ROOT, dest, expected_owner=directory.name)
             save(dest/'reset.json', request('/a2o/reset', {}))
             run_turns = last + (1 if prior_probe and name == 'multi_turn_base_123' else 0)
             evicted = 0

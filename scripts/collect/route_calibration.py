@@ -5,7 +5,9 @@ from pathlib import Path
 from statistics import median
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.workloads.toolsandbox import post,save
+from a2o.runtime.phone_preflight import require_http_phone_preflight
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--cpu-run',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--endpoint',default='http://10.29.131.50:18780');a=p.parse_args();a.output.mkdir(parents=True,exist_ok=False)
+require_http_phone_preflight(ROOT, a.endpoint,a.output)
 summary=json.loads((a.cpu_run/'summary.json').read_text());rows=[];seen=set();attempted=0
 for case in summary['results']:
  folder=a.cpu_run/case['name'];metrics=json.loads((folder/'metrics.json').read_text())

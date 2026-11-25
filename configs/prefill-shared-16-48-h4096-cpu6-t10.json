@@ -1,0 +1,33 @@
+{
+  "name": "prefill-shared-16-48-h4096-8b",
+  "H": 4096,
+  "P": [
+    16,
+    18,
+    20,
+    22,
+    24,
+    26,
+    28,
+    30,
+    32,
+    34,
+    36,
+    38,
+    40,
+    42,
+    44,
+    46,
+    48
+  ],
+  "D": [],
+  "rounds": 10,
+  "seed": 20261124,
+  "context_size": 8192,
+  "cpu_threads": 6,
+  "balanced_backend_order": true,
+  "request_timeout_s": 300,
+  "endpoint": "http://127.0.0.1:28794",
+  "source": "results/mainline-eval/prefill-motivation-h4096-8b/fixture.json",
+  "scope": "真机 Qwen3-8B 同进程共享权重下 CPU(6线程) 与 HTP(主机4线程) 配对交错纯 Prefill。H=4096，P=16–48 每 2 点共 17 点，每点 10 轮（CPU 先与 HTP 先各 5 次）。"
+}

@@ -6,7 +6,9 @@ from pathlib import Path
 import sys
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'src'))
+from a2o.runtime.phone_preflight import require_http_phone_preflight
 from a2o.workloads.toolsandbox import post, save
 
 
@@ -17,6 +19,7 @@ def main():
     args = parser.parse_args()
     cfg = json.loads(args.config.read_text())
     args.output.mkdir(parents=True, exist_ok=False)
+    require_http_phone_preflight(ROOT, cfg["endpoint"], args.output)
     messages = [{'role': 'system', 'content': 'Respond with JSON only. Follow the user instructions.'}]
     checks = []
     for index, question in enumerate([

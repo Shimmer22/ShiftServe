@@ -8,6 +8,7 @@ import sys
 import time
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.workloads.toolsandbox import post,save
+from a2o.runtime.phone_preflight import require_http_phone_preflight
 from a2o.runtime.network_retry import retry_network
 from a2o.scheduling.linear_route import fit_model,threshold
 
@@ -21,6 +22,7 @@ def main():
     p.add_argument('--ps',default='1,8,32,128,384')
     p.add_argument('--repetitions',type=int,default=3)
     args=p.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+    require_http_phone_preflight(ROOT, args.endpoint, args.output)
     source=json.loads(args.source.read_text());tokens=source['prefix_ids']+source['input_ids']
     hs=[int(x) for x in args.hs.split(',') if x.strip()]
     ps=[int(x) for x in args.ps.split(',') if x.strip()]

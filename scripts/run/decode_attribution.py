@@ -13,6 +13,7 @@ import time
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 
 
 def save(path,value):
@@ -72,6 +73,7 @@ def main():
             already=t.call('shell','test -f '+q(remote+'/'+label+'.log')+' && echo yes || echo no').stdout.decode().strip()=='yes'
             if not (a.resume and already):
                 t.call('shell','test ! -f '+q(remote+'/'+label+'.exit'))
+                require_phone_preflight(t, folder)
                 t.call('shell','nohup /system/bin/sh -c '+q(command)+' > '+q(remote+'/'+label+'.log')+' 2>&1 < /dev/null & echo $! > '+q(remote+'/pid'))
             running=True;begin=time.monotonic();mapped=False;d=None
             while True:

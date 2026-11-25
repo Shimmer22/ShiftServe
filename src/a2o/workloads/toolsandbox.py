@@ -11,6 +11,8 @@ import time
 import traceback
 import urllib.request
 
+from a2o.runtime.phone_preflight import require_http_phone_preflight
+
 
 def save(path, value):
     Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + '\n')
@@ -234,6 +236,7 @@ def main():
     scenarios = named_single_tool_call_scenarios(ToolBackend.DEFAULT)
     scenarios.update(named_multiple_tool_call_scenarios(ToolBackend.DEFAULT))
     args.output.mkdir(parents=True, exist_ok=False)
+    require_http_phone_preflight(Path(__file__).resolve().parents[3], cfg['endpoint'], args.output)
     source = Path(__file__).read_bytes()
     (args.output / 'collector-source.py').write_bytes(source)
     save(args.output / 'manifest.json', dict(config=cfg, engine='phone llama.cpp HTTP server',

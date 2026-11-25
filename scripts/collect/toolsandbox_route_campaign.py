@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """串行完成已授权的CPU/HTP/route十题比较，失败停在现场。"""
-import argparse,json,subprocess,sys,time
+import argparse,json,shlex,subprocess,sys,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'src'))
 from a2o.workloads.toolsandbox import post,save
+from a2o.runtime.phone_preflight import docker_preflight_args
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--binary',type=Path,required=True);p.add_argument('--registry',type=Path,required=True);p.add_argument('--resume',action='store_true');p.add_argument('--start-from',choices=['htp','route']);a=p.parse_args()
 out=ROOT/'results/20261107-toolsandbox-route-e2e';remote='/home/wins/ai-workspace/outputs/a2o-gap-profiling';workspace='/workspace/projects/a2o-gap-profiling';python='/workspace/tools/a2o-toolsandbox-py311-env/bin/python';endpoint='http://10.29.131.50:18780'
 def run(cmd,name):
@@ -12,8 +13,9 @@ def phone(action,condition,folder):
  cmd=[sys.executable,'scripts/run/route_phone.py',action,'--condition',condition,'--output',str(out/folder)]
  if action=='start':cmd+=['--binary',str(a.binary),'--registry',str(a.registry)]
  run(cmd,folder+'-'+action)
-def collect(condition,name):
- run(['ssh','wins',f'docker exec a2o-toolsandbox-py311 {python} {workspace}/scripts/collect/toolsandbox.py --config {workspace}/configs/toolsandbox-qwen35-ten-{condition}.json --output /workspace/outputs/a2o-gap-profiling/{name}'],name)
+def collect(condition,name,owner):
+ gate=shlex.join(docker_preflight_args(ROOT,out/'preflight',expected_owner=owner))
+ run(['ssh','wins',f'docker exec {gate} a2o-toolsandbox-py311 {python} {workspace}/scripts/collect/toolsandbox.py --config {workspace}/configs/toolsandbox-qwen35-ten-{condition}.json --output /workspace/outputs/a2o-gap-profiling/{name}'],name)
  run(['rsync','-a','wins:'+remote+'/'+name+'/',str(out/name)+'/'],name+'-download')
  s=json.loads((out/name/'summary.json').read_text())
  if s['completed']!=10:raise RuntimeError('正式任务未全部尝试：'+name)
@@ -36,8 +38,9 @@ try:
   folder='service-formal-'+condition+('-resume' if a.resume else '');phone('start',condition,folder)
   if condition=='route':
    costs=json.loads((out/'calibration/costs.json').read_text());save(out/'route-costs-installed.json',post(endpoint,'/a2o/costs',costs))
-  run(['ssh','wins',f'docker exec a2o-toolsandbox-py311 {python} {workspace}/scripts/validate/phone_server.py --config {workspace}/configs/toolsandbox-qwen35-ten-{condition}.json --output /workspace/outputs/a2o-gap-profiling/20261107-route-e2e-{condition}-validation-final'],condition+'-validation')
-  collect(condition,'20261107-route-e2e-'+condition+'-formal-ten')
+  gate=shlex.join(docker_preflight_args(ROOT,out/'preflight',expected_owner=folder))
+  run(['ssh','wins',f'docker exec {gate} a2o-toolsandbox-py311 {python} {workspace}/scripts/validate/phone_server.py --config {workspace}/configs/toolsandbox-qwen35-ten-{condition}.json --output /workspace/outputs/a2o-gap-profiling/20261107-route-e2e-{condition}-validation-final'],condition+'-validation')
+  collect(condition,'20261107-route-e2e-'+condition+'-formal-ten',folder)
   phone('stop',condition,folder)
  run([sys.executable,'scripts/analyze/toolsandbox_route.py',str(out)],'final-analysis')
  save(out/'campaign-completion.json',dict(completed=True,conditions=3,scenarios=10))

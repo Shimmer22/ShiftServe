@@ -13,6 +13,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.phone_preflight import require_phone_preflight
 
 DEFAULT_OUT = ROOT / 'results/20261112-ffn-sparse-feasibility'
 
@@ -93,6 +94,7 @@ def main():
             save(OUT / (backend + '-command.json'), dict(command=command))
             t.call('shell', 'test ! -e ' + q(remote + '/' + backend + '.exit'))
             launch = 'nohup /system/bin/sh -c ' + q(command) + ' > ' + q(remote + '/' + backend + '.log') + ' 2>&1 < /dev/null & echo $! > ' + q(remote + '/pid')
+            require_phone_preflight(t, OUT)
             t.call('shell', launch)
             running = True
             begin = time.monotonic()

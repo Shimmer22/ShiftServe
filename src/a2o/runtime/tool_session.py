@@ -14,6 +14,8 @@ from ..validation.tool_session import validate_tool_config, validate_lifecycle
 from ..tools.adapters import execute_tool
 from ..scheduling.router_table import export_table
 from .protocol import Protocol
+from .device_transport import DeviceTransport
+from .phone_preflight import require_phone_preflight
 
 
 def run_tool_session(config_path, scenario_path, device, *, control=False, mechanism=False):
@@ -92,6 +94,7 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
         # 此入口不加载视觉编码器；CPU/HTP 参数显式覆盖。
         shell = f'cd /data/local/tmp/llama.cpp; {env}echo $$ > {remote}/pid; exec ' + shlex.join(args)
         (out / 'command.txt').write_text(shell)
+        require_phone_preflight(DeviceTransport(ROOT, 'adb', device=device), out)
         proc = subprocess.Popen(adb + ['shell', '-T', shell], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=runtime_log, text=True, bufsize=1)
         protocol = Protocol(proc, out)
@@ -154,8 +157,8 @@ def run_tool_session(config_path, scenario_path, device, *, control=False, mecha
     finally:
         if proc is not None and proc.poll() is None:
             # 只终止本次临时目录所属进程，不能影响并行用户实验。
-            stop = (f'p=$(cat {remote}/pid); if tr "\\0" " " < /proc/$p/cmdline | '
-                    f'grep -F -q "{remote}/agent "; then kill -TERM "$p"; fi')
+            stop = (f'p=$(cat {remote}/pid); if /system/bin/grep -a -F -q "{remote}/agent" /proc/"$p"/cmdline 2>/dev/null; '
+                    f'then kill -TERM "$p"; fi')
             try:
                 call('shell', stop)
             finally:

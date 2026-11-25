@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'src'))
 from a2o.runtime.device_transport import DeviceTransport
 from a2o.runtime.model_digest import verify_model_digest
+from a2o.runtime.phone_preflight import PhonePreflightError, require_phone_preflight
 
 REMOTE = '/data/data/com.termux/files/home/.local/a2o'
 OWNER = 'qwen35-phone-server'
@@ -63,6 +64,15 @@ def main():
                    '--chat-template-kwargs', '{"enable_thinking":false}',
                    '--no-context-shift', '--cache-reuse', '0', '--cache-ram', '0',
                    '--no-cache-idle-slots', '--ctx-checkpoints', '1', '--verbosity', '10']
+        try:
+            require_phone_preflight(transport, args.output)
+        except PhonePreflightError:
+            transport.lock_owner = OWNER
+            try:
+                remote('termux-wake-unlock')
+            finally:
+                transport.release_lock()
+            raise
         launch_ns = time.monotonic_ns()
         output = remote('nohup ' + shlex.join(command) + ' > ' + service +
                         '/server.log 2>&1 < /dev/null & echo $! > ' + service + '/pid; cat ' + service + '/pid')

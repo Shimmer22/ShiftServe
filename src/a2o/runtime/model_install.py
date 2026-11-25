@@ -33,8 +33,8 @@ def receive_guard(transport, partial, receiver):
     q = shlex.quote
     owner = 'test "$(cat '+q(transport.remote_root+'/model.lock/owner')+')" = '+q(transport.lock_owner)
     cleanup = ('if [ -f '+q(receiver)+' ]; then p=$(cat '+q(receiver)+'); '
-               'if kill -0 "$p" 2>/dev/null && tr "\\000" " " < /proc/"$p"/cmdline | '
-               '/system/bin/grep -F '+q('of='+partial)+' >/dev/null; then kill "$p"; fi; fi')
+               'if kill -0 "$p" 2>/dev/null && /system/bin/grep -a -F '+q('of='+partial)+
+               ' /proc/"$p"/cmdline >/dev/null 2>&1; then kill "$p"; fi; fi')
     transport.call('shell', owner+' && { '+cleanup+'; }')
 
 
