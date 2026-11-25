@@ -6,6 +6,7 @@
 struct PrefillPrior {
     bool enabled=false,collect_ffn=true,collect_kv=false,record_n_kv=false;
     int kv_tail_tokens=0;
+    int kv_exclude_tail_tokens=0;
     int kv_layer_stride=4;
     double kv_callback_ms=0.0;
     int64_t last_n_kv=-1;
@@ -31,8 +32,9 @@ struct PrefillPrior {
             const double start=now_ms();
             const int64_t n_kv=t->ne[0],n_tok=t->ne[1],n_head=t->ne[2];
             require(t->ne[3]==1,"kq_soft_max prior expects single stream");
-            const int64_t q0=(self.kv_tail_tokens>0&&n_tok>self.kv_tail_tokens)?(n_tok-self.kv_tail_tokens):0;
-            const int64_t q_len=n_tok-q0;
+            const int64_t q_end=(self.kv_exclude_tail_tokens>0&&n_tok>self.kv_exclude_tail_tokens)?(n_tok-self.kv_exclude_tail_tokens):n_tok;
+            const int64_t q0=(self.kv_tail_tokens>0&&q_end>self.kv_tail_tokens)?(q_end-self.kv_tail_tokens):0;
+            const int64_t q_len=q_end-q0;
             if(self.kv_scores.size()<size_t(n_kv))self.kv_scores.resize(size_t(n_kv),0.0);
             self.kv_layer_acc.assign(size_t(n_kv),0.0f);
             float * __restrict__ acc=self.kv_layer_acc.data();
@@ -40,7 +42,7 @@ struct PrefillPrior {
                 const float *ptr=reinterpret_cast<const float*>(t->data);
                 for(int64_t h=0;h<n_head;++h){
                     const int64_t h_off=h*n_tok*n_kv;
-                    for(int64_t q=q0;q<n_tok;++q){
+                    for(int64_t q=q0;q<q_end;++q){
                         const float * __restrict__ row=ptr+h_off+q*n_kv;
                         for(int64_t k=0;k<n_kv;++k)acc[k]+=row[k];
                     }
@@ -97,25 +99,28 @@ struct PrefillPrior {
 // 仅在最后一个 batch chunk 启用 kq_soft_max 采集（回调内部再按 kv_tail_tokens 切片），
 // 既不增加额外 forward 次数，也避免拆出 <32 的小 batch 掉进 HTP 性能低谷。
 static void evaluate_with_prior_tail(llama_context *ctx,const std::vector<llama_token> &ts,
-        llama_pos &pos,PrefillPrior &prior,bool collect,int tail_tokens){
+        llama_pos &pos,PrefillPrior &prior,bool collect,int tail_tokens,int exclude_tail_tokens=0){
     prior.kv_scores.clear();
     if(!collect||ts.empty()){
         prior.enabled=false;
+        prior.kv_exclude_tail_tokens=0;
         evaluate(ctx,ts,pos);
         return;
     }
     const size_t bs=size_t(batch_size);
     const size_t n_tail=(tail_tokens>0)?std::min(ts.size(),size_t(tail_tokens)):ts.size();
+    const size_t n_excl=size_t(std::max(0,exclude_tail_tokens));
+    const size_t n_need=std::min(ts.size(),n_tail+n_excl);
     size_t split=0;
     if(ts.size()>bs){
         const size_t rem=ts.size()%bs;
         if(rem==0){
             split=ts.size()-bs;
-        }else if(rem>=n_tail){
+        }else if(rem>=n_need){
             split=ts.size()-rem;
         }else{
             // 保持总 chunk 数不变，同时把最后一块凑到 >=32（且 <=bs）以避开 HTP 小 batch 低谷。
-            const size_t tail_chunk=std::min(bs,std::max(n_tail,size_t(32)));
+            const size_t tail_chunk=std::min(bs,std::max(n_need,size_t(32)));
             split=(ts.size()>tail_chunk)?(ts.size()-tail_chunk):0;
         }
     }
@@ -133,8 +138,10 @@ static void evaluate_with_prior_tail(llama_context *ctx,const std::vector<llama_
         ~ScopedPrior() {
             set(ctx,nullptr,nullptr);
             prior.enabled=false;
+            prior.kv_exclude_tail_tokens=0;
         }
     } scope{set_callback,ctx,prior};
+    prior.kv_exclude_tail_tokens=exclude_tail_tokens;
     prior.enabled=true;
     set_callback(ctx,&PrefillPrior::callback,&prior);
     evaluate(ctx,std::vector<llama_token>(ts.begin()+split,ts.end()),pos);

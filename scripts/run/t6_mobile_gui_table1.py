@@ -14,32 +14,36 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from scripts.run.frozen_ablation import Campaign, COST_ARMS, digest, kv_cost_payload, read, request, save
-from scripts.run.t6_table1_summary import TABLE1_ARMS, write_table1
+from scripts.run.frozen_ablation import Campaign, COST_ARMS, CPU_REPLAY_ARMS, digest, kv_cost_payload, read, request, save
+from scripts.run.t6_table1_summary import TABLE1_ARMS, TABLE1_SEVEN_ARMS, write_table1
 from a2o.profiling.memory_ledger import parse_runtime_log
 
-SHA = '05b88107d89c7253d33f91603c878ffe348c0593'
+SHA = '7e3dd64eed08e1fa07387e722b3aea352fbbff51'
 FIXTURE_SHA = '0269a614ae252bcfab7a3404b2800d092a6a024c64995267f2d48f7122f553c3'
 INPUT = ROOT/'results/mainline-eval/mobile-gui-hpd/fixtures.json'
 PRIORS = ROOT/'results/mainline-eval/t6-8b-table1-revised'
+DEFAULT_ROUTE_COSTS = ROOT/'configs/qwen3-8b-route-costs.json'
 GATE = 'ac_ep_2405'
 ALTERNATE_GATE = 'ac_ep_6119'
 ARMS = tuple(TABLE1_ARMS)
 
 
-def fixture_plan(build):
+def fixture_plan(build, expected_sha=None, fixtures_path=None, allow_dirty_build=False):
+    fpath = (fixtures_path or INPUT).resolve()
     manifest = read(build/'manifest.json')
-    if manifest['git_commit'] != SHA or manifest['dirty']:
-        raise ValueError('Android build is not the requested clean commit')
+    target_sha = expected_sha or SHA
+    if manifest['git_commit'] != target_sha or (manifest['dirty'] and not allow_dirty_build):
+        raise ValueError(f'Android build {manifest["git_commit"]} != {target_sha} or dirty={manifest["dirty"]}')
     if any(digest(build/name) != checksum for name, checksum in manifest['artifacts'].items()):
         raise ValueError('Android artifact checksum mismatch')
-    if digest(INPUT) != FIXTURE_SHA:
+    if fpath == INPUT.resolve() and digest(fpath) != FIXTURE_SHA:
         raise ValueError('fixture checksum mismatch')
-    corpus = read(INPUT)
+    corpus = read(fpath)
     cases = corpus['cases']
-    counts = Counter(c['benchmark'] for c in cases)
-    if counts != {'droidtask': 3, 'androidcontrol_low': 5} or len({c['id'] for c in cases}) != 8:
-        raise ValueError('unexpected Mobile GUI cohort')
+    if fpath == INPUT.resolve():
+        counts = Counter(c['benchmark'] for c in cases)
+        if counts != {'droidtask': 3, 'androidcontrol_low': 5} or len({c['id'] for c in cases}) != 8:
+            raise ValueError('unexpected Mobile GUI cohort')
     max_length, warm_rounds = 0, 0
     for case in cases:
         previous = []
@@ -53,19 +57,33 @@ def fixture_plan(build):
             previous = ids[:-4]
             max_length = max(max_length,len(ids)+len(decode))
         warm_rounds += len(case['turns'])-1
-    if warm_rounds != 50 or max_length > 7892:
+    if fpath == INPUT.resolve() and (warm_rounds != 50 or max_length > 7892):
         raise ValueError(f'unexpected fixture size: {warm_rounds} returns, {max_length} tokens')
+    if max_length > 9472:
+        raise ValueError(f'fixture max_length={max_length} > 9472')
     return corpus, max_length
 
 
-def balanced_order(cases):
-    # Even-order Williams square: the first six rows balance positions and direct carryover.
-    shifts = {'droidtask': iter((0,2,4)), 'androidcontrol_low': iter((1,3,5,0,2))}
-    return [
-        dict(case=case['id'], benchmark=case['benchmark'],
-             order=[ARMS[(i+shift)%len(ARMS)] for i in (0,1,5,2,4,3)])
-        for case in cases for shift in [next(shifts[case['benchmark']])]
-    ]
+def balanced_order(cases, arms=ARMS):
+    # Balanced Williams / Latin-square rotation per benchmark to cancel slow drift across arms.
+    if len(arms) == 6 and len(cases) == 8:
+        shifts = {'droidtask': iter((0,2,4)), 'androidcontrol_low': iter((1,3,5,0,2))}
+        return [
+            dict(case=case['id'], benchmark=case['benchmark'],
+                 order=[arms[(i+shift)%len(arms)] for i in (0,1,5,2,4,3)])
+            for case in cases for shift in [next(shifts[case['benchmark']])]
+        ]
+    base = tuple((0,1,6,2,5,3,4)) if len(arms) == 7 else tuple(range(len(arms)))
+    bench_idx = Counter()
+    rows = []
+    for idx, case in enumerate(cases):
+        b = case['benchmark']
+        shift = (bench_idx[b] * 2 + (1 if b == 'androidcontrol_low' else 0)) % len(arms)
+        bench_idx[b] += 1
+        seq = base if idx % 2 == 0 else tuple(reversed(base))
+        rows.append(dict(case=case['id'], benchmark=b,
+                         order=[arms[(i+shift)%len(arms)] for i in seq]))
+    return rows
 
 
 class MobileCampaign(Campaign):
@@ -106,16 +124,22 @@ class MobileCampaign(Campaign):
             self.service('start', arm, attempt)
             raw.mkdir()
             health = read(attempt/'health.json')
-            if health['git_commit'] != SHA or health['gap_ms'] != 0 or health['verify_kv_state'] or health['kv_hwm_trim']:
+            expected_threads = getattr(self.args, 'cpu_threads', None)
+            if (health['git_commit'] != self.git_commit or health['gap_ms'] != 0 or health['verify_kv_state'] or health['kv_hwm_trim']
+                    or (expected_threads is not None and health.get('cpu_threads') != expected_threads)
+                    or health.get('htp_host_threads', 4) != 4):
                 raise RuntimeError('phone health does not match sealed measurement')
             if audit:
                 cleared = {c['id']: self.verify_renderer(c) for c in self.cases}
                 save(self.output/'renderer-audit.json',cleared)
                 if any(cleared.values()):
                     raise RuntimeError('phone renderer disagrees with frozen fixtures')
-            if arm in COST_ARMS:
-                payload = read(self.args.route_costs)
-                payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
+            if arm in COST_ARMS or (getattr(self.args, 'cold_costs', None) is not None and arm not in CPU_REPLAY_ARMS and arm != 'full_htp'):
+                payload = read(self.args.route_costs) if arm in COST_ARMS else {}
+                if getattr(self.args, 'cold_costs', None) is not None:
+                    payload['cold_model'] = read(self.args.cold_costs)
+                if arm in COST_ARMS:
+                    payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
                 if arm in ('shared_m1','shiftserve_joint'):
                     payload['m1_explorer'] = {'enabled': True}
                 save(attempt/'cost-request.json',payload)
@@ -150,13 +174,15 @@ class MobileCampaign(Campaign):
         return row
 
 
-def write_details(output, order):
+def write_details(output, order, arms=ARMS):
+    arm_labels = TABLE1_SEVEN_ARMS if tuple(arms) == tuple(TABLE1_SEVEN_ARMS) else TABLE1_ARMS
     rows = []
-    for scope in ('overall','droidtask','androidcontrol_low'):
+    scopes = ('overall', *sorted({c['benchmark'] for c in order}))
+    for scope in scopes:
         cases = [c['case'] for c in order if scope=='overall' or c['benchmark']==scope]
         summaries, peaks = [], {}
         detail = {}
-        for arm in ARMS:
+        for arm in arms:
             summaries_arm = []
             waits = Counter()
             for case in cases:
@@ -185,8 +211,8 @@ def write_details(output, order):
             detail[arm] = waits
         destination = output if scope=='overall' else output/scope
         destination.mkdir(exist_ok=True)
-        write_table1(destination,cases,summaries,peaks)
-        for result, arm in zip(csv.DictReader((destination/'table1.csv').open()),ARMS):
+        write_table1(destination,cases,summaries,peaks,arms=arm_labels)
+        for result, arm in zip(csv.DictReader((destination/'table1.csv').open()),arms):
             counts = detail[arm]
             result.update(scope=scope, **{k:counts[k] for k in (
                 'CC','HC-Full','HC-Compact','HH','prior_rounds','recent_rounds','newly_evicted_tokens','logical_tokens')})
@@ -205,32 +231,67 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--fixtures',type=Path,default=INPUT)
+    parser.add_argument('--commit',default=None)
+    parser.add_argument('--route-costs',type=Path,default=DEFAULT_ROUTE_COSTS)
+    parser.add_argument('--cold-costs',type=Path,default=None)
+    parser.add_argument('--kv-costs',type=Path,default=PRIORS/'t5-kv-priors.json')
+    parser.add_argument('--opbatch',type=int,default=1024)
+    parser.add_argument('--opqueue',type=int,default=16)
+    parser.add_argument('--htp-big-cores',type=int,choices=[0,1],default=0)
+    parser.add_argument('--cases',nargs='+',default=None)
+    parser.add_argument('--allow-dirty-build',action='store_true')
+    parser.add_argument('--cpu-threads',type=int,default=None,choices=range(1,17))
+    parser.add_argument('--include-shared-cpu',action='store_true',default=True)
+    parser.add_argument('--six-arms',action='store_true',help='仅跑6组（不含 shared_cc）')
+    parser.add_argument('--max-quiet-c',type=float,default=39.0)
+    parser.add_argument('--min-prime-khz',type=int,default=2000000)
+    parser.add_argument('--min-mem-avail-kib',type=int,default=1500000,help='模型加载后可用内存门槛（开服前固定为 4000000 KiB）')
+    parser.add_argument('--cooldown-timeout-s',type=int,default=360)
     cli=parser.parse_args()
     out, build=cli.output.resolve(),cli.build.resolve()
-    if out != (ROOT/'results/mainline-eval/t6-8b-table1-mobile-gui').resolve():
-        raise ValueError('use the dedicated Mobile GUI results directory')
-    corpus, max_length=fixture_plan(build)
+    fixtures_path = cli.fixtures.resolve()
+    out.relative_to(ROOT/'results')
+    if out == (ROOT/'results/mainline-eval/t6-8b-table1-mobile-gui').resolve():
+        raise ValueError('keep historical t6-8b-table1-mobile-gui untouched; choose a new output directory')
+    manifest_commit = cli.commit or read(build/'manifest.json')['git_commit']
+    corpus, max_length=fixture_plan(build, expected_sha=manifest_commit, fixtures_path=fixtures_path, allow_dirty_build=cli.allow_dirty_build)
     out.mkdir(parents=True,exist_ok=True)
-    args=SimpleNamespace(build=build,output=out,fixtures=INPUT,
-                         route_costs=PRIORS/'t5-route-priors.json',kv_costs=PRIORS/'t5-kv-priors.json',
+    route_dst = out/'route-costs.json'
+    route = read(route_dst if route_dst.exists() else cli.route_costs.resolve())
+    route_threads = route.get('model',{}).get('cpu_threads')
+    cpu_threads = cli.cpu_threads if cli.cpu_threads is not None else (int(route_threads) if route_threads is not None else 4)
+    if route_threads is not None and int(route_threads) != cpu_threads:
+        raise ValueError(f'route_costs cpu_threads={route_threads} 与 --cpu-threads={cpu_threads} 不一致')
+    if not route_dst.exists():
+        route['model']['routing_p_min'] = 16
+        save(route_dst, route)
+    arms = list(TABLE1_ARMS if cli.six_arms else TABLE1_SEVEN_ARMS)
+    args=SimpleNamespace(build=build,output=out,fixtures=fixtures_path,
+                         route_costs=route_dst,kv_costs=cli.kv_costs.resolve(),
                          model=ROOT/'configs/model-default.json',
                          cpu_registry=ROOT/'results/20261118-qwen3-8b-strict-cpu-frozen/libggml.so',
                          context_size=9472,gap_ms=0,verify_kv_state=0,kv_hwm_trim=0,device='xiaomi14pro',
                          memory_ledger=True,compact_anchor=1,kv_layer_stride=4,kv_min_evict_tokens=256,
-                         conditions=list(ARMS),case=None,force_path='none',single_turn=False,
-                         m1_explorer=True,graph_profile=True)
+                         conditions=arms,case=cli.cases,force_path='none',single_turn=False,
+                         m1_explorer=True,graph_profile=True,cpu_threads=cpu_threads,
+                         opbatch=cli.opbatch,opqueue=cli.opqueue,htp_big_cores=cli.htp_big_cores,
+                         cold_costs=(cli.cold_costs.resolve() if cli.cold_costs else None),
+                         max_quiet_c=cli.max_quiet_c,min_prime_khz=cli.min_prime_khz,
+                         min_mem_avail_kib=cli.min_mem_avail_kib,cooldown_timeout_s=cli.cooldown_timeout_s)
     with (out/'driver.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         campaign=MobileCampaign(args,corpus)
         cases={c['id']:c for c in campaign.cases}
-        order=balanced_order(corpus['cases'])
-        plan=dict(campaign.plan,order=order,max_logical_tokens=max_length,gate=GATE,graph_profile=True,
+        order=balanced_order(campaign.cases if cli.cases else corpus['cases'], arms=arms)
+        has_ac_gate = all(g in cases for g in (GATE, ALTERNATE_GATE))
+        plan=dict(campaign.plan,order=order,max_logical_tokens=max_length,gate=(GATE if has_ac_gate else None),graph_profile=True,
                   adaptive_state='reset per trajectory; online within trajectory')
         if (out/'plan.json').exists() and read(out/'plan.json') != plan:
             raise RuntimeError('resume requires the original Mobile GUI plan')
         save(out/'plan.json',plan)
         try:
-            if not (out/'gate.json').exists():
+            if has_ac_gate and not (out/'gate.json').exists():
                 rejected={}
                 for candidate in (GATE,ALTERNATE_GATE):
                     gate={}
@@ -251,12 +312,13 @@ def main():
             for cell in order:
                 case=cell['case']
                 for arm in cell['order']:
-                    campaign.run_cell(cases[case],arm,out/arm/case,'formal')
+                    campaign.run_cell(cases[case],arm,out/arm/case,'formal',
+                                      audit=not (out/'renderer-audit.json').exists())
                     finished=list(out.glob('*/*/summary.json'))
                     campaign.state(stage='cell_complete',formal_cells=len(finished),
                                    completed=dict(Counter(p.parent.parent.name for p in finished)))
-                write_details(out,order)
-            campaign.state(status='passed',stage='complete',formal_cells=48)
+                write_details(out,order,arms=arms)
+            campaign.state(status='passed',stage='complete',formal_cells=len(order)*len(arms))
         except Exception as exc:
             campaign.state(status='failed',error=str(exc))
             raise

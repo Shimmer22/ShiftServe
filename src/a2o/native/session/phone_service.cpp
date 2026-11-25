@@ -9,10 +9,15 @@
 #include "httplib.h"
 #include <algorithm>
 #include <condition_variable>
+#include <filesystem>
+#include <fstream>
+#include <limits>
 #include <optional>
+#include <sstream>
 #ifndef _WIN32
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sched.h>
 #include <sys/socket.h>
 #endif
 #include "nlohmann/json.hpp"
@@ -35,6 +40,89 @@ using J=nlohmann::ordered_json;
 #define A2O_BUILD_ID __DATE__ " " __TIME__
 #endif
 
+namespace {
+struct BigCoreMask {
+    bool valid = false;
+    cpu_set_t set{};
+};
+
+static const BigCoreMask & get_big_core_mask() {
+    static const BigCoreMask mask = []() -> BigCoreMask {
+        BigCoreMask out;
+        CPU_ZERO(&out.set);
+        namespace fs = std::filesystem;
+        std::error_code ec;
+        const fs::path base("/sys/devices/system/cpu/cpufreq");
+        if (!fs::is_directory(base, ec)) return out;
+        struct PolicyInfo { long long max_khz; std::vector<int> cpus; };
+        std::vector<PolicyInfo> policies;
+        long long min_khz = std::numeric_limits<long long>::max();
+        for (const auto & entry : fs::directory_iterator(base, ec)) {
+            if (!entry.is_directory(ec)) continue;
+            const std::string name = entry.path().filename().string();
+            if (name.rfind("policy", 0) != 0) continue;
+            std::ifstream f_max(entry.path() / "cpuinfo_max_freq");
+            std::ifstream f_cpus(entry.path() / "affected_cpus");
+            long long khz = 0;
+            if (!(f_max >> khz) || khz <= 0 || !f_cpus) continue;
+            PolicyInfo pi{khz, {}};
+            int cpu = -1;
+            while (f_cpus >> cpu) {
+                if (cpu >= 0 && cpu < CPU_SETSIZE) pi.cpus.push_back(cpu);
+            }
+            if (!pi.cpus.empty()) {
+                min_khz = std::min(min_khz, khz);
+                policies.push_back(std::move(pi));
+            }
+        }
+        int count = 0;
+        for (const auto & pi : policies) {
+            if (pi.max_khz > min_khz) {
+                for (int cpu : pi.cpus) {
+                    CPU_SET(cpu, &out.set);
+                    ++count;
+                }
+            }
+        }
+        out.valid = count > 0;
+        return out;
+    }();
+    return mask;
+}
+
+class ScopedBigCoreAffinity {
+public:
+    explicit ScopedBigCoreAffinity(bool enable) {
+#ifndef _WIN32
+        if (!enable) return;
+        const auto & target = get_big_core_mask();
+        if (!target.valid) return;
+        CPU_ZERO(&prev_);
+        if (sched_getaffinity(0, sizeof(prev_), &prev_) == 0 &&
+            sched_setaffinity(0, sizeof(target.set), &target.set) == 0) {
+            active_ = true;
+        }
+#else
+        (void)enable;
+#endif
+    }
+    ~ScopedBigCoreAffinity() {
+#ifndef _WIN32
+        if (active_) {
+            sched_setaffinity(0, sizeof(prev_), &prev_);
+        }
+#endif
+    }
+    ScopedBigCoreAffinity(const ScopedBigCoreAffinity &) = delete;
+    ScopedBigCoreAffinity & operator=(const ScopedBigCoreAffinity &) = delete;
+private:
+    bool active_ = false;
+#ifndef _WIN32
+    cpu_set_t prev_{};
+#endif
+};
+} // namespace
+
 struct PhoneService {
     std::string condition;
     std::unique_ptr<Engine> cpu,htp;
@@ -54,7 +142,7 @@ struct PhoneService {
     uint64_t version=0;
     int cpu_threads=4;
     bool htp_kv_offload=false, flash_attention=false, cpu_repack=false, kv_reduce=false, compact_anchor=false;
-    bool single_resident=false, shared_weights=false, default_enable_thinking=false;
+    bool single_resident=false, shared_weights=false, default_enable_thinking=false, htp_big_cores=false;
     int kv_keep_tokens=512, kv_sink_tokens=4, kv_recent_tokens=64, kv_pool_window=5, kv_tail_tokens=16, kv_layer_stride=4, kv_min_evict_tokens=256, expected_decode_tokens=96;
     double kv_keep_ratio=-1.0;
     bool kv_hwm_trim=true;
@@ -79,6 +167,7 @@ struct PhoneService {
         require(cpu_threads>0 && cpu_threads<=16,"invalid CPU thread count");
         if(const char *value=std::getenv("A2O_CPU_REPACK")){require(std::string(value)=="0"||std::string(value)=="1","invalid CPU repack flag");cpu_repack=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_HTP_KV_OFFLOAD")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV offload flag");htp_kv_offload=std::string(value)=="1";}
+        if(const char *value=std::getenv("A2O_HTP_BIG_CORES")){require(std::string(value)=="0"||std::string(value)=="1","invalid HTP big cores flag");htp_big_cores=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_FLASH_ATTN")){require(std::string(value)=="0"||std::string(value)=="1","invalid flash attention flag");flash_attention=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_KV_REDUCE")){require(std::string(value)=="0"||std::string(value)=="1","invalid KV reduce flag");kv_reduce=std::string(value)=="1";}
         if(const char *value=std::getenv("A2O_KV_KEEP_TOKENS"))kv_keep_tokens=std::stoi(value);
@@ -413,6 +502,16 @@ struct PhoneService {
                 force_path=="hc_compact" || force_trim,"invalid frozen_force_path");
         const bool force_any_hc=(force_path=="hc_full" || force_path=="hc_compact" || force_trim);
         const bool serial_context=cpu && !cpu->ctx;
+        const auto lifecycle_probe=body.value("frozen_hc_lifecycle_probe",std::string());
+        const bool sync_prepare=lifecycle_probe=="rebuild_sync";
+        const bool probe_htp_decode=lifecycle_probe=="retain_htp_decode";
+        const bool retain_htp=lifecycle_probe=="retain" || probe_htp_decode;
+        if(!lifecycle_probe.empty()){
+            require(frozen && force_path=="hc_full" && shared_weights && !kv_reduce && !serial_context,
+                    "lifecycle probe requires frozen shared HC-Full without compaction");
+            require(sync_prepare || retain_htp || lifecycle_probe=="rebuild_async","invalid lifecycle probe mode");
+            require(!sync_prepare || (!htp->ctx && !lane.occupied()),"synchronous probe requires an empty HTP lane");
+        }
         if(!force_path.empty())require(frozen,"forced path requires frozen decode");
         if(force_path=="hc_full")require(condition=="route" && htp,"forced HC-Full requires route and HTP context");
         if(force_path=="hc_compact")require(condition=="route" && htp && kv_reduce,"forced HC-Compact requires route, HTP context, and kv_reduce=1");
@@ -511,7 +610,7 @@ struct PhoneService {
                 wait_ms=now_ms()-begin;
                 ready=lane.availability(anchor_version);
             }
-            require(ready=="ready","forced HC preparation did not complete");
+            require(sync_prepare || ready=="ready","forced HC preparation did not complete");
             route="htp";
             if(force_path=="hc_compact"){
                 kv_admit=true;
@@ -658,6 +757,8 @@ struct PhoneService {
         if(cold_hc){
             lane.close();
             llama_memory_clear(llama_get_memory(pre),true);
+        }else if(sync_prepare){
+            restore_session(pre,*anchor,nullptr,kv_verification);
         }else if(condition=="route" && route=="htp")lane.claim(anchor_version);
         else {
             const double retirement_started=now_ms();
@@ -707,14 +808,29 @@ struct PhoneService {
         const bool collect_prior=kv_will_reduce && eff_policy=="prefill_prior";
         const bool legacy_anchor=body.value("frozen_legacy_snapshot",false);
         if(legacy_anchor)require(frozen,"legacy snapshot override requires frozen replay");
-        const bool defer_hc_anchor=shared_weights && route=="htp" && !legacy_anchor &&
-                                   (!kv_will_reduce || compact_anchor);
+        const bool defer_anchor=!legacy_anchor && (!kv_will_reduce || compact_anchor);
+        const bool defer_hc_anchor=shared_weights && route=="htp" && defer_anchor;
         const bool save_compact_anchor=compact_anchor && kv_will_reduce;
         const bool profile_graph=body.value("frozen_graph_profile",false);
         if(profile_graph)require(frozen,"graph profile requires frozen replay");
         PhoneGraphTrace prefill_graph(profile_graph), decode_graph(profile_graph);
         J clocks=J::object();
         const size_t anchor_split_in_suffix=anchor_toks.size()-h;
+        J prefill_chunks=J::array();
+        if(!lifecycle_probe.empty())require(profile_graph,"lifecycle probe requires graph profiling");
+        auto measure_prefill=[&](size_t count,auto &&fn){
+            double start=now_ms();
+            if(lifecycle_probe.empty()){
+                prefill_graph.measure(fn);
+                return now_ms()-start;
+            }
+            PhoneGraphTrace part(true);
+            part.measure(fn);
+            const double elapsed=now_ms()-start;
+            for(size_t i=0;i<part.totals.size();++i)prefill_graph.totals[i]+=part.totals[i];
+            prefill_chunks.push_back({{"tokens",count},{"wall_ms",elapsed},{"graph",part.json()}});
+            return elapsed;
+        };
         std::vector<int> next_live_pos=live_pos;
         next_live_pos.reserve(h_eff+anchor_split_in_suffix);
         for(size_t i=h;i<anchor_toks.size();++i)next_live_pos.push_back(int(i));
@@ -722,26 +838,22 @@ struct PhoneService {
         memory.sample("before_prefill");
         if(profile_graph)clocks["before_prefill"]=phone_clock_sample();
         prior.kv_callback_ms=0.0;
-        if(anchor_split_in_suffix<suffix.size()){
-            std::vector<llama_token> head_suf(suffix.begin(),suffix.begin()+anchor_split_in_suffix);
-            std::vector<llama_token> tail_suf(suffix.begin()+anchor_split_in_suffix,suffix.end());
-            // Acquire prior over the actual model input, before the template's empty thinking suffix.
-            double pf0=now_ms();
-            prefill_graph.measure([&]{evaluate_with_prior_tail(pre,head_suf,pos,prior,collect_prior,kv_tail_tokens);});
-            prefill_ms+=now_ms()-pf0;
-            if(!defer_hc_anchor && !save_compact_anchor){
+        {
+            ScopedBigCoreAffinity big_core_scope(route=="htp" && htp_big_cores);
+            const int exclude_tail_tokens=int(suffix.size()-anchor_split_in_suffix);
+            if(anchor_split_in_suffix<suffix.size() && !defer_anchor && !save_compact_anchor){
+                std::vector<llama_token> head_suf(suffix.begin(),suffix.begin()+anchor_split_in_suffix);
+                std::vector<llama_token> tail_suf(suffix.begin()+anchor_split_in_suffix,suffix.end());
+                // Acquire prior over the actual model input, before the template's empty thinking suffix.
+                prefill_ms+=measure_prefill(head_suf.size(),[&]{evaluate_with_prior_tail(pre,head_suf,pos,prior,collect_prior,kv_tail_tokens);});
                 double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
-            }else{next.version=++version;}
-            double pf1=now_ms();
-            prefill_graph.measure([&]{evaluate(pre,tail_suf,pos);});
-            prefill_ms+=now_ms()-pf1;
-        }else{
-            double pf_start=now_ms();
-            prefill_graph.measure([&]{evaluate_with_prior_tail(pre,suffix,pos,prior,collect_prior,kv_tail_tokens);});
-            prefill_ms=now_ms()-pf_start;
-            if(!defer_hc_anchor && !save_compact_anchor){
-                double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
-            }else{next.version=++version;}
+                prefill_ms+=measure_prefill(tail_suf.size(),[&]{evaluate(pre,tail_suf,pos);});
+            }else{
+                prefill_ms=measure_prefill(suffix.size(),[&]{evaluate_with_prior_tail(pre,suffix,pos,prior,collect_prior,kv_tail_tokens,exclude_tail_tokens);});
+                if(!defer_anchor && !save_compact_anchor){
+                    double sn0=now_ms();next.state=export_seq(pre);next.next_pos=pos;next.evaluated_tokens=anchor_toks.size();next.version=++version;snapshot_ms=now_ms()-sn0;
+                }else{next.version=++version;}
+            }
         }
         live_pos.reserve(h_eff+p);
         for(size_t i=h;i<ids.size();++i)live_pos.push_back(int(i));
@@ -788,14 +900,14 @@ struct PhoneService {
                 handoff_bytes=transfer(pre,cpu->ctx,kv_verification);
             }
             if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=handoff_bytes;}
-            if(!serial_context && !sample_first_on_htp){
+            if(!serial_context && !sample_first_on_htp && !retain_htp){
                 const double begin=now_ms();
                 htp->release_ctx();
                 htp_context_release_ms=now_ms()-begin;
             }
         }
         double handoff_ms=now_ms()-handoff_start-kv_reduce_ms-(memory.overhead_ms()-handoff_collection);
-        auto *decode=home().ctx;
+        auto *decode=probe_htp_decode?pre:home().ctx;
         if(kv_will_reduce && !hc){
             double kv_start=now_ms();
             std::vector<float> first_logits;
@@ -875,7 +987,7 @@ struct PhoneService {
         }
         if(cpu && decode==cpu->ctx)cpu_kv_hwm=std::max(cpu_kv_hwm,int(live_pos.size()+generated.size()));
         lane.retire();lane.poll();
-        if(defer_hc_anchor || (compact_anchor && !kv_info.is_null())){
+        if(defer_anchor || (compact_anchor && !kv_info.is_null())){
             double cs0=now_ms();
             auto *mem=llama_get_memory(decode);
             require(llama_memory_seq_rm(mem,0,llama_pos(anchor_toks.size()),-1),"anchor rollback seq_rm failed");
@@ -934,7 +1046,7 @@ struct PhoneService {
                   {"prior_ms",prior.kv_callback_ms},{"kv_reduce_ms",kv_reduce_ms},
                   {"deferred_hc_anchor",defer_hc_anchor},
                   {"kv_cost_decision",kv_cost_decision},{"kv_reduce",kv_info},{"total_ms",now_ms()-start},
-                  {"route",route},{"decode_backend",condition=="htp"?"htp":"cpu"},
+                  {"route",route},{"decode_backend",(condition=="htp" || probe_htp_decode)?"htp":"cpu"},
                   {"route_reason",reason},{"availability",ready},{"H_anchor",h},
                   {"cpu_with_retiring_preparation",cpu_with_retiring_preparation},
                   {"H_effective",h_eff},{"pinned_tokens",pinned_tokens},{"kv_compact_anchor",compact_anchor},{"wait_ms",wait_ms},
@@ -943,6 +1055,8 @@ struct PhoneService {
         if(!pending_wait.is_null())timing["pending_wait"]=std::move(pending_wait);
         if(profile_graph)timing["graph_profile"]={{"prefill",prefill_graph.json()},
             {"decode",decode_graph.json()},{"clocks",std::move(clocks)}};
+        if(!lifecycle_probe.empty())timing["hc_lifecycle_probe"]={{"mode",lifecycle_probe},
+            {"retained_after_handoff",bool(htp->ctx)},{"prefill_chunks",std::move(prefill_chunks)}};
         if(!frozen)timing["decode_limit"]=limit;
         if(memory_ledger_enabled)timing["memory_ledger"]=memory.result();
         if(frozen){
@@ -1129,7 +1243,7 @@ int main(int argc,char **argv){try{
         try{auto body=req.body.empty()?J::object():J::parse(req.body);res.set_content(fn(body).dump(),"application/json");}
         catch(const std::exception &e){res.status=500;res.set_content(J{{"error",e.what()}}.dump(),"application/json");}
     };};
-    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"device",service.device_name},{"git_commit",A2O_GIT_COMMIT},{"build_id",A2O_BUILD_ID},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_layer_stride",service.kv_layer_stride},{"kv_min_evict_tokens",service.kv_min_evict_tokens},{"kv_hwm_trim",service.kv_hwm_trim},{"memory_ledger_version",service.memory_ledger_enabled?1:0},{"verify_kv_state",service.kv_verification==KvVerification::full_bytes},{"kv_cost_loaded",service.kv_cost_table.valid},{"cold_cost_loaded",service.cold_costs.configured()},{"compact_anchor",service.compact_anchor},{"m1_explorer",service.m1_explorer_enabled},{"gap_ms",service.startup_gap_ms},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"paired_truth_version",2},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4}};}));
+    server.Get("/health",handle([&](const J &){return J{{"status","ok"},{"condition",service.condition},{"model",service.model_id},{"device",service.device_name},{"git_commit",A2O_GIT_COMMIT},{"build_id",A2O_BUILD_ID},{"single_resident",service.single_resident},{"shared_weights",service.shared_weights},{"cpu_repack",service.cpu_repack},{"htp_kv_offload",service.htp_kv_offload},{"htp_big_cores",service.htp_big_cores},{"flash_attention",service.flash_attention},{"kv_reduce",service.kv_reduce},{"kv_policy",service.kv_policy},{"kv_keep_tokens",service.kv_keep_tokens},{"kv_layer_stride",service.kv_layer_stride},{"kv_min_evict_tokens",service.kv_min_evict_tokens},{"kv_hwm_trim",service.kv_hwm_trim},{"memory_ledger_version",service.memory_ledger_enabled?1:0},{"verify_kv_state",service.kv_verification==KvVerification::full_bytes},{"kv_cost_loaded",service.kv_cost_table.valid},{"cold_cost_loaded",service.cold_costs.configured()},{"compact_anchor",service.compact_anchor},{"m1_explorer",service.m1_explorer_enabled},{"gap_ms",service.startup_gap_ms},{"expected_decode_tokens",service.expected_decode_tokens},{"init_ms",service.init_ms},{"context_size",context_size},{"frozen_decode_version",1},{"paired_truth_version",2},{"replay_cache_version",2},{"stage_sweep_version",1},{"cpu_threads",service.cpu_threads},{"htp_host_threads",4}};}));
     server.Post("/apply-template",handle([&](const J &b){return J{{"prompt",service.render(b).prompt}};}));
     server.Post("/tokenize",handle([&](const J &b){
         return J{{"tokens",tokens(service.vocab,b.at("content").get_ref<const std::string &>(),false)}};

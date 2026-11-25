@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/'src'))
 from a2o.profiling.memory_ledger import validate_turn
+from a2o.runtime.phone_preflight import require_attached_phone_preflight
 from scripts.collect.tau2_e2e_worker import _agent_chat_resilient, _http_post, _http_post_resilient
 from scripts.run.t6_table1_summary import TABLE1_ARMS, write_table1
 
@@ -106,6 +107,7 @@ class Campaign:
         self.fixture_hash = digest(args.fixtures)
         self.model = read(args.model)
         self.route_costs = getattr(args, 'route_costs', None)
+        self.cold_costs = getattr(args, 'cold_costs', None)
         build_manifest = read(args.build/'manifest.json')
         self.build = build_manifest['artifacts']
         self.git_commit = build_manifest.get('git_commit') or subprocess.check_output(
@@ -141,6 +143,8 @@ class Campaign:
             self.metadata['verify_kv_state'] = bool(args.verify_kv_state)
         if args.memory_ledger:
             self.metadata['memory_ledger'] = True
+        if getattr(args, 'cpu_threads', None) is not None:
+            self.metadata['cpu_threads'] = args.cpu_threads
         if args.case:
             self.cases = [c for c in self.cases if c['id'] in args.case]
             if len(self.cases) != len(set(args.case)):
@@ -153,6 +157,18 @@ class Campaign:
                          cases=[c['id'] for c in self.cases],reserved=sorted(reserved),
                          force_path=args.force_path,single_turn=args.single_turn,m1_explorer=bool(args.m1_explorer),
                          kv_costs_sha256=digest(args.kv_costs) if args.kv_costs else None)
+        if getattr(args, 'cpu_threads', None) is not None:
+            self.plan['cpu_threads'] = args.cpu_threads
+        if getattr(args, 'opbatch', 1) != 1 or getattr(args, 'opqueue', 1) != 1:
+            self.plan['opbatch'] = args.opbatch
+            self.plan['opqueue'] = args.opqueue
+            self.metadata['opbatch'] = args.opbatch
+            self.metadata['opqueue'] = args.opqueue
+        if getattr(args, 'htp_big_cores', 0):
+            self.plan['htp_big_cores'] = True
+            self.metadata['htp_big_cores'] = True
+        if self.cold_costs is not None:
+            self.plan['cold_costs_sha256'] = digest(self.cold_costs)
         if self.route_costs is not None:
             self.plan['route_costs_sha256'] = digest(self.route_costs)
 
@@ -184,6 +200,19 @@ class Campaign:
                 command += ['--shared-weights']
             if self.args.verify_kv_state is not None:
                 command += ['--verify-kv-state',str(self.args.verify_kv_state)]
+            if getattr(self.args, 'cpu_threads', None) is not None:
+                command += ['--cpu-threads',str(self.args.cpu_threads)]
+            command += ['--opbatch',str(getattr(self.args, 'opbatch', 1024)),
+                        '--opqueue',str(getattr(self.args, 'opqueue', 16))]
+            if getattr(self.args, 'htp_big_cores', 0):
+                command += ['--htp-big-cores',str(self.args.htp_big_cores)]
+            if getattr(self.args, 'max_quiet_c', None) is not None:
+                command += ['--max-quiet-c',str(self.args.max_quiet_c)]
+            if getattr(self.args, 'min_prime_khz', None) is not None:
+                command += ['--min-prime-khz',str(self.args.min_prime_khz)]
+            if getattr(self.args, 'cooldown_timeout_s', 0):
+                command += ['--cooldown-timeout-s',str(self.args.cooldown_timeout_s)]
+            command += ['--min-mem-avail-kib','4000000']
             if self.args.memory_ledger:
                 command += ['--memory-ledger']
             if use_m1:
@@ -196,9 +225,11 @@ class Campaign:
         subprocess.run(command,cwd=ROOT,check=True)
         if action=='start':
             health = read(directory/'health.json')
+            expected_threads = getattr(self.args, 'cpu_threads', None)
             if (health['condition']!=condition or health['shared_weights']!=shared or health['kv_reduce']!= bool(policy) or
                 health['context_size']!=self.context or health['frozen_decode_version']!=1 or
                 health.get('build_id')!=self.build_id or
+                (expected_threads is not None and health.get('cpu_threads')!=expected_threads) or
                 read(directory/'manifest.json')['runtime_overlay']!=self.build):
                 raise RuntimeError(f'mismatched phone condition {arm}')
         elif cpu:
@@ -276,6 +307,13 @@ class Campaign:
         return dict(model=table)
 
     def replay_turns(self, arm, case, path, turns, routed, force_path):
+        require_attached_phone_preflight(
+            ROOT, path,
+            max_quiet_c=getattr(self.args, 'max_quiet_c', None),
+            min_prime_khz=getattr(self.args, 'min_prime_khz', None),
+            min_mem_avail_kib=getattr(self.args, 'min_mem_avail_kib', None),
+            cooldown_timeout_s=getattr(self.args, 'cooldown_timeout_s', 0),
+        )
         reset = request('/a2o/reset',{})
         if self.args.memory_ledger:
             save(path/'reset.json',reset)
@@ -296,7 +334,7 @@ class Campaign:
                 body['frozen_kv_keep_tokens']=case['keep_tokens'] if i else self.context
             if i and force_path:
                 body['frozen_force_path']=force_path
-            elif arm == 'shifttrim':
+            elif arm == 'shifttrim' and not getattr(self.args, 'cold_costs', None):
                 body['frozen_force_path']='cc'
             rid=f"{path.parent.parent.name}:{arm}:{case['id']}:{i}"
             response=_agent_chat_resilient(BASE,body,rid,total_timeout=2400)
@@ -497,12 +535,15 @@ class Campaign:
                     save(self.output/'renderer-audit.json',audit)
                     if any(audit.values()):
                         raise RuntimeError('memory ledger renderer audit failed')
-                if arm in COST_ARMS:
-                    payload = dict(costs)
-                    if arm == 'shiftserve_joint' or (arm == 'shared_m1' and self.args.m1_explorer):
-                        payload['m1_explorer'] = {'enabled': True}
-                    if self.args.kv_costs:
-                        payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
+                if arm in COST_ARMS or (self.cold_costs is not None and arm not in CPU_REPLAY_ARMS and arm != 'full_htp'):
+                    payload = dict(costs) if arm in COST_ARMS else {}
+                    if self.cold_costs is not None:
+                        payload['cold_model'] = read(self.cold_costs)
+                    if arm in COST_ARMS:
+                        if arm == 'shiftserve_joint' or (arm == 'shared_m1' and self.args.m1_explorer):
+                            payload['m1_explorer'] = {'enabled': True}
+                        if self.args.kv_costs:
+                            payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
                     save(service/'cost-request.json', payload)
                     save(service/'cost-response.json', request('/a2o/costs', payload))
                 for case in pending:
@@ -536,7 +577,11 @@ def main():
                         default=['full_cpu','shared_cc','shared_m1','shared_recent','shared_prior'])
     parser.add_argument('--gap-ms',type=int,default=0)
     parser.add_argument('--route-costs',type=Path,help='独立校准得到的路由成本表')
+    parser.add_argument('--cold-costs',type=Path,default=None,help='H=0 冷选路成本表')
     parser.add_argument('--kv-costs',type=Path,default=None)
+    parser.add_argument('--opbatch',type=int,default=1024)
+    parser.add_argument('--opqueue',type=int,default=16)
+    parser.add_argument('--htp-big-cores',type=int,choices=[0,1],default=0)
     parser.add_argument('--force-path',choices=['none','cc','hc_full','hc_compact'],default='none')
     parser.add_argument('--single-turn',action='store_true')
     parser.add_argument('--device',default='xiaomi14pro')
@@ -549,6 +594,11 @@ def main():
     parser.add_argument('--kv-layer-stride',type=int,default=4)
     parser.add_argument('--kv-min-evict-tokens',type=int,default=256)
     parser.add_argument('--m1-explorer',type=int,choices=[0,1],default=1)
+    parser.add_argument('--cpu-threads',type=int,default=None,choices=range(1,17))
+    parser.add_argument('--max-quiet-c',type=float,default=None)
+    parser.add_argument('--min-prime-khz',type=int,default=None)
+    parser.add_argument('--min-mem-avail-kib',type=int,default=None)
+    parser.add_argument('--cooldown-timeout-s',type=int,default=0)
     args=parser.parse_args()
     if args.memory_ledger and args.kv_hwm_trim is None:
         parser.error('--memory-ledger 需要显式指定 --kv-hwm-trim 0 或 1')
@@ -560,6 +610,8 @@ def main():
         args.kv_costs = args.kv_costs.resolve()
     if args.route_costs is not None:
         args.route_costs = args.route_costs.resolve()
+    if args.cold_costs is not None:
+        args.cold_costs = args.cold_costs.resolve()
     if args.gap_ms<0 or len(set(args.conditions))!=len(args.conditions):
         parser.error('invalid tool gap or duplicate arm')
     args.output.mkdir(parents=True,exist_ok=True)
