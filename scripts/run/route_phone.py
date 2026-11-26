@@ -144,12 +144,13 @@ if a.action=='start':
    finally:
     t.release_lock()
   raise
- t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else '+launch+'; fi; }')
+ t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else sleep 0.2; '+launch+'; fi; }')
  meta_header=dict(git_commit=build_meta.get('git_commit') or subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),build_id=build_meta.get('build_id'),device=a.device,model=a.model_id,shared_weights=a.shared_weights,compact_anchor=(bool(a.compact_anchor) if a.kv_reduce else False),kv_hwm_trim=bool(a.kv_hwm_trim),memory_ledger=a.memory_ledger,kv_layer_stride=a.kv_layer_stride,kv_min_evict_tokens=a.kv_min_evict_tokens,gap_ms=a.gap_ms)
  print('A2O_META',json.dumps(meta_header,ensure_ascii=False),flush=True)
  manifest=dict(**meta_header,condition=a.condition,runtime_overlay=overlay,hexagon_sha256=hexagon_sha256,remote=remote,command=command,context_size=a.context_size,replay_cache=a.replay_cache,cpu_threads=a.cpu_threads,cpu_threads_batch=a.cpu_threads,cpu_repack=bool(a.cpu_repack),htp_host_threads=4,htp_profile=a.htp_profile,htp_big_cores=bool(a.htp_big_cores),probe_skel=str(a.probe_skel),batch_size=128,single_resident=a.single_resident,model_path=model,model_id=a.model_id,model_sha256=a.model_sha256,model_verification=model_verification,requested_verify_kv_state=a.verify_kv_state,opbatch=a.opbatch,opqueue=a.opqueue,flash_attention=bool(a.flash_attention),kv_offload=bool(a.kv_offload),kv_policy=(a.kv_policy if a.kv_reduce else 'none'),kv_reduce=bool(a.kv_reduce),kv_keep_tokens=(a.kv_keep_tokens if a.kv_reduce else None),kv_sink_tokens=(a.kv_sink_tokens if a.kv_reduce else None),kv_recent_tokens=(a.kv_recent_tokens if a.kv_reduce else None),kv_pool_window=(a.kv_pool_window if a.kv_reduce else None),kv_tail_tokens=(a.kv_tail_tokens if a.kv_reduce else None),m1_explorer=bool(a.m1_explorer),expected_decode_tokens=a.expected_decode,kv_costs=(str(a.kv_costs) if a.kv_costs else None),route_costs=(str(a.route_costs) if a.route_costs else None),cold_costs=(str(a.cold_costs) if a.cold_costs else None),pre_move=False,costs=str(a.costs))
  manifest_path=out/'manifest.json'
  manifest_path.write_text(json.dumps(manifest,indent=2)+'\n')
+ text_busy_retried=False
  deadline=time.monotonic()+300
  while time.monotonic()<deadline:
   try:
@@ -188,7 +189,15 @@ if a.action=='start':
    before=time.monotonic()
    retry(lambda:original_call('get-state'))
    state=t.call('shell','if '+pid_alive+'; then echo running; else echo stopped; fi').stdout.decode().strip()
-   if state!='running':raise RuntimeError('私有服务已退出，检查runtime.log；锁与失败现场保留')
+   if state!='running':
+    rlog=t.call('shell','cat '+q(remote+'/runtime.log')+' 2>/dev/null || true').stdout.decode(errors='replace')
+    if not text_busy_retried and 'Text file busy' in rlog:
+     text_busy_retried=True
+     time.sleep(1)
+     t.call('shell',owner_check+' && { if '+pid_alive+'; then :; else '+launch+'; fi; }')
+     deadline+=time.monotonic()-before
+     continue
+    raise RuntimeError('私有服务已退出，检查runtime.log；锁与失败现场保留')
    deadline+=time.monotonic()-before
    time.sleep(1)
  else:raise RuntimeError('服务未就绪，锁和现场保留')

@@ -131,9 +131,10 @@ class MobileCampaign(Campaign):
         remote_service = f'{transport.remote_root}/{attempt_name}/service'
         lock_dir = f'{transport.remote_root}/model.lock'
         cmd = (
+            'self_pid=$$; '
             'for sig in TERM KILL; do '
             'pids=$(/system/bin/ps -A -o PID,ARGS | awk -v pat=' + q(remote_service) +
-            ' \'$0 ~ pat {print $1}\'); '
+            ' -v me="$self_pid" \'$2 == pat && $1 != me {print $1}\'); '
             '[ -z "$pids" ] && break; '
             'for p in $pids; do kill -$sig "$p" 2>/dev/null || true; done; '
             'sleep 1; '
@@ -141,7 +142,7 @@ class MobileCampaign(Campaign):
             'PATH=/data/data/com.termux/files/usr/bin:"$PATH" termux-wake-unlock >/dev/null 2>&1 || true; '
             'if [ -d ' + q(lock_dir) + ' ]; then '
             'owner=$(cat ' + q(lock_dir + '/owner') + ' 2>/dev/null || true); '
-            'alive=$(/system/bin/ps -A -o PID,ARGS | grep -F "/.local/a2o/runs/" | grep -F "/service " || true); '
+            'alive=$(/system/bin/ps -A -o PID,ARGS | awk \'$2 ~ /\\/\\.local\\/a2o\\/runs\\/.*\\/service$/ {print $1}\'); '
             'if [ "$owner" = ' + q(attempt_name) + ' ] || [ -z "$alive" ]; then '
             'rm -rf ' + q(lock_dir) + '; fi; '
             'fi'
