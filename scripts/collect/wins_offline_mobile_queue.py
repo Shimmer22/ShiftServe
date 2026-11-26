@@ -228,14 +228,16 @@ def main():
     p.add_argument("--dt-limit", type=int, default=158)
     p.add_argument("--jobs", nargs="+", choices=["dt", "ac"], default=["dt", "ac"])
     p.add_argument("--conditions", nargs="+", default=["full_kv", "recent_only", "m2_prior_mid", "m2_prior_high"])
+    p.add_argument("--stride", type=int, default=4)
+    p.add_argument("--lock-name", default=".mobile_queue.lock")
     args = p.parse_args()
 
     args.out_root.mkdir(parents=True, exist_ok=True)
-    lock_f = (args.out_root / ".mobile_queue.lock").open("w")
+    lock_f = (args.out_root / args.lock_name).open("w")
     fcntl.flock(lock_f, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     runtime = local_runtime_identity(
-        args.agent_binary, args.agent_build_id, stride=4, min_evict=256,
+        args.agent_binary, args.agent_build_id, stride=args.stride, min_evict=256,
         git_commit=args.expected_git_commit,
     )
     print(f"[queue] started pid={os.getpid()} runtime={json.dumps(runtime)}", flush=True)

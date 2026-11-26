@@ -498,14 +498,16 @@ struct PhoneService {
             else if(force_probe_cc)force_path="cc";
         }
         const bool force_trim=force_path=="hc_trim";
+        const bool force_hc_auto=force_path=="hc_auto";
         require(force_path.empty() || force_path=="cc" || force_path=="hc_full" ||
-                force_path=="hc_compact" || force_trim,"invalid frozen_force_path");
-        const bool force_any_hc=(force_path=="hc_full" || force_path=="hc_compact" || force_trim);
+                force_path=="hc_compact" || force_hc_auto || force_trim,"invalid frozen_force_path");
+        const bool force_any_hc=(force_path=="hc_full" || force_path=="hc_compact" || force_hc_auto || force_trim);
         const bool serial_context=cpu && !cpu->ctx;
         const auto lifecycle_probe=body.value("frozen_hc_lifecycle_probe",std::string());
         const bool sync_prepare=lifecycle_probe=="rebuild_sync";
         const bool probe_htp_decode=lifecycle_probe=="retain_htp_decode";
         const bool sync_hc=body.value("frozen_sync_hc",false);
+        const bool post_handoff_kv_reduce=body.value("frozen_post_handoff_kv_reduce",false);
         const bool retain_htp=lifecycle_probe=="retain" || probe_htp_decode || sync_hc;
         if(!lifecycle_probe.empty()){
             require(frozen && force_path=="hc_full" && shared_weights && !kv_reduce && !serial_context,
@@ -520,7 +522,8 @@ struct PhoneService {
         }
         if(!force_path.empty())require(frozen,"forced path requires frozen decode");
         if(force_path=="hc_full")require(condition=="route" && htp,"forced HC-Full requires route and HTP context");
-        if(force_path=="hc_compact")require(condition=="route" && htp && kv_reduce,"forced HC-Compact requires route, HTP context, and kv_reduce=1");
+        if(force_path=="hc_compact" || force_hc_auto)require(condition=="route" && htp && kv_reduce,"forced HC-Compact requires route, HTP context, and kv_reduce=1");
+        if(post_handoff_kv_reduce)require(frozen && (force_path=="hc_compact" || force_hc_auto) && kv_reduce,"post-handoff KV reduce requires frozen HC-Compact/Auto");
         if(force_trim)require(condition=="route" && htp && kv_reduce && kv_cost_table.valid &&
                               !m1_explorer_enabled,"forced HC trim requires route, a KV cost table and routing disabled");
         if(force_hc && force_path=="hc_full")require(!kv_reduce,"legacy frozen_force_hc requires full KV; use frozen_force_path=hc_compact for compact");
@@ -624,9 +627,9 @@ struct PhoneService {
                 }
                 require(sync_prepare || ready=="ready","forced HC preparation did not complete");
                 route="htp";
-                if(force_path=="hc_compact"){
+                if(force_path=="hc_compact" || force_hc_auto){
                     kv_admit=true;
-                    reason="frozen_forced_hc_compact";
+                    reason=force_hc_auto?"frozen_forced_hc_auto":"frozen_forced_hc_compact";
                     if(eff_policy=="adaptive_cost")eff_policy="prefill_prior";
                 }else if(force_trim){
                     const auto trim=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,true,int(h),kv_window.keep_floor);
@@ -805,11 +808,16 @@ struct PhoneService {
             eff_policy="prefill_prior";
         }
         const int active_after_prefill=int(h_eff+p);
-        const bool use_ratio=(kv_keep_ratio>0.0 && kv_keep_ratio<1.0 && !use_kv_cost && !body.contains("frozen_kv_keep_tokens"));
+        double eff_keep_ratio=kv_keep_ratio;
+        if(body.contains("frozen_kv_keep_ratio")){
+            require(frozen && kv_reduce && !use_kv_cost,"frozen_kv_keep_ratio requires frozen kv_reduce without kv_cost_model");
+            eff_keep_ratio=body.at("frozen_kv_keep_ratio").get<double>();
+        }
+        const bool use_ratio=(eff_keep_ratio>0.0 && eff_keep_ratio<1.0 && !use_kv_cost && !body.contains("frozen_kv_keep_tokens"));
         const int est_sink=std::min(active_after_prefill,int(std::max<size_t>(size_t(kv_sink_tokens),pinned_tokens)));
         const int est_recent=std::min(std::max(0,active_after_prefill-est_sink),kv_window.recent);
         const int est_mid=std::max(0,active_after_prefill-est_sink-est_recent);
-        const int est_keep_target=use_ratio?(est_sink+est_recent+int(std::lround(kv_keep_ratio*double(est_mid)))):eff_keep;
+        const int est_keep_target=use_ratio?(est_sink+est_recent+int(std::lround(eff_keep_ratio*double(est_mid)))):eff_keep;
         const int est_effective_keep=std::max(est_keep_target,est_sink+est_recent);
         const int est_evictable=std::max(0,active_after_prefill-est_effective_keep);
         const int est_prior_budget=std::max(0,est_keep_target-(est_sink+est_recent));
@@ -887,9 +895,9 @@ struct PhoneService {
         const double handoff_collection=memory.overhead_ms();
         size_t handoff_bytes=0;
         if(hc) {
-            if(kv_will_reduce){
+            if(kv_will_reduce && !post_handoff_kv_reduce){
                 double kv_start=now_ms();
-                J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?kv_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
+                J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?eff_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
                           {"kv_pinned_tokens",pinned_tokens},{"kv_recent_tokens",kv_window.recent},{"kv_pool_window",kv_pool_window}};
                 kv_info=evict_kv_by_prior(pre,active_after_prefill,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
                 kv_reduce_ms=now_ms()-kv_start;
@@ -913,7 +921,11 @@ struct PhoneService {
             }else{
                 handoff_bytes=transfer(pre,cpu->ctx,kv_verification);
             }
-            if(!kv_info.is_null()){kv_info["compacted"]=true;kv_info["state_bytes_after"]=handoff_bytes;}
+            if(!kv_info.is_null()){
+                kv_info["compacted"]=true;
+                kv_info["state_bytes_after"]=handoff_bytes;
+                kv_info["kv_reduce_stage"]="pre_handoff_htp";
+            }
             if(!serial_context && !sample_first_on_htp && !retain_htp){
                 const double begin=now_ms();
                 htp->release_ctx();
@@ -922,7 +934,7 @@ struct PhoneService {
         }
         double handoff_ms=now_ms()-handoff_start-kv_reduce_ms-(memory.overhead_ms()-handoff_collection);
         auto *decode=probe_htp_decode?pre:home().ctx;
-        if(kv_will_reduce && !hc){
+        if(kv_will_reduce && (!hc || post_handoff_kv_reduce)){
             double kv_start=now_ms();
             std::vector<float> first_logits;
             if(!frozen && limit>0){
@@ -931,16 +943,20 @@ struct PhoneService {
                 first_logits.assign(logits,logits+llama_vocab_n_tokens(vocab));
             }
             SessionSnapshot working;working.next_pos=pos;
-            J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?kv_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
+            J kv_cfg={{"kv_reduce_policy",eff_policy},{"kv_keep_tokens",eff_keep},{"kv_keep_ratio",use_ratio?eff_keep_ratio:-1.0},{"kv_sink_tokens",kv_sink_tokens},
                       {"kv_pinned_tokens",pinned_tokens},{"kv_recent_tokens",kv_window.recent},{"kv_pool_window",kv_pool_window},{"kv_compact",true}};
             kv_info=run_kv_reduction(decode,working,kv_cfg,prior,int(suffix.size()),-1,-1,&live_pos);
-            kv_info["state_bytes_before"]=next.state.empty()?size_t(0):next.state.size();
+            kv_info["state_bytes_before"]=hc?handoff_bytes:(next.state.empty()?size_t(0):next.state.size());
+            kv_info["kv_reduce_stage"]=hc?"post_handoff_cpu":"cpu_only";
             if(!first_logits.empty()){
                 auto *destination=llama_get_logits_ith(decode,-1);
                 require(destination,"missing destination logits after kv reduction");
                 std::copy(first_logits.begin(),first_logits.end(),destination);
             }
             kv_reduce_ms=now_ms()-kv_start;
+            if(hc){
+                memory.sample("after_post_handoff_compaction");
+            }
         }
         memory.sample("before_decode");
         if(profile_graph)clocks["before_decode"]=phone_clock_sample();
@@ -1039,6 +1055,10 @@ struct PhoneService {
         }else if(force_path=="hc_compact"){
             require(route=="htp" && !kv_info.is_null() && kv_info.value("compacted",false) && kv_info.value("evicted_count",0)>0 && handoff_bytes>0,
                     "forced HC-Compact validation failed: silent CPU fallback or skipped compaction");
+        }else if(force_hc_auto){
+            require(route=="htp" && handoff_bytes>0 &&
+                    (kv_will_reduce ? (!kv_info.is_null() && kv_info.value("compacted",false) && kv_info.value("evicted_count",0)>0) : kv_info.is_null()),
+                    "forced HC-Auto validation failed: silent CPU fallback or inconsistent KV state");
         }else if(force_trim){
             require(route=="htp" && handoff_bytes>0 &&
                     (kv_admit ? !kv_info.is_null() && kv_info.value("compacted",false) : kv_info.is_null()),

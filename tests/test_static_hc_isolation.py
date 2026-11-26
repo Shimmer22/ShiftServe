@@ -240,3 +240,59 @@ def test_static_hc_strips_async_prep_cold_route_and_deferred_anchor(tmp_path: Pa
             for chat in chats:
                 assert "frozen_sync_hc" not in chat
                 assert "frozen_legacy_snapshot" not in chat
+
+
+def test_p0_p1_ablation_arm_overrides_and_route_phone_args():
+    import subprocess
+    import scripts.run.t6_p0_p1_ablations as ab
+
+    assert ab.ablation_arm_chat_overrides("pre_handoff_htp", 0) == {}
+    assert ab.ablation_arm_chat_overrides("pre_handoff_htp", 1) == {
+        "frozen_force_path": "hc_auto",
+        "frozen_kv_keep_ratio": 0.50,
+    }
+    assert ab.ablation_arm_chat_overrides("post_handoff_cpu", 2) == {
+        "frozen_force_path": "hc_auto",
+        "frozen_kv_keep_ratio": 0.50,
+        "frozen_post_handoff_kv_reduce": True,
+    }
+    assert ab.ablation_arm_chat_overrides("rho_1.00", 1) == {
+        "frozen_force_path": "hc_full",
+    }
+
+    res = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/run/route_phone.py"), "--help"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "--kv-keep-ratio" in res.stdout
+
+
+def test_p0_p1_summarizers_smoke(tmp_path: Path):
+    import scripts.run.t6_p0_p1_ablations as ab
+
+    p0_dir = tmp_path / "p0"
+    for arm, stage, hb, hms, kvms, rms, mem in (
+        ("pre_handoff_htp", "pre_handoff_htp", 200 * 1024 * 1024, 250.0, 2.0, 3000.0, 7200.0),
+        ("post_handoff_cpu", "post_handoff_cpu", 400 * 1024 * 1024, 500.0, 90.0, 3300.0, 7800.0),
+    ):
+        cell = p0_dir / arm / "ac_ep_9464"
+        cell.mkdir(parents=True)
+        ab.save(cell / "summary.json", {
+            "warm_rounds": 1, "handoff_bytes": hb, "post_return_excl_ledger_ms": rms,
+            "post_return_phases_ms": {
+                "handoff": hms, "compact": kvms, "snapshot": 100.0,
+                "prefill_including_prior": 2500.0, "decode": 150.0,
+            },
+            "memory_ledger_peak_pss_plus_dma": {"kib": mem * 1024},
+            "memory_ledger_peak_swap": {"swap_kib": 0},
+        })
+        for idx in (0, 1):
+            ab.save(cell / f"turn-{idx:02d}.json", {
+                "response": {"timings": {"kv_reduce": {"evict_ms": 1.5, "compact_ms": kvms - 1.5 if idx else 0.0, "kv_reduce_stage": stage} if idx else None}}
+            })
+    p0_sum = ab.summarize_p0(p0_dir)
+    assert (p0_dir / "p0_summary.csv").is_file()
+    assert p0_sum["pairs"][0]["handoff_bytes_reduction_pct"] == 50.0
+
