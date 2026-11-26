@@ -191,7 +191,20 @@ def main():
             launch += ['--runtime-overlay', str(args.runtime_overlay.resolve()), '--shared-weights',
                        '--model', model['model_path'], '--model-id', model['model_id'],
                        '--model-sha256', model['model_sha256'], '--kv-hwm-trim', '0',
-                       '--verify-kv-state', '0', '--gap-ms', '0', '--memory-ledger']
+                       '--verify-kv-state', '0', '--gap-ms', '0']
+            if config.get('memory_ledger', True):
+                launch += ['--memory-ledger']
+            for cfg_key, flag in (
+                ('opbatch', '--opbatch'),
+                ('opqueue', '--opqueue'),
+                ('htp_big_cores', '--htp-big-cores'),
+                ('max_quiet_c', '--max-quiet-c'),
+                ('min_prime_khz', '--min-prime-khz'),
+                ('min_mem_avail_kib', '--min-mem-avail-kib'),
+                ('cooldown_timeout_s', '--cooldown-timeout-s'),
+            ):
+                if cfg_key in config:
+                    launch += [flag, str(config[cfg_key])]
         else:
             launch += ['--registry',
                        str(ROOT / 'results/20261107-toolsandbox-route-e2e/build-cpu-htp-registry/libggml.so')]

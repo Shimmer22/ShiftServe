@@ -323,7 +323,7 @@ class Campaign:
             prep, gap = None, None
             if i:
                 begin=time.monotonic()
-                if routed:
+                if routed and arm not in STATIC_HC_ARMS:
                     prep=request('/a2o/tool-start',{},timeout=12)
                 time.sleep(max(0,self.args.gap_ms/1000-(time.monotonic()-begin)))
                 gap=(time.monotonic()-begin)*1000
@@ -332,7 +332,11 @@ class Campaign:
                 body['frozen_graph_profile'] = True
             if compact:
                 body['frozen_kv_keep_tokens']=case['keep_tokens'] if i else self.context
-            if i and force_path:
+            if arm in STATIC_HC_ARMS:
+                body['frozen_force_path'] = 'hc_full'
+                body['frozen_sync_hc'] = True
+                body['frozen_legacy_snapshot'] = True
+            elif i and force_path:
                 body['frozen_force_path']=force_path
             elif arm == 'shifttrim' and not getattr(self.args, 'cold_costs', None):
                 body['frozen_force_path']='cc'
@@ -384,9 +388,11 @@ class Campaign:
             if i and force_path == 'cc':
                 if timing['route'] != 'cpu' or timing['kv_reduce'] is not None or timing['handoff_bytes'] != 0:
                     raise RuntimeError(f"forced CC check failed on {case['id']} turn {i}: route={timing['route']}")
-            elif i and force_path == 'hc_full':
+            elif force_path == 'hc_full' and (i or arm in STATIC_HC_ARMS):
                 if timing['route'] != 'htp' or timing['kv_reduce'] is not None or timing['handoff_bytes'] <= 0:
                     raise RuntimeError(f"forced HC-Full check failed on {case['id']} turn {i}: route={timing['route']}")
+                if arm in STATIC_HC_ARMS and (timing.get('deferred_hc_anchor') or timing.get('availability') != 'absent'):
+                    raise RuntimeError(f"static HC leaked deferred anchor or background prep on {case['id']} turn {i}")
             elif i and force_path == 'hc_compact':
                 kvr = timing.get('kv_reduce') or {}
                 if (timing['route'] != 'htp' or not kvr.get('compacted') or
@@ -423,6 +429,12 @@ class Campaign:
             summary['post_return_excluding_frozen_validation_ms'] = math.fsum(
                 t['total_excluding_frozen_validation_ms'] for t in warm)
         if self.args.memory_ledger:
+            post_return_ledger_ms = math.fsum(float((t.get('memory_ledger') or {}).get('collection_ms', 0.0)) for t in warm)
+            inference_ledger_ms = math.fsum(float((t.get('memory_ledger') or {}).get('collection_ms', 0.0)) for t in results)
+            summary['post_return_ledger_ms'] = post_return_ledger_ms
+            summary['post_return_excl_ledger_ms'] = summary['post_return_ms'] - post_return_ledger_ms
+            summary['inference_ledger_ms'] = inference_ledger_ms
+            summary['inference_excl_ledger_ms'] = summary['inference_ms'] - inference_ledger_ms
             summary['post_return_phases_ms'] = post_return_phases(warm)
             turn, peak = max(samples, key=lambda item: item[1]['process']['VmSwap_kib'])
             summary['memory_ledger_peak_swap'] = dict(
@@ -535,7 +547,7 @@ class Campaign:
                     save(self.output/'renderer-audit.json',audit)
                     if any(audit.values()):
                         raise RuntimeError('memory ledger renderer audit failed')
-                if arm in COST_ARMS or (self.cold_costs is not None and arm not in CPU_REPLAY_ARMS and arm != 'full_htp'):
+                if arm in COST_ARMS or (self.cold_costs is not None and arm not in CPU_REPLAY_ARMS and arm not in STATIC_HC_ARMS and arm != 'full_htp'):
                     payload = dict(costs) if arm in COST_ARMS else {}
                     if self.cold_costs is not None:
                         payload['cold_model'] = read(self.cold_costs)

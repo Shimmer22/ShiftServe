@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -90,7 +91,10 @@ def main():
     p.add_argument("output", type=Path)
     p.add_argument("--build-id", metavar="LABEL", help="构建标签，最终 ID 自动追加唯一后缀")
     p.add_argument("--prefill-weight-ab", action="store_true", help="启用诊断端点 /a2o/prefill-weight-ab")
+    p.add_argument("--ssh-host", default=os.environ.get("A2O_WINS_HOST", "wins"), help="远端编译主机名或 user@ip")
     args = p.parse_args()
+    ssh_host = args.ssh_host
+    ssh_opts = ["-o", "HostKeyAlias=10.29.243.183"] if ssh_host != "wins" and "100.120.152.75" in ssh_host else []
     output = args.output.resolve()
     output.relative_to(root / "results")
     label = args.build_id or output.name
@@ -103,7 +107,7 @@ def main():
         cwd=root, text=True).strip())
     build_id = f"{label}-{uuid4().hex}"
     remote = PROBES + "/" + output.name
-    subprocess.run(["ssh", "wins", shlex.join(["mkdir", "-m", "700", remote])], check=True)
+    subprocess.run(["ssh", *ssh_opts, ssh_host, shlex.join(["mkdir", "-m", "700", remote])], check=True)
     script = Path(__file__).resolve()
     with TemporaryDirectory(prefix="a2o-build-") as staging:
         staged = Path(staging)
@@ -115,16 +119,16 @@ def main():
         }
         sources[str(script.relative_to(root))] = hashlib.sha256(build_script.read_bytes()).hexdigest()
         sources_digest = hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest()
-        subprocess.run(["scp", "-r", str(native), str(build_script), f"wins:{remote}/"], check=True)
+        subprocess.run(["scp", *ssh_opts, "-r", str(native), str(build_script), f"{ssh_host}:{remote}/"], check=True)
     extra_flags = ["-DA2O_PREFILL_WEIGHT_AB"] if args.prefill_weight_ab else []
     command = [
         "docker", "run", "--rm", "--pull=never", "-v", BASE + ":/base:ro", "-v", remote + ":/probe",
         IMAGE, "python3", "/probe/htp_shared_weights.py", "--inside", git_commit, build_id, *extra_flags,
     ]
     with (output / "build.log").open("w") as log:
-        subprocess.run(["ssh", "wins", shlex.join(command)], stdout=log, stderr=subprocess.STDOUT, check=True)
+        subprocess.run(["ssh", *ssh_opts, ssh_host, shlex.join(command)], stdout=log, stderr=subprocess.STDOUT, check=True)
     names = ["agent", "libggml-cpu.so", "libllama.so"]
-    subprocess.run(["scp", *(f"wins:{remote}/{name}" for name in [*names, "hexagon-sha256.txt"]), str(output)], check=True)
+    subprocess.run(["scp", *ssh_opts, *(f"{ssh_host}:{remote}/{name}" for name in [*names, "hexagon-sha256.txt"]), str(output)], check=True)
     artifacts = {name: hashlib.sha256((output / name).read_bytes()).hexdigest() for name in names}
     (output / "manifest.json").write_text(json.dumps({
         "git_commit": git_commit, "build_id": build_id, "build_label": label, "dirty": dirty, "sources_sha256": sources_digest,

@@ -5,8 +5,11 @@ import argparse
 from collections import Counter
 import csv
 import fcntl
+import json
 import math
 from pathlib import Path
+import shlex
+import shutil
 import sys
 import time
 from types import SimpleNamespace
@@ -14,9 +17,11 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from scripts.run.frozen_ablation import Campaign, COST_ARMS, CPU_REPLAY_ARMS, digest, kv_cost_payload, read, request, save
-from scripts.run.t6_table1_summary import TABLE1_ARMS, TABLE1_SEVEN_ARMS, write_table1
+from scripts.run.frozen_ablation import Campaign, COST_ARMS, CPU_REPLAY_ARMS, STATIC_HC_ARMS, digest, kv_cost_payload, read, request, save
+from scripts.run.t6_table1_summary import TABLE1_ARMS, TABLE1_EIGHT_ARMS, TABLE1_SEVEN_ARMS, write_table1
 from a2o.profiling.memory_ledger import parse_runtime_log
+from a2o.runtime.device_transport import DeviceTransport
+from a2o.runtime.network_retry import retry_network
 
 SHA = '7e3dd64eed08e1fa07387e722b3aea352fbbff51'
 FIXTURE_SHA = '0269a614ae252bcfab7a3404b2800d092a6a024c64995267f2d48f7122f553c3'
@@ -73,7 +78,11 @@ def balanced_order(cases, arms=ARMS):
                  order=[arms[(i+shift)%len(arms)] for i in (0,1,5,2,4,3)])
             for case in cases for shift in [next(shifts[case['benchmark']])]
         ]
-    base = tuple((0,1,6,2,5,3,4)) if len(arms) == 7 else tuple(range(len(arms)))
+    base = (
+        (0, 1, 7, 2, 6, 3, 5, 4) if len(arms) == 8
+        else (0, 1, 6, 2, 5, 3, 4) if len(arms) == 7
+        else tuple(range(len(arms)))
+    )
     bench_idx = Counter()
     rows = []
     for idx, case in enumerate(cases):
@@ -110,44 +119,119 @@ class MobileCampaign(Campaign):
                     raise RuntimeError('unexpected backend or handoff')
                 if selected and selected != actual:
                     raise RuntimeError(f'mismatched selected path {selected} vs {actual}')
-                if t['route']=='htp' and not t['deferred_hc_anchor']:
+                if arm not in STATIC_HC_ARMS and t['route']=='htp' and not t['deferred_hc_anchor']:
                     raise RuntimeError('shared HC did not defer its new anchor')
+                if arm in STATIC_HC_ARMS and (t['deferred_hc_anchor'] or t['availability'] != 'absent'):
+                    raise RuntimeError('static HC unexpectedly used deferred anchor or background prep')
             yield record
+
+    def cleanup_failed_phone_cell(self, attempt_name):
+        transport = DeviceTransport(ROOT, 'ssh', config=ROOT / 'configs/termux-ssh.json')
+        q = shlex.quote
+        remote_service = f'{transport.remote_root}/{attempt_name}/service'
+        lock_dir = f'{transport.remote_root}/model.lock'
+        cmd = (
+            'for sig in TERM KILL; do '
+            'pids=$(/system/bin/ps -A -o PID,ARGS | awk -v pat=' + q(remote_service) +
+            ' \'$0 ~ pat {print $1}\'); '
+            '[ -z "$pids" ] && break; '
+            'for p in $pids; do kill -$sig "$p" 2>/dev/null || true; done; '
+            'sleep 1; '
+            'done; '
+            'PATH=/data/data/com.termux/files/usr/bin:"$PATH" termux-wake-unlock >/dev/null 2>&1 || true; '
+            'if [ -d ' + q(lock_dir) + ' ]; then '
+            'owner=$(cat ' + q(lock_dir + '/owner') + ' 2>/dev/null || true); '
+            'alive=$(/system/bin/ps -A -o PID,ARGS | grep -F "/.local/a2o/runs/" | grep -F "/service " || true); '
+            'if [ "$owner" = ' + q(attempt_name) + ' ] || [ -z "$alive" ]; then '
+            'rm -rf ' + q(lock_dir) + '; fi; '
+            'fi'
+        )
+        retry_network(lambda: transport.call('shell', cmd), report=lambda msg: print(msg, flush=True))
+        time.sleep(3)
+
+    def record_cell_failure(self, case, arm, target, attempt, exc):
+        raw = attempt / 'capture'
+        turns_done = sorted(raw.glob('turn-*.json')) if raw.exists() else []
+        last_turn = len(turns_done) - 1 if turns_done else None
+        fail_archive = self.output / 'failures' / arm / case['id']
+        if fail_archive.exists():
+            shutil.rmtree(fail_archive)
+        fail_archive.parent.mkdir(parents=True, exist_ok=True)
+        if raw.exists() and any(raw.iterdir()):
+            shutil.copytree(raw, fail_archive / 'capture')
+        if (attempt / 'device').exists():
+            shutil.copytree(attempt / 'device', fail_archive / 'device')
+        target.mkdir(parents=True, exist_ok=True)
+        failure_info = {
+            'status': 'failed',
+            'arm': arm,
+            'case': case['id'],
+            'benchmark': case.get('benchmark'),
+            'error': str(exc),
+            'completed_turns': len(turns_done),
+            'last_turn_index': last_turn,
+            'attempt_dir': str(attempt.relative_to(self.output)),
+            'archive_dir': str(fail_archive.relative_to(self.output)),
+            'failed_at': time.strftime('%Y-%m-%d %H:%M:%S %z'),
+        }
+        save(target / 'FAILED.json', failure_info)
+        ledger_path = self.output / 'failed-cells.json'
+        existing = read(ledger_path) if ledger_path.exists() else []
+        existing = [x for x in existing if not (x.get('arm') == arm and x.get('case') == case['id'])]
+        existing.append(failure_info)
+        save(ledger_path, existing)
+        print(f'[CELL FAILED - CONTINUING] arm={arm} case={case["id"]} err={exc}', flush=True)
+        return None
 
     def run_cell(self, case, arm, target, stage, audit=False):
         if (target/'summary.json').is_file():
             return read(target/'summary.json')
+        continue_on_error = bool(getattr(self.args, 'continue_on_cell_error', False))
+        if continue_on_error and (target/'FAILED.json').is_file():
+            return None
         attempt = self.output/'services'/f'{stage}-{case["id"]}-{arm}-{time.time_ns()}'
         raw = attempt/'capture'
         self.state(status='running',stage=f'{stage}_startup',case=case['id'],condition=arm,turn=None)
         try:
-            self.service('start', arm, attempt)
-            raw.mkdir()
-            health = read(attempt/'health.json')
-            expected_threads = getattr(self.args, 'cpu_threads', None)
-            if (health['git_commit'] != self.git_commit or health['gap_ms'] != 0 or health['verify_kv_state'] or health['kv_hwm_trim']
-                    or (expected_threads is not None and health.get('cpu_threads') != expected_threads)
-                    or health.get('htp_host_threads', 4) != 4):
-                raise RuntimeError('phone health does not match sealed measurement')
-            if audit:
-                cleared = {c['id']: self.verify_renderer(c) for c in self.cases}
-                save(self.output/'renderer-audit.json',cleared)
-                if any(cleared.values()):
-                    raise RuntimeError('phone renderer disagrees with frozen fixtures')
-            if arm in COST_ARMS or (getattr(self.args, 'cold_costs', None) is not None and arm not in CPU_REPLAY_ARMS and arm != 'full_htp'):
-                payload = read(self.args.route_costs) if arm in COST_ARMS else {}
-                if getattr(self.args, 'cold_costs', None) is not None:
-                    payload['cold_model'] = read(self.args.cold_costs)
-                if arm in COST_ARMS:
-                    payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
-                if arm in ('shared_m1','shiftserve_joint'):
-                    payload['m1_explorer'] = {'enabled': True}
-                save(attempt/'cost-request.json',payload)
-                save(attempt/'cost-response.json',request('/a2o/costs',payload))
-            self.replay(arm,case,raw)
-        finally:
-            self.service('stop',arm,attempt)
-        return self.finalize_cell(attempt,target)
+            try:
+                self.service('start', arm, attempt)
+                raw.mkdir()
+                health = read(attempt/'health.json')
+                expected_threads = getattr(self.args, 'cpu_threads', None)
+                if (health['git_commit'] != self.git_commit or health['gap_ms'] != 0 or health['verify_kv_state'] or health['kv_hwm_trim']
+                        or (expected_threads is not None and health.get('cpu_threads') != expected_threads)
+                        or health.get('htp_host_threads', 4) != 4):
+                    raise RuntimeError('phone health does not match sealed measurement')
+                if audit:
+                    cleared = {c['id']: self.verify_renderer(c) for c in self.cases}
+                    save(self.output/'renderer-audit.json',cleared)
+                    if any(cleared.values()):
+                        raise RuntimeError('phone renderer disagrees with frozen fixtures')
+                if arm in COST_ARMS or (getattr(self.args, 'cold_costs', None) is not None and arm not in CPU_REPLAY_ARMS and arm not in STATIC_HC_ARMS and arm != 'full_htp'):
+                    payload = read(self.args.route_costs) if arm in COST_ARMS else {}
+                    if getattr(self.args, 'cold_costs', None) is not None:
+                        payload['cold_model'] = read(self.args.cold_costs)
+                    if arm in COST_ARMS:
+                        payload['kv_model'] = kv_cost_payload(self.args.kv_costs)
+                    if arm in ('shared_m1','shiftserve_joint'):
+                        payload['m1_explorer'] = {'enabled': True}
+                    save(attempt/'cost-request.json',payload)
+                    save(attempt/'cost-response.json',request('/a2o/costs',payload))
+                self.replay(arm,case,raw)
+            finally:
+                try:
+                    self.service('stop',arm,attempt)
+                except Exception as stop_exc:
+                    if not continue_on_error:
+                        raise
+                    print(f'[STOP CLEANUP FALLBACK] arm={arm} case={case["id"]} err={stop_exc}', flush=True)
+                    self.cleanup_failed_phone_cell(attempt.name)
+            return self.finalize_cell(attempt,target)
+        except Exception as exc:
+            if not continue_on_error:
+                raise
+            self.cleanup_failed_phone_cell(attempt.name)
+            return self.record_cell_failure(case, arm, target, attempt, exc)
 
     @staticmethod
     def finalize_cell(attempt,target):
@@ -175,7 +259,14 @@ class MobileCampaign(Campaign):
 
 
 def write_details(output, order, arms=ARMS):
-    arm_labels = TABLE1_SEVEN_ARMS if tuple(arms) == tuple(TABLE1_SEVEN_ARMS) else TABLE1_ARMS
+    if tuple(arms) == tuple(TABLE1_EIGHT_ARMS):
+        arm_labels = TABLE1_EIGHT_ARMS
+    elif tuple(arms) == tuple(TABLE1_SEVEN_ARMS):
+        arm_labels = TABLE1_SEVEN_ARMS
+    elif tuple(arms) == tuple(TABLE1_ARMS):
+        arm_labels = TABLE1_ARMS
+    else:
+        arm_labels = {arm: TABLE1_EIGHT_ARMS.get(arm, arm) for arm in arms}
     rows = []
     scopes = ('overall', *sorted({c['benchmark'] for c in order}))
     for scope in scopes:
@@ -244,10 +335,14 @@ def main():
     parser.add_argument('--cpu-threads',type=int,default=None,choices=range(1,17))
     parser.add_argument('--include-shared-cpu',action='store_true',default=True)
     parser.add_argument('--six-arms',action='store_true',help='仅跑6组（不含 shared_cc）')
+    parser.add_argument('--eight-arms',action='store_true',help='跑8组（含 Vanilla-Static-HC 与 Shared-Static-HC）')
+    parser.add_argument('--arms',nargs='+',default=None,help='显式指定要运行的 arm 列表')
     parser.add_argument('--max-quiet-c',type=float,default=39.0)
     parser.add_argument('--min-prime-khz',type=int,default=2000000)
     parser.add_argument('--min-mem-avail-kib',type=int,default=1500000,help='模型加载后可用内存门槛（开服前固定为 4000000 KiB）')
     parser.add_argument('--cooldown-timeout-s',type=int,default=360)
+    parser.add_argument('--skip-gate',action='store_true',help='跳过 AC-Low 双案前置 gate（补跑/容错队列用）')
+    parser.add_argument('--continue-on-cell-error',action='store_true',help='单个 cell 异常（如 OOM/LMKD）时清理现场并记录 FAILED.json 后继续')
     cli=parser.parse_args()
     out, build=cli.output.resolve(),cli.build.resolve()
     fixtures_path = cli.fixtures.resolve()
@@ -266,7 +361,12 @@ def main():
     if not route_dst.exists():
         route['model']['routing_p_min'] = 16
         save(route_dst, route)
-    arms = list(TABLE1_ARMS if cli.six_arms else TABLE1_SEVEN_ARMS)
+    if cli.arms:
+        arms = list(cli.arms)
+    elif cli.eight_arms:
+        arms = list(TABLE1_EIGHT_ARMS)
+    else:
+        arms = list(TABLE1_ARMS if cli.six_arms else TABLE1_SEVEN_ARMS)
     args=SimpleNamespace(build=build,output=out,fixtures=fixtures_path,
                          route_costs=route_dst,kv_costs=cli.kv_costs.resolve(),
                          model=ROOT/'configs/model-default.json',
@@ -278,13 +378,14 @@ def main():
                          opbatch=cli.opbatch,opqueue=cli.opqueue,htp_big_cores=cli.htp_big_cores,
                          cold_costs=(cli.cold_costs.resolve() if cli.cold_costs else None),
                          max_quiet_c=cli.max_quiet_c,min_prime_khz=cli.min_prime_khz,
-                         min_mem_avail_kib=cli.min_mem_avail_kib,cooldown_timeout_s=cli.cooldown_timeout_s)
+                         min_mem_avail_kib=cli.min_mem_avail_kib,cooldown_timeout_s=cli.cooldown_timeout_s,
+                         continue_on_cell_error=cli.continue_on_cell_error)
     with (out/'driver.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         campaign=MobileCampaign(args,corpus)
         cases={c['id']:c for c in campaign.cases}
         order=balanced_order(campaign.cases if cli.cases else corpus['cases'], arms=arms)
-        has_ac_gate = all(g in cases for g in (GATE, ALTERNATE_GATE))
+        has_ac_gate = (not cli.skip_gate) and all(g in cases for g in (GATE, ALTERNATE_GATE))
         plan=dict(campaign.plan,order=order,max_logical_tokens=max_length,gate=(GATE if has_ac_gate else None),graph_profile=True,
                   adaptive_state='reset per trajectory; online within trajectory')
         if (out/'plan.json').exists() and read(out/'plan.json') != plan:
@@ -314,11 +415,17 @@ def main():
                 for arm in cell['order']:
                     campaign.run_cell(cases[case],arm,out/arm/case,'formal',
                                       audit=not (out/'renderer-audit.json').exists())
-                    finished=list(out.glob('*/*/summary.json'))
+                    finished=[p for p in out.glob('*/*/summary.json') if p.parent.parent.name in arms]
+                    failed_cells=[p for p in out.glob('*/*/FAILED.json') if p.parent.parent.name in arms]
                     campaign.state(stage='cell_complete',formal_cells=len(finished),
-                                   completed=dict(Counter(p.parent.parent.name for p in finished)))
+                                   failed_cells=len(failed_cells),
+                                   completed=dict(Counter(p.parent.parent.name for p in finished)),
+                                   failed=dict(Counter(p.parent.parent.name for p in failed_cells)))
                 write_details(out,order,arms=arms)
-            campaign.state(status='passed',stage='complete',formal_cells=len(order)*len(arms))
+            finished=[p for p in out.glob('*/*/summary.json') if p.parent.parent.name in arms]
+            failed_cells=[p for p in out.glob('*/*/FAILED.json') if p.parent.parent.name in arms]
+            campaign.state(status=('passed_with_cell_failures' if failed_cells else 'passed'),
+                           stage='complete',formal_cells=len(finished),failed_cells=len(failed_cells))
         except Exception as exc:
             campaign.state(status='failed',error=str(exc))
             raise

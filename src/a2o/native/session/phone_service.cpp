@@ -505,12 +505,18 @@ struct PhoneService {
         const auto lifecycle_probe=body.value("frozen_hc_lifecycle_probe",std::string());
         const bool sync_prepare=lifecycle_probe=="rebuild_sync";
         const bool probe_htp_decode=lifecycle_probe=="retain_htp_decode";
-        const bool retain_htp=lifecycle_probe=="retain" || probe_htp_decode;
+        const bool sync_hc=body.value("frozen_sync_hc",false);
+        const bool retain_htp=lifecycle_probe=="retain" || probe_htp_decode || sync_hc;
         if(!lifecycle_probe.empty()){
             require(frozen && force_path=="hc_full" && shared_weights && !kv_reduce && !serial_context,
                     "lifecycle probe requires frozen shared HC-Full without compaction");
             require(sync_prepare || retain_htp || lifecycle_probe=="rebuild_async","invalid lifecycle probe mode");
             require(!sync_prepare || (!htp->ctx && !lane.occupied()),"synchronous probe requires an empty HTP lane");
+        }
+        if(sync_hc){
+            require(frozen && force_path=="hc_full" && !kv_reduce && !serial_context && lifecycle_probe.empty(),
+                    "sync HC requires frozen HC-Full without compaction or lifecycle probe");
+            require(!lane.occupied(),"sync HC requires an empty preparation lane");
         }
         if(!force_path.empty())require(frozen,"forced path requires frozen decode");
         if(force_path=="hc_full")require(condition=="route" && htp,"forced HC-Full requires route and HTP context");
@@ -603,30 +609,37 @@ struct PhoneService {
         bool joint_decided=false;
         bool cold_hc=false;
         if(force_any_hc){
-            require(reuse,"forced HC requires matching prepared history");
-            if(ready=="pending"){
-                const double begin=now_ms();
-                lane.wait_ready(anchor_version,30000.0);
-                wait_ms=now_ms()-begin;
-                ready=lane.availability(anchor_version);
-            }
-            require(sync_prepare || ready=="ready","forced HC preparation did not complete");
-            route="htp";
-            if(force_path=="hc_compact"){
-                kv_admit=true;
-                reason="frozen_forced_hc_compact";
-                if(eff_policy=="adaptive_cost")eff_policy="prefill_prior";
-            }else if(force_trim){
-                const auto trim=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,true,int(h),kv_window.keep_floor);
-                kv_cost_decision=kv_reduce_plan_to_json<J>(trim);
-                kv_admit=trim.admit;
-                eff_keep=trim.keep_tokens;
-                eff_policy="prefill_prior";
-                joint_decided=true;
-                reason="frozen_static_hc_trim";
-            }else{
+            if(sync_hc){
+                require(ready=="absent","sync HC must not use background preparation");
+                route="htp";
                 kv_admit=false;
-                reason="frozen_forced_hc_full";
+                reason="frozen_sync_hc_full";
+            }else{
+                require(reuse,"forced HC requires matching prepared history");
+                if(ready=="pending"){
+                    const double begin=now_ms();
+                    lane.wait_ready(anchor_version,30000.0);
+                    wait_ms=now_ms()-begin;
+                    ready=lane.availability(anchor_version);
+                }
+                require(sync_prepare || ready=="ready","forced HC preparation did not complete");
+                route="htp";
+                if(force_path=="hc_compact"){
+                    kv_admit=true;
+                    reason="frozen_forced_hc_compact";
+                    if(eff_policy=="adaptive_cost")eff_policy="prefill_prior";
+                }else if(force_trim){
+                    const auto trim=plan_kv_reduce(kv_cost_table,int(h_eff),int(p),exp_d,true,int(h),kv_window.keep_floor);
+                    kv_cost_decision=kv_reduce_plan_to_json<J>(trim);
+                    kv_admit=trim.admit;
+                    eff_keep=trim.keep_tokens;
+                    eff_policy="prefill_prior";
+                    joint_decided=true;
+                    reason="frozen_static_hc_trim";
+                }else{
+                    kv_admit=false;
+                    reason="frozen_forced_hc_full";
+                }
             }
         }else if(force_path=="cc"){
             if(force_probe_cc)require(reuse,"forced CPU probe requires the prepared anchor");
@@ -757,8 +770,9 @@ struct PhoneService {
         if(cold_hc){
             lane.close();
             llama_memory_clear(llama_get_memory(pre),true);
-        }else if(sync_prepare){
-            restore_session(pre,*anchor,nullptr,kv_verification);
+        }else if(sync_prepare || sync_hc){
+            if(reuse)restore_session(pre,*anchor,nullptr,kv_verification);
+            else llama_memory_clear(llama_get_memory(pre),true);
         }else if(condition=="route" && route=="htp")lane.claim(anchor_version);
         else {
             const double retirement_started=now_ms();
